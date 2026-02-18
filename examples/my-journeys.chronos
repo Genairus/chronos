@@ -1,0 +1,19 @@
+namespace com.genairus.holodeck
+
+journey LoginJourney {
+  actor: User
+  steps: [
+    step openApp {
+      action: "User opens the application"
+      expectation: "Login screen is displayed"
+    },
+    step enterCredentials {
+      action: "User enters username and password"
+      expectation: "Credentials are accepted"
+    },
+    step accessDashboard {
+      action: "User submits login form"
+      expectation: "Dashboard is displayed"
+    }
+  ]
+}

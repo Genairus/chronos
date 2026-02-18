@@ -46,7 +46,41 @@ shapeDef
 //        @kpi(metric: "X", target: "Y") named args
 
 traitApplication
-    : '@' ID traitArgList?
+    : '@' traitId traitArgList?
+    ;
+
+// Allows any ID _or_ a contextual keyword as a trait name.
+// Without this rule, keywords like `description` (used in policy bodies)
+// would be tokenised as anonymous literals and not match `ID`.
+traitId
+    : ID
+    | 'description'
+    | 'member'
+    | 'key'
+    | 'value'
+    | 'trigger'
+    | 'success'
+    | 'failure'
+    | 'action'
+    | 'expectation'
+    | 'outcome'
+    | 'telemetry'
+    | 'risk'
+    | 'steps'
+    | 'step'
+    | 'actor'
+    | 'policy'
+    | 'entity'
+    | 'shape'
+    | 'list'
+    | 'map'
+    | 'enum'
+    | 'journey'
+    | 'preconditions'
+    | 'outcomes'
+    | 'variants'
+    | 'namespace'
+    | 'use'
     ;
 
 traitArgList

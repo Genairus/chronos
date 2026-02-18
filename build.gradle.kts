@@ -1,5 +1,6 @@
 subprojects {
     apply(plugin = "java")
+    apply(plugin = "jacoco")
 
     group = "com.genairus.chronos"
     version = "0.1.0"
@@ -19,5 +20,14 @@ subprojects {
 
     tasks.withType<Test> {
         useJUnitPlatform()
+        finalizedBy("jacocoTestReport")
+    }
+
+    tasks.withType<JacocoReport> {
+        dependsOn("test")
+        reports {
+            xml.required.set(true)
+            html.required.set(true)
+        }
     }
 }

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -15,11 +16,11 @@ class ModelProjectionTest {
     // ── Shape factories ────────────────────────────────────────────────────────
 
     private static ActorDef actor(String name) {
-        return new ActorDef(name, List.of(), List.of(), LOC);
+        return new ActorDef(name, List.of(), List.of(), Optional.empty(), LOC);
     }
 
     private static EntityDef entity(String name) {
-        return new EntityDef(name, List.of(), List.of(), List.of(), LOC);
+        return new EntityDef(name, List.of(), List.of(), Optional.empty(), List.of(), List.of(), LOC);
     }
 
     private static JourneyDef journey(String name) {

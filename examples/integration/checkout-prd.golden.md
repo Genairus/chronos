@@ -11,6 +11,7 @@
   - [Collections](#collections)
 - [Actors](#actors)
 - [Policies](#policies)
+- [Error Catalog](#error-catalog)
 
 ---
 
@@ -39,7 +40,7 @@
 
 #### PaymentDeclined
 
-- **Trigger:** Payment gateway returns a declined response
+- **Trigger:** PaymentDeclinedError
 
 | Step | Action | Expectation | Outcome | Telemetry | Risk |
 |------|--------|-------------|---------|-----------|------|
@@ -122,3 +123,11 @@
 | Policy | Description | Compliance |
 |--------|-------------|------------|
 | PaymentSecurity | Payment card data must never be stored in plaintext | PCI-DSS |
+
+---
+
+## Error Catalog
+
+| Error Type | Code | Severity | Recoverable | Message | Payload |
+|------------|------|----------|-------------|---------|----------|
+| PaymentDeclinedError | PAYMENT_DECLINED | high | Yes | Payment gateway returned a declined response | declineReason: String, retryAllowed: Boolean |

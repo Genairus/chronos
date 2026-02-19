@@ -40,8 +40,8 @@ class ChronosModelParserIntegrationTest {
     @Test
     void totalShapeCountIsNine() throws Exception {
         var model = parseFixture();
-        assertEquals(9, model.shapes().size(),
-                "Expected 1 entity + 1 shape + 1 list + 1 map + 2 enums + 1 actor + 1 policy + 1 journey");
+        assertEquals(10, model.shapes().size(),
+                "Expected 1 entity + 1 shape + 1 list + 1 map + 2 enums + 1 actor + 1 policy + 1 error + 1 journey");
     }
 
     @Test
@@ -206,7 +206,7 @@ class ChronosModelParserIntegrationTest {
 
         var variant = journey.variants().get("PaymentDeclined");
         assertNotNull(variant, "Expected variant named 'PaymentDeclined'");
-        assertEquals("Payment gateway returns a declined response", variant.trigger());
+        assertEquals("PaymentDeclinedError", variant.trigger());
         assertEquals(1, variant.steps().size());
 
         assertTrue(variant.outcome().isPresent());

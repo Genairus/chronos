@@ -1,0 +1,76 @@
+namespace com.example.ecommerce
+
+/// A customer in the e-commerce system
+entity Customer {
+    id: String
+    email: String
+    orders: List<Order>
+}
+
+/// An order placed by a customer
+entity Order {
+    id: String
+    customerId: String
+    items: List<OrderItem>
+    totalAmount: Float
+    orderDate: Timestamp
+    shipDate: Timestamp
+    status: OrderStatus
+
+    /// Ensures the order total is positive
+    invariant PositiveTotal {
+        expression: "totalAmount > 0"
+        severity: error
+        message: "Order total must be positive"
+    }
+
+    /// Ensures ship date is after order date
+    invariant ShipAfterOrder {
+        expression: "shipDate > orderDate"
+        severity: error
+        message: "Ship date must be after order date"
+    }
+
+    /// Warns if total seems unreasonably high
+    invariant ReasonableTotal {
+        expression: "totalAmount < 1000000"
+        severity: warning
+        message: "Order total exceeds $1M - please verify"
+    }
+}
+
+entity OrderItem {
+    productId: String
+    quantity: Integer
+    unitPrice: Money
+}
+
+shape Money {
+    amount: Float
+    currency: String
+}
+
+enum OrderStatus {
+    PENDING
+    CONFIRMED
+    SHIPPED
+    DELIVERED
+    CANCELLED
+}
+
+/// Ensures every order references an existing customer
+invariant OrderCustomerExists {
+    scope: [Order, Customer]
+    expression: "exists(Customer, c => c.id == Order.customerId)"
+    severity: error
+    message: "Every order must reference an existing customer"
+}
+
+/// Warns if a customer has too many pending orders
+invariant ActiveOrderLimit {
+    scope: [Customer, Order]
+    expression: "count(Customer.orders, o => o.status == PENDING) <= 10"
+    severity: warning
+    message: "Customer should not exceed 10 pending orders"
+}
+

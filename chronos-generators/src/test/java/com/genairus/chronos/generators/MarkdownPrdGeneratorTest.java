@@ -102,7 +102,7 @@ class MarkdownPrdGeneratorTest {
 
     @Test
     void tocExcludesJourneySectionWhenNoJourneys() {
-        var actor = new ActorDef("Customer", List.of(), List.of(), LOC);
+        var actor = new ActorDef("Customer", List.of(), List.of(), Optional.empty(), LOC);
         var doc = md(model(actor));
         assertFalse(doc.contains("- [Journeys]"));
     }
@@ -111,7 +111,7 @@ class MarkdownPrdGeneratorTest {
 
     @Test
     void tocIncludesDataModelSubsectionsForPresentTypes() {
-        var entity   = new EntityDef("Order", List.of(), List.of(), List.of(), LOC);
+        var entity   = new EntityDef("Order", List.of(), List.of(), Optional.empty(), List.of(), List.of(), LOC);
         var struct   = new ShapeStructDef("Money", List.of(), List.of(), List.of(), LOC);
         var enumDef  = new EnumDef("Status", List.of(), List.of(),
                 List.of(EnumMember.of("ACTIVE", LOC)), LOC);
@@ -137,7 +137,7 @@ class MarkdownPrdGeneratorTest {
 
     @Test
     void tocIncludesActorsAndPoliciesWhenPresent() {
-        var actor  = new ActorDef("Customer", List.of(), List.of(), LOC);
+        var actor  = new ActorDef("Customer", List.of(), List.of(), Optional.empty(), LOC);
         var policy = new PolicyDef("DataPolicy", "Retain 7y", List.of(), List.of(), LOC);
         var doc = md(model(actor, policy));
         assertTrue(doc.contains("- [Actors](#actors)"));
@@ -266,7 +266,7 @@ class MarkdownPrdGeneratorTest {
     @Test
     void variantRenderedWithTriggerAndOutcome() {
         var variant = new Variant("PaymentDeclined",
-                "Card declined",
+                "CardDeclinedError",
                 List.of(),
                 Optional.of(new OutcomeExpr.ReturnToStep("EnterCard", LOC)),
                 LOC);
@@ -275,14 +275,14 @@ class MarkdownPrdGeneratorTest {
         var doc = md(model(journey));
         assertTrue(doc.contains("**Variants**"));
         assertTrue(doc.contains("#### PaymentDeclined"));
-        assertTrue(doc.contains("- **Trigger:** Card declined"));
+        assertTrue(doc.contains("- **Trigger:** CardDeclinedError"));
         assertTrue(doc.contains("- **Outcome:** ReturnToStep(EnterCard)"));
     }
 
     @Test
     void variantWithStepsRendersStepTable() {
         var variant = new Variant("NetworkError",
-                "Timeout",
+                "TimeoutError",
                 List.of(step("Notify", "show msg", "msg visible")),
                 Optional.empty(),
                 LOC);
@@ -340,7 +340,7 @@ class MarkdownPrdGeneratorTest {
         var totalField = new FieldDef("total",
                 new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.FLOAT),
                 List.of(), LOC);
-        var entity = new EntityDef("Order", List.of(), List.of(), List.of(idField, totalField), LOC);
+        var entity = new EntityDef("Order", List.of(), List.of(), Optional.empty(), List.of(idField, totalField), List.of(), LOC);
         var doc = md(model(entity));
 
         assertTrue(doc.contains("## Data Model"));
@@ -355,7 +355,7 @@ class MarkdownPrdGeneratorTest {
     void entityDocCommentsRenderedAsBlockquote() {
         var entity = new EntityDef("Order", List.of(),
                 List.of("Main order record", "Tracks lifecycle"),
-                List.of(), LOC);
+                Optional.empty(), List.of(), List.of(), LOC);
         var doc = md(model(entity));
         assertTrue(doc.contains("> Main order record\n"));
         assertTrue(doc.contains("> Tracks lifecycle\n"));
@@ -363,10 +363,39 @@ class MarkdownPrdGeneratorTest {
 
     @Test
     void entityWithNoFieldsRendersHeaderOnly() {
-        var entity = new EntityDef("Empty", List.of(), List.of(), List.of(), LOC);
+        var entity = new EntityDef("Empty", List.of(), List.of(), Optional.empty(), List.of(), List.of(), LOC);
         var doc = md(model(entity));
         assertTrue(doc.contains("#### Empty"));
         assertFalse(doc.contains("| Field |"));
+    }
+
+    @Test
+    void entityWithInheritanceShowsParentAndAllFields() {
+        var idField = new FieldDef("id",
+                new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), List.of(), LOC);
+        var emailField = new FieldDef("email",
+                new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), List.of(), LOC);
+        var tierField = new FieldDef("tier",
+                new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), List.of(), LOC);
+
+        var parent = new EntityDef("User", List.of(), List.of(), Optional.empty(),
+                List.of(idField, emailField), List.of(), LOC);
+        var child = new EntityDef("PremiumUser", List.of(), List.of(), Optional.of("User"),
+                List.of(tierField), List.of(), LOC);
+
+        var doc = md(model(parent, child));
+
+        // Parent entity should show its own fields
+        assertTrue(doc.contains("#### User"));
+        assertTrue(doc.contains("| id | String |"));
+        assertTrue(doc.contains("| email | String |"));
+
+        // Child entity should show parent reference and all fields (inherited + own)
+        assertTrue(doc.contains("#### PremiumUser"));
+        assertTrue(doc.contains("*Extends: User*"));
+        assertTrue(doc.contains("| id | String |"));  // inherited
+        assertTrue(doc.contains("| email | String |"));  // inherited
+        assertTrue(doc.contains("| tier | String |"));  // own field
     }
 
     // ── Data model: shape structs ─────────────────────────────────────────────
@@ -396,8 +425,8 @@ class MarkdownPrdGeneratorTest {
                 List.of(), LOC);
         var namedField = new FieldDef("status",
                 new TypeRef.NamedTypeRef("OrderStatus"), List.of(), LOC);
-        var entity = new EntityDef("Order", List.of(), List.of(),
-                List.of(listField, mapField, namedField), LOC);
+        var entity = new EntityDef("Order", List.of(), List.of(), Optional.empty(),
+                List.of(listField, mapField, namedField), List.of(), LOC);
         var doc = md(model(entity));
         assertTrue(doc.contains("| tags | List<String> |"));
         assertTrue(doc.contains("| meta | Map<String, Integer> |"));
@@ -446,7 +475,7 @@ class MarkdownPrdGeneratorTest {
     @Test
     void actorWithDescriptionRendered() {
         var actor = new ActorDef("Customer",
-                List.of(trait("description", "A guest user")), List.of(), LOC);
+                List.of(trait("description", "A guest user")), List.of(), Optional.empty(), LOC);
         var doc = md(model(actor));
         assertTrue(doc.contains("## Actors"));
         assertTrue(doc.contains("| Customer | A guest user |"));
@@ -454,7 +483,7 @@ class MarkdownPrdGeneratorTest {
 
     @Test
     void actorWithoutDescriptionShowsDash() {
-        var actor = new ActorDef("Customer", List.of(), List.of(), LOC);
+        var actor = new ActorDef("Customer", List.of(), List.of(), Optional.empty(), LOC);
         var doc = md(model(actor));
         assertTrue(doc.contains("| Customer | — |"));
     }
@@ -478,6 +507,108 @@ class MarkdownPrdGeneratorTest {
         assertTrue(doc.contains("| InternalPolicy | Keep data | — |"));
     }
 
+    // ── Prohibitions ──────────────────────────────────────────────────────────
+
+    @Test
+    void denyWithComplianceRendered() {
+        var deny = new DenyDef("StorePlaintextPasswords",
+                List.of(trait("compliance", "PCI-DSS")),
+                List.of(),
+                "The system must never store passwords in plaintext",
+                List.of("UserCredential"),
+                "critical",
+                LOC);
+        var doc = md(model(deny));
+        assertTrue(doc.contains("## Prohibitions"));
+        assertTrue(doc.contains("| StorePlaintextPasswords | The system must never store passwords in plaintext | UserCredential | critical | PCI-DSS |"));
+    }
+
+    @Test
+    void denyWithoutComplianceShowsDash() {
+        var deny = new DenyDef("InternalProhibition",
+                List.of(),
+                List.of(),
+                "Do not do this",
+                List.of("Entity1"),
+                "low",
+                LOC);
+        var doc = md(model(deny));
+        assertTrue(doc.contains("| InternalProhibition | Do not do this | Entity1 | low | — |"));
+    }
+
+    @Test
+    void denyWithMultipleScopesRendered() {
+        var deny = new DenyDef("ExposePIIInLogs",
+                List.of(trait("compliance", "GDPR")),
+                List.of(),
+                "PII must never appear in logs",
+                List.of("CustomerProfile", "PaymentInfo"),
+                "critical",
+                LOC);
+        var doc = md(model(deny));
+        assertTrue(doc.contains("| ExposePIIInLogs | PII must never appear in logs | CustomerProfile, PaymentInfo | critical | GDPR |"));
+    }
+
+    @Test
+    void prohibitionsSectionInToc() {
+        var deny = new DenyDef("TestDeny", List.of(), List.of(), "Test", List.of("Entity1"), "high", LOC);
+        var doc = md(model(deny));
+        assertTrue(doc.contains("- [Prohibitions](#prohibitions)"));
+    }
+
+    // ── Error Catalog ─────────────────────────────────────────────────────────
+
+    @Test
+    void errorWithPayloadRendered() {
+        var payloadField1 = new FieldDef("declineReason",
+                new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), List.of(), LOC);
+        var payloadField2 = new FieldDef("retryAllowed",
+                new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.BOOLEAN), List.of(), LOC);
+        var error = new ErrorDef("PaymentDeclinedError",
+                List.of(),
+                List.of(),
+                "PAYMENT_DECLINED",
+                "high",
+                true,
+                "Payment gateway returned a declined response",
+                List.of(payloadField1, payloadField2),
+                LOC);
+        var doc = md(model(error));
+        assertTrue(doc.contains("## Error Catalog"));
+        assertTrue(doc.contains("| PaymentDeclinedError | PAYMENT_DECLINED | high | Yes | Payment gateway returned a declined response | declineReason: String, retryAllowed: Boolean |"));
+    }
+
+    @Test
+    void errorWithoutPayloadShowsDash() {
+        var error = new ErrorDef("TimeoutError",
+                List.of(),
+                List.of(),
+                "TIMEOUT",
+                "medium",
+                false,
+                "Operation timed out",
+                List.of(),
+                LOC);
+        var doc = md(model(error));
+        assertTrue(doc.contains("| TimeoutError | TIMEOUT | medium | No | Operation timed out | — |"));
+    }
+
+    @Test
+    void errorCatalogSectionInToc() {
+        var error = new ErrorDef("TestError", List.of(), List.of(), "TEST-001", "low", true, "Test error", List.of(), LOC);
+        var doc = md(model(error));
+        assertTrue(doc.contains("- [Error Catalog](#error-catalog)"));
+    }
+
+    @Test
+    void multipleErrorsRenderedInCatalog() {
+        var error1 = new ErrorDef("Error1", List.of(), List.of(), "ERR-001", "critical", false, "Critical error", List.of(), LOC);
+        var error2 = new ErrorDef("Error2", List.of(), List.of(), "ERR-002", "low", true, "Minor error", List.of(), LOC);
+        var doc = md(model(error1, error2));
+        assertTrue(doc.contains("| Error1 | ERR-001 | critical | No | Critical error | — |"));
+        assertTrue(doc.contains("| Error2 | ERR-002 | low | Yes | Minor error | — |"));
+    }
+
     // ── Full PRD smoke test ───────────────────────────────────────────────────
 
     @Test
@@ -491,12 +622,12 @@ class MarkdownPrdGeneratorTest {
                 List.of("Cart not empty"),
                 List.of(step1), Map.of(), outcomes, LOC);
 
-        var entity = new EntityDef("Order", List.of(), List.of("The order"),
+        var entity = new EntityDef("Order", List.of(), List.of("The order"), Optional.empty(),
                 List.of(new FieldDef("id",
                         new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), List.of(), LOC)),
-                LOC);
+                List.of(), LOC);
         var actor = new ActorDef("Customer",
-                List.of(trait("description", "Guest user")), List.of(), LOC);
+                List.of(trait("description", "Guest user")), List.of(), Optional.empty(), LOC);
         var policy = new PolicyDef("PaymentPolicy", "PCI compliance",
                 List.of(trait("compliance", "PCI-DSS")), List.of(), LOC);
 

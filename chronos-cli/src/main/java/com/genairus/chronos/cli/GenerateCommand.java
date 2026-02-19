@@ -57,11 +57,6 @@ public class GenerateCommand implements Callable<Integer> {
     public Integer call() {
         var console = parent.console(spec.commandLine().getOut(), spec.commandLine().getErr());
 
-        if (!inputFile.exists()) {
-            console.error("Error: File not found: " + inputFile.getPath());
-            return 1;
-        }
-
         // Validate target before doing any expensive work
         ChronosGenerator generator;
         try {
@@ -70,6 +65,11 @@ public class GenerateCommand implements Callable<Integer> {
             var known = GeneratorRegistry.knownTargets().stream().sorted()
                     .reduce((a, b) -> a + ", " + b).orElse("(none)");
             console.error("Unknown target '" + target + "'. Known targets: " + known);
+            return 1;
+        }
+
+        if (!inputFile.exists()) {
+            console.error("Error: File not found: " + inputFile.getPath());
             return 1;
         }
 

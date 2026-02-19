@@ -184,6 +184,12 @@ class ChronosModelParserTest {
     void fullJourneyIsParsed() {
         var model = parse("""
                 namespace com.example
+                error GatewayDeclinedError {
+                    code: "GATEWAY_DECLINED"
+                    severity: high
+                    recoverable: true
+                    message: "Gateway returned declined"
+                }
                 @kpi(metric: "CheckoutConversion", target: ">75%")
                 journey GuestCheckout {
                     actor: Customer
@@ -204,7 +210,7 @@ class ChronosModelParserTest {
                     ]
                     variants: {
                         PaymentDeclined: {
-                            trigger: "Gateway returned declined"
+                            trigger: GatewayDeclinedError
                             steps: [
                                 step NotifyUser {
                                     expectation: "Error shown"
@@ -257,7 +263,7 @@ class ChronosModelParserTest {
         assertEquals(1, journey.variants().size());
         var declined = journey.variants().get("PaymentDeclined");
         assertNotNull(declined);
-        assertEquals("Gateway returned declined", declined.trigger());
+        assertEquals("GatewayDeclinedError", declined.trigger());
         assertEquals(1, declined.steps().size());
         assertTrue(declined.outcome().isPresent());
         assertInstanceOf(OutcomeExpr.ReturnToStep.class, declined.outcome().get());

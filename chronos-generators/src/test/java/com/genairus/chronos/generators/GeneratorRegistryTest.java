@@ -35,4 +35,14 @@ class GeneratorRegistryTest {
                 () -> GeneratorRegistry.get("unknown-format"));
         assertTrue(ex.getMessage().contains("unknown-format"));
     }
+
+    @Test
+    void mermaidStateTargetResolvesToMermaidStateDiagramGenerator() {
+        assertInstanceOf(MermaidStateDiagramGenerator.class, GeneratorRegistry.get("mermaid-state"));
+    }
+
+    @Test
+    void stateMachineTestsTargetResolvesToStateMachineTestGenerator() {
+        assertInstanceOf(StateMachineTestGenerator.class, GeneratorRegistry.get("statemachine-tests"));
+    }
 }

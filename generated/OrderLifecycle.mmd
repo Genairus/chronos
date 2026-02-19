@@ -1,0 +1,9 @@
+stateDiagram-v2
+    note right of PENDING : Order.status
+    [*] --> PENDING
+    PENDING --> PAID : payment.status == APPROVED / Emit OrderPaidEvent
+    PENDING --> CANCELLED : cancellation requested by actor OR payment timeout exceeded
+    PAID --> SHIPPED : fulfillment.status == DISPATCHED / Emit OrderShippedEvent
+    SHIPPED --> DELIVERED : delivery confirmation received
+    DELIVERED --> [*]
+    CANCELLED --> [*]

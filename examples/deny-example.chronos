@@ -1,0 +1,54 @@
+namespace com.example.security
+
+/// User credentials entity
+entity UserCredential {
+    username: String
+    passwordHash: String
+    salt: String
+}
+
+/// Customer profile with PII
+entity CustomerProfile {
+    name: String
+    email: String
+    phoneNumber: String
+}
+
+/// Payment information
+entity PaymentInfo {
+    cardNumber: String
+    cvv: String
+    expiryDate: String
+}
+
+/// Critical security prohibition
+@compliance("PCI-DSS")
+deny StorePlaintextPasswords {
+    description: "The system must never store passwords in plaintext"
+    scope: [UserCredential]
+    severity: critical
+}
+
+/// GDPR compliance prohibition
+@compliance("GDPR")
+deny ExposePIIInLogs {
+    description: "PII-annotated fields must never appear in application logs"
+    scope: [CustomerProfile, PaymentInfo]
+    severity: critical
+}
+
+/// Payment security prohibition
+@compliance("PCI-DSS")
+deny StoreFullCardNumber {
+    description: "Full credit card numbers must never be stored unencrypted"
+    scope: [PaymentInfo]
+    severity: critical
+}
+
+/// Medium severity prohibition
+deny UseWeakEncryption {
+    description: "Weak encryption algorithms (MD5, SHA1) must not be used"
+    scope: [UserCredential, PaymentInfo]
+    severity: high
+}
+

@@ -43,12 +43,49 @@ enum CartState {
     CHECKED_OUT
 }
 
+enum OrderStatus {
+    PENDING
+    OrderConfirmed
+    PAID
+    FAILED
+}
+
+entity Order {
+    @required
+    id: String
+    status: OrderStatus
+}
+
+statemachine OrderLifecycle {
+    entity: Order
+    field: status
+    states: [PENDING, OrderConfirmed, PAID, FAILED]
+    initial: PENDING
+    terminal: [PAID, FAILED]
+    transitions: [
+        PENDING -> OrderConfirmed,
+        OrderConfirmed -> PAID,
+        PENDING -> FAILED
+    ]
+}
+
 @description("A registered shopper who can add items to the cart and complete purchases")
 actor Customer
 
 @compliance("PCI-DSS")
 policy PaymentSecurity {
     description: "Payment card data must never be stored in plaintext"
+}
+
+error PaymentDeclinedError {
+    code: "PAYMENT_DECLINED"
+    severity: high
+    recoverable: true
+    message: "Payment gateway returned a declined response"
+    payload: {
+        declineReason: String
+        retryAllowed: Boolean
+    }
 }
 
 /// Guides a registered customer through the checkout process.
@@ -82,7 +119,7 @@ journey CheckoutJourney {
     ]
     variants: {
         PaymentDeclined: {
-            trigger: "Payment gateway returns a declined response"
+            trigger: PaymentDeclinedError
             steps: [
                 step NotifyDeclined {
                     action: "System notifies customer of the decline"

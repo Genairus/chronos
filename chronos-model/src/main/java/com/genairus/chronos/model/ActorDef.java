@@ -9,17 +9,21 @@ import java.util.Optional;
  * <pre>
  *   @description("A registered user authenticated via SSO")
  *   actor AuthenticatedUser
+ *
+ *   actor AdminUser extends AuthenticatedUser
  * </pre>
  *
  * @param name        the actor name (PascalCase)
  * @param traits      trait applications (typically includes {@code @description})
  * @param docComments lines from preceding {@code ///} doc comments
+ * @param parentType  optional parent actor name (for inheritance)
  * @param location    source location of the {@code actor} keyword
  */
 public record ActorDef(
         String name,
         List<TraitApplication> traits,
         List<String> docComments,
+        Optional<String> parentType,
         SourceLocation location) implements ShapeDefinition {
 
     /**

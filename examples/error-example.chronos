@@ -1,0 +1,48 @@
+namespace com.example.payment
+
+/// Payment declined by gateway
+@description("Payment processing error")
+error PaymentDeclinedError {
+    code: "PAY-001"
+    severity: high
+    recoverable: true
+    message: "Payment was declined by the gateway"
+    payload: {
+        gatewayCode: String
+        retryable: Boolean
+        declineReason: String
+    }
+}
+
+/// Network timeout during payment processing
+error NetworkTimeoutError {
+    code: "NET-001"
+    severity: medium
+    recoverable: true
+    message: "Network timeout occurred during payment processing"
+    payload: {
+        attemptCount: Integer
+        lastAttemptTime: String
+    }
+}
+
+/// Insufficient funds
+error InsufficientFundsError {
+    code: "PAY-002"
+    severity: low
+    recoverable: false
+    message: "Insufficient funds in account"
+    payload: {
+        availableBalance: Float
+        requestedAmount: Float
+    }
+}
+
+/// Critical system error
+error SystemFailureError {
+    code: "SYS-001"
+    severity: critical
+    recoverable: false
+    message: "Critical system failure occurred"
+}
+

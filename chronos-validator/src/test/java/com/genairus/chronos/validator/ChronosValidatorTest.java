@@ -170,18 +170,18 @@ class ChronosValidatorTest {
 
     @Test
     void chr005_passWithUniqueNames() {
-        var e1 = new EntityDef("Order", List.of(), List.of(),
-                List.of(new FieldDef("id", new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), List.of(), LOC)), LOC);
-        var e2 = new EntityDef("Product", List.of(), List.of(),
-                List.of(new FieldDef("id", new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), List.of(), LOC)), LOC);
+        var e1 = new EntityDef("Order", List.of(), List.of(), Optional.empty(),
+                List.of(new FieldDef("id", new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), List.of(), LOC)), List.of(), LOC);
+        var e2 = new EntityDef("Product", List.of(), List.of(), Optional.empty(),
+                List.of(new FieldDef("id", new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), List.of(), LOC)), List.of(), LOC);
         var result = validator.validate(model(e1, e2));
         assertTrue(result.errors().stream().noneMatch(i -> "CHR-005".equals(i.ruleCode())));
     }
 
     @Test
     void chr005_failWith_duplicateName() {
-        var e1 = new EntityDef("Order", List.of(), List.of(), List.of(), LOC);
-        var e2 = new EntityDef("Order", List.of(), List.of(), List.of(), LOC);
+        var e1 = new EntityDef("Order", List.of(), List.of(), Optional.empty(), List.of(), List.of(), LOC);
+        var e2 = new EntityDef("Order", List.of(), List.of(), Optional.empty(), List.of(), List.of(), LOC);
         var result = validator.validate(model(e1, e2));
         var errors = result.errors().stream().filter(i -> "CHR-005".equals(i.ruleCode())).toList();
         assertEquals(2, errors.size()); // one for each occurrence
@@ -192,15 +192,15 @@ class ChronosValidatorTest {
 
     @Test
     void chr006_passWithFields() {
-        var entity = new EntityDef("Order", List.of(), List.of(),
-                List.of(new FieldDef("id", new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), List.of(), LOC)), LOC);
+        var entity = new EntityDef("Order", List.of(), List.of(), Optional.empty(),
+                List.of(new FieldDef("id", new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), List.of(), LOC)), List.of(), LOC);
         var result = validator.validate(model(entity));
         assertTrue(result.warnings().stream().noneMatch(i -> "CHR-006".equals(i.ruleCode())));
     }
 
     @Test
     void chr006_warnWith_emptyEntity() {
-        var entity = new EntityDef("EmptyOrder", List.of(), List.of(), List.of(), LOC);
+        var entity = new EntityDef("EmptyOrder", List.of(), List.of(), Optional.empty(), List.of(), List.of(), LOC);
         var result = validator.validate(model(entity));
         var warns = result.warnings().stream().filter(i -> "CHR-006".equals(i.ruleCode())).toList();
         assertEquals(1, warns.size());
@@ -222,14 +222,14 @@ class ChronosValidatorTest {
     void chr007_passWith_descriptionTrait() {
         var descArg = new TraitArg(null, new TraitValue.StringValue("A paying customer"), LOC);
         var descTrait = new TraitApplication("description", List.of(descArg), LOC);
-        var actor = new ActorDef("Customer", List.of(descTrait), List.of(), LOC);
+        var actor = new ActorDef("Customer", List.of(descTrait), List.of(), Optional.empty(), LOC);
         var result = validator.validate(model(actor));
         assertTrue(result.warnings().stream().noneMatch(i -> "CHR-007".equals(i.ruleCode())));
     }
 
     @Test
     void chr007_warnWith_missingDescription() {
-        var actor = new ActorDef("Customer", List.of(), List.of(), LOC);
+        var actor = new ActorDef("Customer", List.of(), List.of(), Optional.empty(), LOC);
         var result = validator.validate(model(actor));
         var warns = result.warnings().stream().filter(i -> "CHR-007".equals(i.ruleCode())).toList();
         assertEquals(1, warns.size());
@@ -240,18 +240,18 @@ class ChronosValidatorTest {
 
     @Test
     void chr008_passWithResolvedNamedRef() {
-        var order = new EntityDef("Order", List.of(), List.of(),
-                List.of(new FieldDef("id", new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), List.of(), LOC)), LOC);
-        var entity = new EntityDef("Cart", List.of(), List.of(),
-                List.of(new FieldDef("order", new TypeRef.NamedTypeRef("Order"), List.of(), LOC)), LOC);
+        var order = new EntityDef("Order", List.of(), List.of(), Optional.empty(),
+                List.of(new FieldDef("id", new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), List.of(), LOC)), List.of(), LOC);
+        var entity = new EntityDef("Cart", List.of(), List.of(), Optional.empty(),
+                List.of(new FieldDef("order", new TypeRef.NamedTypeRef("Order"), List.of(), LOC)), List.of(), LOC);
         var result = validator.validate(model(order, entity));
         assertTrue(result.errors().stream().noneMatch(i -> "CHR-008".equals(i.ruleCode())));
     }
 
     @Test
     void chr008_passWithImportedRef() {
-        var entity = new EntityDef("Cart", List.of(), List.of(),
-                List.of(new FieldDef("order", new TypeRef.NamedTypeRef("Order"), List.of(), LOC)), LOC);
+        var entity = new EntityDef("Cart", List.of(), List.of(), Optional.empty(),
+                List.of(new FieldDef("order", new TypeRef.NamedTypeRef("Order"), List.of(), LOC)), List.of(), LOC);
         var modelWithImport = new ChronosModel("com.example",
                 List.of(new UseDecl("com.other", "Order", LOC)),
                 List.of(entity));
@@ -261,8 +261,8 @@ class ChronosValidatorTest {
 
     @Test
     void chr008_failWith_unresolvedRef() {
-        var entity = new EntityDef("Cart", List.of(), List.of(),
-                List.of(new FieldDef("order", new TypeRef.NamedTypeRef("UnknownType"), List.of(), LOC)), LOC);
+        var entity = new EntityDef("Cart", List.of(), List.of(), Optional.empty(),
+                List.of(new FieldDef("order", new TypeRef.NamedTypeRef("UnknownType"), List.of(), LOC)), List.of(), LOC);
         var result = validator.validate(model(entity));
         var errors = result.errors().stream().filter(i -> "CHR-008".equals(i.ruleCode())).toList();
         assertEquals(1, errors.size());
@@ -271,9 +271,9 @@ class ChronosValidatorTest {
 
     @Test
     void chr008_checksNestedListTypeRef() {
-        var entity = new EntityDef("Cart", List.of(), List.of(),
+        var entity = new EntityDef("Cart", List.of(), List.of(), Optional.empty(),
                 List.of(new FieldDef("items",
-                        new TypeRef.ListType(new TypeRef.NamedTypeRef("Ghost")), List.of(), LOC)), LOC);
+                        new TypeRef.ListType(new TypeRef.NamedTypeRef("Ghost")), List.of(), LOC)), List.of(), LOC);
         var result = validator.validate(model(entity));
         var errors = result.errors().stream().filter(i -> "CHR-008".equals(i.ruleCode())).toList();
         assertEquals(1, errors.size());
@@ -347,10 +347,10 @@ class ChronosValidatorTest {
         var kpi        = new TraitApplication("kpi", List.of(kpiArg, targetArg), LOC);
         var descArg    = new TraitArg(null, new TraitValue.StringValue("A buyer"), LOC);
         var descTrait  = new TraitApplication("description", List.of(descArg), LOC);
-        var actor      = new ActorDef("Customer", List.of(descTrait), List.of(), LOC);
-        var entity     = new EntityDef("Order", List.of(), List.of(),
+        var actor      = new ActorDef("Customer", List.of(descTrait), List.of(), Optional.empty(), LOC);
+        var entity     = new EntityDef("Order", List.of(), List.of(), Optional.empty(),
                 List.of(new FieldDef("id",
-                        new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), List.of(), LOC)), LOC);
+                        new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), List.of(), LOC)), List.of(), LOC);
         var journey    = new JourneyDef("Checkout", List.of(kpi), List.of(),
                 "Customer", List.of(), List.of(validStep("PlaceOrder")),
                 Map.of(), validOutcomes(), LOC);

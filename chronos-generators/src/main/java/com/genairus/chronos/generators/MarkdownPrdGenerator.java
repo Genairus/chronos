@@ -18,8 +18,10 @@ import java.util.StringJoiner;
  *       variant subsections, and outcome statements</li>
  *   <li>Data Model — entity/value-object field tables, enum member tables,
  *       and collection type summaries</li>
+ *   <li>Relationships — relationship metadata with cardinality, semantics, and inverse fields</li>
  *   <li>Actors — name and {@code @description}</li>
  *   <li>Policies — name, description, and compliance framework</li>
+ *   <li>Error Catalog — error codes, severity, recoverability, and payload schemas</li>
  * </ol>
  */
 public final class MarkdownPrdGenerator implements ChronosGenerator {
@@ -30,13 +32,18 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
     @Override
     public GeneratorOutput generate(ChronosModel model) {
         var sb = new StringBuilder();
+        var inheritanceResolver = new InheritanceResolver(model);
 
         appendTitle(sb, model);
         appendToc(sb, model);
         appendJourneysSection(sb, model);
-        appendDataModelSection(sb, model);
+        appendDataModelSection(sb, model, inheritanceResolver);
+        appendGlobalInvariantsSection(sb, model);
+        appendRelationshipsSection(sb, model);
         appendActorsSection(sb, model);
         appendPoliciesSection(sb, model);
+        appendProhibitionsSection(sb, model);
+        appendErrorCatalogSection(sb, model);
 
         String filename = model.namespace().replace('.', '-') + "-prd.md";
         return GeneratorOutput.of(filename, sb.toString());
@@ -78,10 +85,18 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
                 sb.append("  - [Collections](#collections)\n");
         }
 
+        if (!model.invariants().isEmpty())
+            sb.append("- [Global Invariants](#global-invariants)\n");
+        if (!model.relationships().isEmpty())
+            sb.append("- [Relationships](#relationships)\n");
         if (!model.actors().isEmpty())
             sb.append("- [Actors](#actors)\n");
         if (!model.policies().isEmpty())
             sb.append("- [Policies](#policies)\n");
+        if (!model.denies().isEmpty())
+            sb.append("- [Prohibitions](#prohibitions)\n");
+        if (!model.errors().isEmpty())
+            sb.append("- [Error Catalog](#error-catalog)\n");
     }
 
     // ── Journeys ──────────────────────────────────────────────────────────────
@@ -197,7 +212,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
     // ── Data Model ────────────────────────────────────────────────────────────
 
-    private static void appendDataModelSection(StringBuilder sb, ChronosModel model) {
+    private static void appendDataModelSection(StringBuilder sb, ChronosModel model, InheritanceResolver resolver) {
         boolean hasDataModel = !model.entities().isEmpty()
                 || !model.shapeStructs().isEmpty()
                 || !model.enums().isEmpty()
@@ -207,15 +222,16 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
         sb.append(DIVIDER).append("\n## Data Model\n");
 
-        appendFieldedShapes(sb, model.entities(), "Entities");
-        appendFieldedShapes(sb, model.shapeStructs(), "Value Objects");
+        appendFieldedShapes(sb, model.entities(), "Entities", resolver);
+        appendFieldedShapes(sb, model.shapeStructs(), "Value Objects", resolver);
         appendEnumsSubsection(sb, model.enums());
         appendCollectionsSubsection(sb, model.lists(), model.maps());
     }
 
     private static void appendFieldedShapes(StringBuilder sb,
                                              List<? extends ShapeDefinition> shapes,
-                                             String heading) {
+                                             String heading,
+                                             InheritanceResolver resolver) {
         if (shapes.isEmpty()) return;
         sb.append("\n### ").append(heading).append("\n");
         for (var shape : shapes) {
@@ -223,7 +239,8 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             List<FieldDef> fields;
             if (shape instanceof EntityDef e) {
                 docs   = e.docComments();
-                fields = e.fields();
+                // Use InheritanceResolver to get all fields including inherited ones
+                fields = resolver.resolveAllFields(e);
             } else if (shape instanceof ShapeStructDef s) {
                 docs   = s.docComments();
                 fields = s.fields();
@@ -231,6 +248,12 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
                 continue;
             }
             sb.append("\n#### ").append(shape.name()).append("\n\n");
+
+            // Show parent type if entity has one
+            if (shape instanceof EntityDef e && e.parentType().isPresent()) {
+                sb.append("*Extends: ").append(e.parentType().get()).append("*\n\n");
+            }
+
             for (var doc : docs) {
                 sb.append("> ").append(doc).append("\n");
             }
@@ -243,6 +266,19 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
                       .append(" | ").append(renderTypeRef(field.type()))
                       .append(" | ").append(field.isRequired() ? "\u2713" : "")
                       .append(" |\n");
+                }
+            }
+
+            // Add invariants section for entities
+            if (shape instanceof EntityDef e && !e.invariants().isEmpty()) {
+                sb.append("\n**Invariants:**\n\n");
+                for (var inv : e.invariants()) {
+                    sb.append("- **").append(inv.name()).append("**");
+                    sb.append(" (").append(inv.severity()).append(")");
+                    sb.append("\n  - Expression: `").append(inv.expression()).append("`\n");
+                    if (inv.message().isPresent()) {
+                        sb.append("  - Message: ").append(inv.message().get()).append("\n");
+                    }
                 }
             }
         }
@@ -282,6 +318,62 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         }
     }
 
+    // ── Global Invariants ─────────────────────────────────────────────────────
+
+    private static void appendGlobalInvariantsSection(StringBuilder sb, ChronosModel model) {
+        if (model.invariants().isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Global Invariants\n\n");
+        sb.append("Cross-entity constraints that must always hold true:\n\n");
+
+        for (var inv : model.invariants()) {
+            sb.append("### ").append(inv.name()).append("\n\n");
+
+            // Doc comments
+            for (var doc : inv.docComments()) {
+                sb.append("> ").append(doc).append("\n");
+            }
+            if (!inv.docComments().isEmpty()) sb.append("\n");
+
+            // Scope
+            sb.append("**Scope:** ");
+            sb.append(String.join(", ", inv.scope()));
+            sb.append("\n\n");
+
+            // Expression
+            sb.append("**Expression:** `").append(inv.expression()).append("`\n\n");
+
+            // Severity
+            sb.append("**Severity:** ").append(inv.severity()).append("\n\n");
+
+            // Message (if present)
+            if (inv.message().isPresent()) {
+                sb.append("**Message:** ").append(inv.message().get()).append("\n\n");
+            }
+        }
+    }
+
+    // ── Relationships ─────────────────────────────────────────────────────────
+
+    private static void appendRelationshipsSection(StringBuilder sb, ChronosModel model) {
+        if (model.relationships().isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Relationships\n\n");
+        sb.append("| Relationship | From | To | Cardinality | Semantics | Inverse Field |\n");
+        sb.append("|--------------|------|----|-----------|-----------|--------------|\n");
+        for (var rel : model.relationships()) {
+            String cardinality = rel.cardinality().chronosName();
+            String semantics = rel.effectiveSemantics().chronosName();
+            String inverseField = rel.inverseField().orElse(DASH);
+
+            sb.append("| ").append(rel.name())
+              .append(" | ").append(rel.fromEntity())
+              .append(" | ").append(rel.toEntity())
+              .append(" | ").append(cardinality)
+              .append(" | ").append(semantics)
+              .append(" | ").append(inverseField)
+              .append(" |\n");
+        }
+    }
+
     // ── Actors ────────────────────────────────────────────────────────────────
 
     private static void appendActorsSection(StringBuilder sb, ChronosModel model) {
@@ -307,6 +399,56 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             sb.append("| ").append(policy.name())
               .append(" | ").append(policy.description())
               .append(" | ").append(policy.complianceFramework().orElse(DASH))
+              .append(" |\n");
+        }
+    }
+
+    // ── Prohibitions ──────────────────────────────────────────────────────────
+
+    private static void appendProhibitionsSection(StringBuilder sb, ChronosModel model) {
+        if (model.denies().isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Prohibitions\n\n");
+        sb.append("| Prohibition | Description | Scope | Severity | Compliance |\n");
+        sb.append("|-------------|-------------|-------|----------|------------|\n");
+        for (var deny : model.denies()) {
+            String compliance = deny.traits().stream()
+                    .filter(t -> "compliance".equals(t.name()))
+                    .flatMap(t -> t.firstPositionalValue().stream())
+                    .filter(v -> v instanceof TraitValue.StringValue)
+                    .map(v -> ((TraitValue.StringValue) v).value())
+                    .findFirst()
+                    .orElse(DASH);
+
+            sb.append("| ").append(deny.name())
+              .append(" | ").append(deny.description())
+              .append(" | ").append(String.join(", ", deny.scope()))
+              .append(" | ").append(deny.severity())
+              .append(" | ").append(compliance)
+              .append(" |\n");
+        }
+    }
+
+    // ── Error Catalog ─────────────────────────────────────────────────────────
+
+    private static void appendErrorCatalogSection(StringBuilder sb, ChronosModel model) {
+        if (model.errors().isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Error Catalog\n\n");
+        sb.append("| Error Type | Code | Severity | Recoverable | Message | Payload |\n");
+        sb.append("|------------|------|----------|-------------|---------|----------|\n");
+        for (var error : model.errors()) {
+            String payload = error.payload().isEmpty()
+                    ? DASH
+                    : error.payload().stream()
+                            .map(f -> f.name() + ": " + renderTypeRef(f.type()))
+                            .reduce((a, b) -> a + ", " + b)
+                            .orElse(DASH);
+
+            sb.append("| ").append(error.name())
+              .append(" | ").append(error.code())
+              .append(" | ").append(error.severity())
+              .append(" | ").append(error.recoverable() ? "Yes" : "No")
+              .append(" | ").append(error.message())
+              .append(" | ").append(payload)
               .append(" |\n");
         }
     }

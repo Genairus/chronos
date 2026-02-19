@@ -1,0 +1,45 @@
+namespace com.example.order
+
+/// Order entity with status field
+entity Order {
+    orderId: String
+    status: OrderStatus
+    paymentStatus: String
+    fulfillmentStatus: String
+}
+
+/// Order status enumeration
+enum OrderStatus {
+    PENDING
+    PAID
+    SHIPPED
+    DELIVERED
+    CANCELLED
+}
+
+/// State machine for order lifecycle
+@description("Manages the lifecycle of an order from creation to completion")
+statemachine OrderLifecycle {
+    entity: Order
+    field: status
+    states: [PENDING, PAID, SHIPPED, DELIVERED, CANCELLED]
+    initial: PENDING
+    terminal: [DELIVERED, CANCELLED]
+    transitions: [
+        PENDING -> PAID {
+            guard: "payment.status == APPROVED"
+            action: "Emit OrderPaidEvent"
+        },
+        PENDING -> CANCELLED {
+            guard: "cancellation requested by actor OR payment timeout exceeded"
+        },
+        PAID -> SHIPPED {
+            guard: "fulfillment.status == DISPATCHED"
+            action: "Emit OrderShippedEvent"
+        },
+        SHIPPED -> DELIVERED {
+            guard: "delivery confirmation received"
+        }
+    ]
+}
+

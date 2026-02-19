@@ -70,14 +70,19 @@ public class SelectCommand implements Callable<Integer> {
 
     private static String typeName(ShapeDefinition shape) {
         return switch (shape) {
-            case EntityDef      e -> "entity";
-            case ShapeStructDef s -> "shape";
-            case ListDef        l -> "list";
-            case MapDef         m -> "map";
-            case EnumDef        en -> "enum";
-            case ActorDef       a -> "actor";
-            case PolicyDef      p -> "policy";
-            case JourneyDef     j -> "journey";
+            case EntityDef        e  -> "entity";
+            case ShapeStructDef   s  -> "shape";
+            case ListDef          l  -> "list";
+            case MapDef           m  -> "map";
+            case EnumDef          en -> "enum";
+            case ActorDef         a  -> "actor";
+            case PolicyDef        p  -> "policy";
+            case JourneyDef       j  -> "journey";
+            case RelationshipDef  r  -> "relationship";
+            case InvariantDef     i  -> "invariant";
+            case DenyDef          d  -> "deny";
+            case ErrorDef         er -> "error";
+            case StateMachineDef  sm -> "statemachine";
         };
     }
 }

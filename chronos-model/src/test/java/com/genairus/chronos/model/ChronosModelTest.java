@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -12,8 +13,8 @@ class ChronosModelTest {
     private static final SourceLocation LOC = SourceLocation.of("test.chronos", 1, 1);
 
     private ChronosModel buildModel() {
-        var actor  = new ActorDef("Customer", List.of(), List.of(), LOC);
-        var entity = new EntityDef("Order", List.of(), List.of(), List.of(), LOC);
+        var actor  = new ActorDef("Customer", List.of(), List.of(), Optional.empty(), LOC);
+        var entity = new EntityDef("Order", List.of(), List.of(), Optional.empty(), List.of(), List.of(), LOC);
         var shape  = new ShapeStructDef("Money", List.of(), List.of(), List.of(), LOC);
         var enumDef = new EnumDef("OrderStatus", List.of(), List.of(),
                 List.of(EnumMember.of("PENDING", LOC), EnumMember.of("PAID", LOC)), LOC);
@@ -112,14 +113,19 @@ class ChronosModelTest {
         // Verify the sealed hierarchy covers all shape types — compiles only if exhaustive.
         for (ShapeDefinition shape : buildModel().shapes()) {
             String kind = switch (shape) {
-                case ActorDef      a -> "actor";
-                case EntityDef     e -> "entity";
-                case EnumDef       e -> "enum";
-                case JourneyDef    j -> "journey";
-                case ListDef       l -> "list";
-                case MapDef        m -> "map";
-                case PolicyDef     p -> "policy";
-                case ShapeStructDef s -> "shape";
+                case ActorDef        a -> "actor";
+                case DenyDef         d -> "deny";
+                case EntityDef       e -> "entity";
+                case EnumDef         en -> "enum";
+                case ErrorDef        er -> "error";
+                case InvariantDef    i -> "invariant";
+                case JourneyDef      j -> "journey";
+                case ListDef         l -> "list";
+                case MapDef          m -> "map";
+                case PolicyDef       p -> "policy";
+                case RelationshipDef r -> "relationship";
+                case ShapeStructDef  s -> "shape";
+                case StateMachineDef sm -> "statemachine";
             };
             assertNotNull(kind);
         }

@@ -4,3 +4,7 @@
 plugins {
     java
 }
+
+dependencies {
+    testImplementation(project(":chronos-parser"))
+}

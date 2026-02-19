@@ -9,7 +9,7 @@ import java.util.Optional;
  * <pre>
  *   variants: {
  *       PaymentDeclined: {
- *           trigger: "Payment gateway returns declined status"
+ *           trigger: PaymentDeclinedError
  *           steps: [
  *               step NotifyDecline {
  *                   expectation: "System displays payment declined message"
@@ -21,7 +21,7 @@ import java.util.Optional;
  * </pre>
  *
  * @param name     the variant name (PascalCase)
- * @param trigger  the condition that activates this variant
+ * @param trigger  the name of the error type that activates this variant (must reference a defined error)
  * @param steps    the steps within this variant (may be empty)
  * @param outcome  the terminal transition for this variant, or empty if not declared
  * @param location source location of the variant name token

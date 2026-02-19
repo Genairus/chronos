@@ -17,19 +17,27 @@ package com.genairus.chronos.model;
  *       case PolicyDef        p -> ...
  *       case JourneyDef       j -> ...
  *       case RelationshipDef  r -> ...
+ *       case InvariantDef     i -> ...
+ *       case DenyDef          d -> ...
+ *       case ErrorDef         e -> ...
+ *       case StateMachineDef  s -> ...
  *   }
  * </pre>
  */
 public sealed interface ShapeDefinition
         permits ActorDef,
+                DenyDef,
                 EntityDef,
                 EnumDef,
+                ErrorDef,
+                InvariantDef,
                 JourneyDef,
                 ListDef,
                 MapDef,
                 PolicyDef,
                 RelationshipDef,
-                ShapeStructDef {
+                ShapeStructDef,
+                StateMachineDef {
 
     /** The declared name of this shape (PascalCase). */
     String name();

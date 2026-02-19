@@ -474,18 +474,24 @@ class ChronosParserCoverageTest {
     void variantBody_noStepsNoOutcome() {
         var model = parse("""
                 namespace com.example
+                error ConnectionTimeoutError {
+                    code: "CONN_TIMEOUT"
+                    severity: high
+                    recoverable: true
+                    message: "Connection timed out"
+                }
                 journey Checkout {
                     actor: Customer
                     variants: {
                         NetworkError: {
-                            trigger: "Connection timed out"
+                            trigger: ConnectionTimeoutError
                         }
                     }
                 }
                 """);
         var variant = model.journeys().get(0).variants().get("NetworkError");
         assertNotNull(variant);
-        assertEquals("Connection timed out", variant.trigger());
+        assertEquals("ConnectionTimeoutError", variant.trigger());
         assertTrue(variant.steps().isEmpty());
         assertTrue(variant.outcome().isEmpty());
     }
@@ -494,11 +500,17 @@ class ChronosParserCoverageTest {
     void variantBody_noStepsWithOutcome() {
         var model = parse("""
                 namespace com.example
+                error TokenExpiredError {
+                    code: "TOKEN_EXPIRED"
+                    severity: medium
+                    recoverable: true
+                    message: "Token expired"
+                }
                 journey Checkout {
                     actor: Customer
                     variants: {
                         SessionExpired: {
-                            trigger: "Token expired"
+                            trigger: TokenExpiredError
                             outcome: TransitionTo(LoginPage)
                         }
                     }
@@ -516,11 +528,17 @@ class ChronosParserCoverageTest {
     void variantBody_withStepsNoOutcome() {
         var model = parse("""
                 namespace com.example
+                error LowInventoryError {
+                    code: "LOW_INVENTORY"
+                    severity: low
+                    recoverable: true
+                    message: "Low inventory"
+                }
                 journey Checkout {
                     actor: Customer
                     variants: {
                         StockWarning: {
-                            trigger: "Low inventory"
+                            trigger: LowInventoryError
                             steps: [
                                 step Notify {
                                     action: "show banner"
@@ -542,19 +560,37 @@ class ChronosParserCoverageTest {
     void variantsDecl_multipleVariants() {
         var model = parse("""
                 namespace com.example
+                error CardDeclinedError {
+                    code: "CARD_DECLINED"
+                    severity: high
+                    recoverable: true
+                    message: "Card declined"
+                }
+                error ConnectionFailedError {
+                    code: "CONN_FAILED"
+                    severity: high
+                    recoverable: true
+                    message: "Connection failed"
+                }
+                error TokenExpiredError {
+                    code: "TOKEN_EXPIRED"
+                    severity: medium
+                    recoverable: true
+                    message: "Token expired"
+                }
                 journey Checkout {
                     actor: Customer
                     variants: {
                         PaymentDeclined: {
-                            trigger: "Card declined"
+                            trigger: CardDeclinedError
                             outcome: ReturnToStep(EnterCard)
                         },
                         NetworkError: {
-                            trigger: "Connection failed"
+                            trigger: ConnectionFailedError
                             outcome: TransitionTo(ErrorPage)
                         },
                         SessionExpired: {
-                            trigger: "Token expired"
+                            trigger: TokenExpiredError
                             outcome: TransitionTo(LoginPage)
                         }
                     }

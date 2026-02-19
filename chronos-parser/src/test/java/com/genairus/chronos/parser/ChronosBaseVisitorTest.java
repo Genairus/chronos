@@ -137,6 +137,12 @@ class ChronosBaseVisitorTest {
         // visitOutcomesDecl  visitOutcomeEntry
         var tree = parseTree("""
                 namespace com.example
+                error CardDeclinedError {
+                    code: "CARD_DECLINED"
+                    severity: high
+                    recoverable: true
+                    message: "Card declined"
+                }
                 journey Checkout {
                     actor: Customer
                     preconditions: ["Cart not empty", "User ready"]
@@ -156,7 +162,7 @@ class ChronosBaseVisitorTest {
                     ]
                     variants: {
                         Declined: {
-                            trigger: "Card declined"
+                            trigger: CardDeclinedError
                             steps: [
                                 step Notify {
                                     action: "show error"

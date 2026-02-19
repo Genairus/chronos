@@ -264,11 +264,23 @@ public class ChronosModelBuilder extends ChronosBaseVisitor<Object> {
     public Object visitEntityDef(ChronosParser.EntityDefContext ctx) {
         List<TraitApplication> traits     = consumePendingTraits();
         List<String>           docComments = consumePendingDocComments();
-        String name = ctx.ID().getText();
-        List<FieldDef> fields = ctx.fieldDef().stream()
-                .map(f -> (FieldDef) visit(f))
-                .toList();
-        return new EntityDef(name, traits, docComments, fields, loc(ctx));
+        String name = ctx.ID(0).getText();
+        Optional<String> parentType = ctx.ID().size() > 1
+                ? Optional.of(ctx.ID(1).getText())
+                : Optional.empty();
+
+        // Collect fields and invariants from entityMember
+        List<FieldDef> fields = new ArrayList<>();
+        List<EntityInvariant> invariants = new ArrayList<>();
+        for (ChronosParser.EntityMemberContext member : ctx.entityMember()) {
+            if (member.fieldDef() != null) {
+                fields.add((FieldDef) visit(member.fieldDef()));
+            } else if (member.entityInvariant() != null) {
+                invariants.add((EntityInvariant) visit(member.entityInvariant()));
+            }
+        }
+
+        return new EntityDef(name, traits, docComments, parentType, fields, invariants, loc(ctx));
     }
 
     // ── shapeStructDef ────────────────────────────────────────────────────────
@@ -336,8 +348,11 @@ public class ChronosModelBuilder extends ChronosBaseVisitor<Object> {
     public Object visitActorDef(ChronosParser.ActorDefContext ctx) {
         List<TraitApplication> traits     = consumePendingTraits();
         List<String>           docComments = consumePendingDocComments();
-        String name = ctx.ID().getText();
-        return new ActorDef(name, traits, docComments, loc(ctx));
+        String name = ctx.ID(0).getText();
+        Optional<String> parentType = ctx.ID().size() > 1
+                ? Optional.of(ctx.ID(1).getText())
+                : Optional.empty();
+        return new ActorDef(name, traits, docComments, parentType, loc(ctx));
     }
 
     // ── policyDef ─────────────────────────────────────────────────────────────
@@ -374,6 +389,185 @@ public class ChronosModelBuilder extends ChronosBaseVisitor<Object> {
 
         return new RelationshipDef(name, traits, docComments,
                 fromEntity, toEntity, cardinality, semantics, inverseField, loc(ctx));
+    }
+
+    // ── entityInvariant ───────────────────────────────────────────────────────
+
+    @Override
+    public Object visitEntityInvariant(ChronosParser.EntityInvariantContext ctx) {
+        String name = ctx.ID().getText();
+        String expression = "";
+        String severity = "";
+        Optional<String> message = Optional.empty();
+
+        for (ChronosParser.InvariantFieldContext field : ctx.invariantField()) {
+            if (field.getChild(0).getText().equals("expression")) {
+                expression = unquote(field.STRING().getText());
+            } else if (field.getChild(0).getText().equals("severity")) {
+                // severity can be ID or 'error' keyword
+                severity = field.ID(0) != null ? field.ID(0).getText() : field.getChild(2).getText();
+            } else if (field.getChild(0).getText().equals("message")) {
+                message = Optional.of(unquote(field.STRING().getText()));
+            }
+        }
+
+        return new EntityInvariant(name, expression, severity, message, loc(ctx));
+    }
+
+    // ── invariantDef ──────────────────────────────────────────────────────────
+
+    @Override
+    public Object visitInvariantDef(ChronosParser.InvariantDefContext ctx) {
+        List<TraitApplication> traits     = consumePendingTraits();
+        List<String>           docComments = consumePendingDocComments();
+        String name = ctx.ID().getText();
+
+        List<String> scope = List.of();
+        String expression = "";
+        String severity = "";
+        Optional<String> message = Optional.empty();
+
+        for (ChronosParser.InvariantFieldContext field : ctx.invariantField()) {
+            String fieldName = field.getChild(0).getText();
+            if (fieldName.equals("scope")) {
+                scope = field.ID().stream()
+                        .map(id -> id.getText())
+                        .toList();
+            } else if (fieldName.equals("expression")) {
+                expression = unquote(field.STRING().getText());
+            } else if (fieldName.equals("severity")) {
+                // severity can be ID or 'error' keyword
+                severity = field.ID(0) != null ? field.ID(0).getText() : field.getChild(2).getText();
+            } else if (fieldName.equals("message")) {
+                message = Optional.of(unquote(field.STRING().getText()));
+            }
+        }
+
+        return new InvariantDef(name, traits, docComments, scope, expression, severity, message, loc(ctx));
+    }
+
+    // ── denyDef ───────────────────────────────────────────────────────────────
+
+    @Override
+    public Object visitDenyDef(ChronosParser.DenyDefContext ctx) {
+        List<TraitApplication> traits     = consumePendingTraits();
+        List<String>           docComments = consumePendingDocComments();
+        String name = ctx.ID().getText();
+
+        String description = "";
+        List<String> scope = List.of();
+        String severity = "";
+
+        for (ChronosParser.DenyFieldContext field : ctx.denyField()) {
+            String fieldName = field.getChild(0).getText();
+            if (fieldName.equals("description")) {
+                description = unquote(field.STRING().getText());
+            } else if (fieldName.equals("scope")) {
+                scope = field.ID().stream()
+                        .map(id -> id.getText())
+                        .toList();
+            } else if (fieldName.equals("severity")) {
+                severity = field.ID(0).getText();
+            }
+        }
+
+        return new DenyDef(name, traits, docComments, description, scope, severity, loc(ctx));
+    }
+
+    // ── errorDef ──────────────────────────────────────────────────────────────
+
+    @Override
+    public Object visitErrorDef(ChronosParser.ErrorDefContext ctx) {
+        List<TraitApplication> traits     = consumePendingTraits();
+        List<String>           docComments = consumePendingDocComments();
+        String name = ctx.ID().getText();
+
+        String code = "";
+        String severity = "";
+        boolean recoverable = false;
+        String message = "";
+        List<FieldDef> payload = List.of();
+
+        for (ChronosParser.ErrorFieldContext field : ctx.errorField()) {
+            String fieldName = field.getChild(0).getText();
+            if (fieldName.equals("code")) {
+                code = unquote(field.STRING().getText());
+            } else if (fieldName.equals("severity")) {
+                severity = field.ID().getText();
+            } else if (fieldName.equals("recoverable")) {
+                recoverable = Boolean.parseBoolean(field.BOOL().getText());
+            } else if (fieldName.equals("message")) {
+                message = unquote(field.STRING().getText());
+            } else if (fieldName.equals("payload")) {
+                payload = field.fieldDef().stream()
+                        .map(f -> (FieldDef) visit(f))
+                        .toList();
+            }
+        }
+
+        return new ErrorDef(name, traits, docComments, code, severity, recoverable, message, payload, loc(ctx));
+    }
+
+    @Override
+    public Object visitStatemachineDef(ChronosParser.StatemachineDefContext ctx) {
+        List<TraitApplication> traits     = consumePendingTraits();
+        List<String>           docComments = consumePendingDocComments();
+        String name = ctx.ID().getText();
+
+        String entityName = "";
+        String fieldName = "";
+        List<String> states = List.of();
+        String initialState = "";
+        List<String> terminalStates = List.of();
+        List<Transition> transitions = List.of();
+
+        for (ChronosParser.StatemachineFieldContext field : ctx.statemachineField()) {
+            String fieldType = field.getChild(0).getText();
+            if (fieldType.equals("entity")) {
+                entityName = field.ID(0).getText();
+            } else if (fieldType.equals("field")) {
+                fieldName = field.ID(0).getText();
+            } else if (fieldType.equals("states")) {
+                states = field.ID().stream()
+                        .map(org.antlr.v4.runtime.tree.TerminalNode::getText)
+                        .toList();
+            } else if (fieldType.equals("initial")) {
+                initialState = field.ID(0).getText();
+            } else if (fieldType.equals("terminal")) {
+                terminalStates = field.ID().stream()
+                        .map(org.antlr.v4.runtime.tree.TerminalNode::getText)
+                        .toList();
+            } else if (fieldType.equals("transitions")) {
+                transitions = field.transition().stream()
+                        .map(t -> (Transition) visitTransition(t))
+                        .toList();
+            }
+        }
+
+        return new StateMachineDef(name, traits, docComments, entityName, fieldName,
+                states, initialState, terminalStates, transitions, loc(ctx));
+    }
+
+    @Override
+    public Object visitTransition(ChronosParser.TransitionContext ctx) {
+        String fromState = ctx.ID(0).getText();
+        String toState = ctx.ID(1).getText();
+
+        Optional<String> guard = Optional.empty();
+        Optional<String> action = Optional.empty();
+
+        if (ctx.transitionBody() != null) {
+            for (ChronosParser.TransitionFieldContext field : ctx.transitionBody().transitionField()) {
+                String fieldType = field.getChild(0).getText();
+                if (fieldType.equals("guard")) {
+                    guard = Optional.of(unquote(field.STRING().getText()));
+                } else if (fieldType.equals("action")) {
+                    action = Optional.of(unquote(field.STRING().getText()));
+                }
+            }
+        }
+
+        return new Transition(fromState, toState, guard, action, loc(ctx));
     }
 
     // ── outcomeExpr ───────────────────────────────────────────────────────────
@@ -449,7 +643,7 @@ public class ChronosModelBuilder extends ChronosBaseVisitor<Object> {
 
     @Override
     public Object visitVariantBody(ChronosParser.VariantBodyContext ctx) {
-        String trigger = unquote(ctx.STRING().getText());
+        String trigger = ctx.ID().getText();  // Now references an error type, not a string
         SourceLocation loc = loc(ctx);
 
         List<Step> steps = ctx.step().stream()

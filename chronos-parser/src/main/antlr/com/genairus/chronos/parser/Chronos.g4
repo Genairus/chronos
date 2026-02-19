@@ -38,6 +38,10 @@ shapeDef
     | policyDef
     | journeyDef
     | relationshipDef
+    | invariantDef
+    | denyDef
+    | errorDef
+    | statemachineDef
     ;
 
 // ─── Trait System ─────────────────────────────────────────────────────────────
@@ -88,6 +92,13 @@ traitId
     | 'cardinality'
     | 'semantics'
     | 'inverse'
+    | 'statemachine'
+    | 'field'
+    | 'states'
+    | 'initial'
+    | 'terminal'
+    | 'transitions'
+    | 'guard'
     ;
 
 traitArgList
@@ -140,11 +151,20 @@ primitiveType
 //   }
 
 entityDef
-    : 'entity' ID '{' fieldDef* '}'
+    : 'entity' ID ('extends' ID)? '{' entityMember* '}'
+    ;
+
+entityMember
+    : fieldDef
+    | entityInvariant
     ;
 
 fieldDef
     : traitApplication* ID ':' typeRef
+    ;
+
+entityInvariant
+    : 'invariant' ID '{' invariantField+ '}'
     ;
 
 // ─── Shape (Value Object) ─────────────────────────────────────────────────────
@@ -196,7 +216,7 @@ enumMember
 //   actor AuthenticatedUser
 
 actorDef
-    : 'actor' ID
+    : 'actor' ID ('extends' ID)?
     ;
 
 // ─── Policy ───────────────────────────────────────────────────────────────────
@@ -300,10 +320,11 @@ outcomeExpr
 
 // ─── Variants ─────────────────────────────────────────────────────────────────
 // 1.14  Named branches for alternative or error flows.
+// 2.3   Variant triggers must reference a defined error type (CHR-027).
 //
 //   variants: {
 //       PaymentDeclined: {
-//           trigger: "Gateway returns declined status"
+//           trigger: PaymentDeclinedError
 //           steps: [ step Notify { expectation: "..." } ]
 //           outcome: ReturnToStep(ChoosePayment)
 //       }
@@ -318,7 +339,7 @@ variantEntry
     ;
 
 variantBody
-    : 'trigger' ':' STRING
+    : 'trigger' ':' ID
       ('steps' ':' '[' step (',' step)* ']')?
       ('outcome' ':' outcomeExpr)?
     ;
@@ -337,6 +358,125 @@ outcomesDecl
 
 outcomeEntry
     : ('success' | 'failure') ':' STRING
+    ;
+
+// ─── Invariants ───────────────────────────────────────────────────────────────
+// 2.1  Global invariants and entity-scoped invariants.
+//
+// Global invariant:
+//   invariant ActiveOrderLimit {
+//       scope: [Customer, Order]
+//       expression: "count(customer.orders, o => o.status == PENDING) <= 10"
+//       severity: warning
+//       message: "Customer should not exceed 10 pending orders"
+//   }
+//
+// Entity-scoped invariant (inside entity block):
+//   invariant TotalMatchesItems {
+//       expression: "total.amount == sum(items, i => i.unitPrice.amount * i.quantity)"
+//       severity: error
+//   }
+
+invariantDef
+    : 'invariant' ID '{' invariantField+ '}'
+    ;
+
+invariantField
+    : 'scope' ':' '[' ID (',' ID)* ']'
+    | 'expression' ':' STRING
+    | 'severity' ':' (ID | 'error')
+    | 'message' ':' STRING
+    ;
+
+// ─── Deny (Negative Requirements) ────────────────────────────────────────────
+// 2.2  deny blocks express prohibitions — things the system must never do.
+//
+// Example:
+//   deny StorePlaintextPasswords {
+//       description: "The system must never store passwords in plaintext"
+//       scope: [UserCredential]
+//       severity: critical
+//   }
+
+denyDef
+    : 'deny' ID '{' denyField+ '}'
+    ;
+
+denyField
+    : 'description' ':' STRING
+    | 'scope' ':' '[' ID (',' ID)* ']'
+    | 'severity' ':' ID
+    ;
+
+// ─── Error (Typed Error Construct) ───────────────────────────────────────────
+// 2.3  error blocks define typed error conditions with codes, severity,
+//      recoverability, and optional payloads.
+//
+// Example:
+//   error PaymentDeclinedError {
+//       code: "PAY-001"
+//       severity: high
+//       recoverable: true
+//       message: "Payment was declined by the gateway"
+//       payload: {
+//           gatewayCode: String
+//           retryable: Boolean
+//       }
+//   }
+
+errorDef
+    : 'error' ID '{' errorField+ '}'
+    ;
+
+errorField
+    : 'code' ':' STRING
+    | 'severity' ':' ID
+    | 'recoverable' ':' BOOL
+    | 'message' ':' STRING
+    | 'payload' ':' '{' fieldDef* '}'
+    ;
+
+// ─── State Machine ────────────────────────────────────────────────────────────
+
+// statemachine OrderLifecycle {
+//     entity: Order
+//     field: status
+//     states: [PENDING, PAID, SHIPPED, DELIVERED, CANCELLED]
+//     initial: PENDING
+//     terminal: [DELIVERED, CANCELLED]
+//     transitions: [
+//         PENDING -> PAID {
+//             guard: "payment.status == APPROVED"
+//             action: "Emit OrderPaidEvent"
+//         },
+//         ...
+//     ]
+// }
+
+statemachineDef
+    : 'statemachine' ID '{' statemachineField* '}'
+    ;
+
+statemachineField
+    : 'entity' ':' ID
+    | 'field' ':' ID
+    | 'states' ':' '[' ID (',' ID)* ']'
+    | 'initial' ':' ID
+    | 'terminal' ':' '[' ID (',' ID)* ']'
+    | 'transitions' ':' '[' transition (',' transition)* ']'
+    ;
+
+transition
+    : ID '->' ID ('{' transitionBody '}')?
+    ;
+
+transitionBody
+    : transitionField*
+    ;
+
+transitionField
+    : 'guard' ':' STRING
+    | 'action' ':' STRING
     ;
 
 // ─── Shared ───────────────────────────────────────────────────────────────────

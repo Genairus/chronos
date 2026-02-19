@@ -92,6 +92,38 @@ public record ChronosModel(
                 .toList();
     }
 
+    /** All global invariant definitions in source order. */
+    public List<InvariantDef> invariants() {
+        return shapes.stream()
+                .filter(s -> s instanceof InvariantDef)
+                .map(s -> (InvariantDef) s)
+                .toList();
+    }
+
+    /** All deny definitions (negative requirements) in source order. */
+    public List<DenyDef> denies() {
+        return shapes.stream()
+                .filter(s -> s instanceof DenyDef)
+                .map(s -> (DenyDef) s)
+                .toList();
+    }
+
+    /** All error definitions (typed error constructs) in source order. */
+    public List<ErrorDef> errors() {
+        return shapes.stream()
+                .filter(s -> s instanceof ErrorDef)
+                .map(s -> (ErrorDef) s)
+                .toList();
+    }
+
+    /** All state machine definitions in source order. */
+    public List<StateMachineDef> stateMachines() {
+        return shapes.stream()
+                .filter(s -> s instanceof StateMachineDef)
+                .map(s -> (StateMachineDef) s)
+                .toList();
+    }
+
     // ── Lookup ─────────────────────────────────────────────────────────────────
 
     /**

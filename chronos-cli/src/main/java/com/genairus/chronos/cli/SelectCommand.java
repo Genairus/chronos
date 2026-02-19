@@ -1,10 +1,8 @@
 package com.genairus.chronos.cli;
 
-import com.genairus.chronos.model.ChronosModel;
+import com.genairus.chronos.model.*;
 import com.genairus.chronos.parser.ChronosModelParser;
 import com.genairus.chronos.parser.ChronosParseException;
-import com.genairus.chronos.validator.ChronosValidator;
-import com.genairus.chronos.validator.ValidationSeverity;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
@@ -17,11 +15,11 @@ import java.io.IOException;
 import java.util.concurrent.Callable;
 
 @Command(
-    name = "validate",
-    description = "Validate a .chronos file without generating output",
+    name = "select",
+    description = "Print top-level shapes whose name contains PATTERN (case-insensitive)",
     mixinStandardHelpOptions = true
 )
-public class ValidateCommand implements Callable<Integer> {
+public class SelectCommand implements Callable<Integer> {
 
     @ParentCommand
     private ChronosCli parent;
@@ -29,11 +27,16 @@ public class ValidateCommand implements Callable<Integer> {
     @Spec
     private CommandSpec spec;
 
-    @Parameters(index = "0", description = "The .chronos file to validate", paramLabel = "FILE")
+    @Parameters(index = "0", description = "The .chronos file to inspect", paramLabel = "FILE")
     private File inputFile;
 
-    @Option(names = {"-v", "--verbose"}, description = "Print a success message when the model is clean")
-    private boolean verbose = false;
+    @Option(
+        names = {"-p", "--pattern"},
+        description = "Case-insensitive substring to match against shape names",
+        paramLabel = "PATTERN",
+        required = true
+    )
+    private String pattern;
 
     @Override
     public Integer call() {
@@ -55,23 +58,26 @@ public class ValidateCommand implements Callable<Integer> {
             return 1;
         }
 
-        var result = new ChronosValidator().validate(model);
-
-        for (var issue : result.issues()) {
-            if (issue.severity() == ValidationSeverity.ERROR) {
-                console.error(issue.toString());
-            } else {
-                console.warning(issue.toString());
+        String lowerPattern = pattern.toLowerCase();
+        for (ShapeDefinition shape : model.shapes()) {
+            if (shape.name().toLowerCase().contains(lowerPattern)) {
+                console.plain(typeName(shape) + "  " + shape.name() + "  " + shape.location());
             }
         }
 
-        if (result.hasErrors()) {
-            return 1;
-        }
-
-        if (verbose) {
-            console.success("✓ No issues found");
-        }
         return 0;
+    }
+
+    private static String typeName(ShapeDefinition shape) {
+        return switch (shape) {
+            case EntityDef      e -> "entity";
+            case ShapeStructDef s -> "shape";
+            case ListDef        l -> "list";
+            case MapDef         m -> "map";
+            case EnumDef        en -> "enum";
+            case ActorDef       a -> "actor";
+            case PolicyDef      p -> "policy";
+            case JourneyDef     j -> "journey";
+        };
     }
 }

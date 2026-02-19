@@ -29,3 +29,6 @@ replay_pid*
 # Ignore Gradle build output directory
 build
 .idea
+chronos-parser/src/main/antlr/com/genairus/chronos/parser/Chronos.g4
+
+.DS_Store

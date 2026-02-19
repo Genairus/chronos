@@ -37,6 +37,7 @@ shapeDef
     | actorDef
     | policyDef
     | journeyDef
+    | relationshipDef
     ;
 
 // ─── Trait System ─────────────────────────────────────────────────────────────
@@ -81,6 +82,12 @@ traitId
     | 'variants'
     | 'namespace'
     | 'use'
+    | 'relationship'
+    | 'from'
+    | 'to'
+    | 'cardinality'
+    | 'semantics'
+    | 'inverse'
     ;
 
 traitArgList
@@ -202,6 +209,41 @@ actorDef
 
 policyDef
     : 'policy' ID '{' 'description' ':' STRING '}'
+    ;
+
+// ─── Relationship ─────────────────────────────────────────────────────────
+// 1.11  First-class relationship between entities.
+//
+//   @description("Order contains line items")
+//   relationship OrderItems {
+//       from: Order
+//       to: OrderItem
+//       cardinality: one_to_many
+//       semantics: composition
+//   }
+
+relationshipDef
+    : 'relationship' ID '{' relationshipBody '}'
+    ;
+
+relationshipBody
+    : 'from' ':' ID
+      'to' ':' ID
+      'cardinality' ':' cardinalityValue
+      ('semantics' ':' semanticsValue)?
+      ('inverse' ':' ID)?
+    ;
+
+cardinalityValue
+    : 'one_to_one'
+    | 'one_to_many'
+    | 'many_to_many'
+    ;
+
+semanticsValue
+    : 'association'
+    | 'aggregation'
+    | 'composition'
     ;
 
 // ─── Journey ──────────────────────────────────────────────────────────────────

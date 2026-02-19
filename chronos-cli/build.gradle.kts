@@ -13,11 +13,13 @@ tasks.named<JavaExec>("run") {
 }
 
 dependencies {
+    implementation(project(":chronos-model"))
     implementation(project(":chronos-parser"))
     implementation(project(":chronos-validator"))
     implementation(project(":chronos-generators"))
     implementation("info.picocli:picocli:4.7.5")
     annotationProcessor("info.picocli:picocli-codegen:4.7.5")  // Graal-enables the jar
+    implementation("com.google.code.gson:gson:2.10.1")
 }
 
 graalvmNative {

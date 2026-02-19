@@ -1,17 +1,36 @@
 package com.genairus.chronos.cli;
 
+import com.genairus.chronos.generators.ChronosGenerator;
+import com.genairus.chronos.generators.GeneratorRegistry;
+import com.genairus.chronos.model.ChronosModel;
+import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.parser.ChronosParseException;
+import com.genairus.chronos.validator.ChronosValidator;
+import com.genairus.chronos.validator.ValidationSeverity;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
+import picocli.CommandLine.ParentCommand;
+import picocli.CommandLine.Spec;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.concurrent.Callable;
 
 @Command(
     name = "generate",
     description = "Generate artifacts from a .chronos file",
     mixinStandardHelpOptions = true
 )
-public class GenerateCommand implements Runnable {
+public class GenerateCommand implements Callable<Integer> {
+
+    @ParentCommand
+    private ChronosCli parent;
+
+    @Spec
+    private CommandSpec spec;
 
     @Parameters(
         index = "0",
@@ -22,10 +41,10 @@ public class GenerateCommand implements Runnable {
 
     @Option(
         names = {"-t", "--target"},
-        description = "Target output format: gherkin, jira, otel, mermaid (default: gherkin)",
+        description = "Output format (known targets: markdown, prd; default: markdown)",
         paramLabel = "TARGET"
     )
-    private String target = "gherkin";
+    private String target = "markdown";
 
     @Option(
         names = {"-o", "--output"},
@@ -35,33 +54,72 @@ public class GenerateCommand implements Runnable {
     private File outputDir = new File("./generated");
 
     @Override
-    public void run() {
+    public Integer call() {
+        var console = parent.console(spec.commandLine().getOut(), spec.commandLine().getErr());
+
         if (!inputFile.exists()) {
-            System.err.println("Error: File not found: " + inputFile.getPath());
-            System.exit(1);
+            console.error("Error: File not found: " + inputFile.getPath());
+            return 1;
         }
 
-        if (!inputFile.getName().endsWith(".chronos")) {
-            System.err.println("Warning: File does not have .chronos extension: " + inputFile.getName());
+        // Validate target before doing any expensive work
+        ChronosGenerator generator;
+        try {
+            generator = GeneratorRegistry.get(target);
+        } catch (IllegalArgumentException e) {
+            var known = GeneratorRegistry.knownTargets().stream().sorted()
+                    .reduce((a, b) -> a + ", " + b).orElse("(none)");
+            console.error("Unknown target '" + target + "'. Known targets: " + known);
+            return 1;
         }
 
+        // Parse
+        ChronosModel model;
+        try {
+            model = ChronosModelParser.parseFile(inputFile.toPath());
+        } catch (ChronosParseException e) {
+            console.exception(e);
+            return 1;
+        } catch (IOException e) {
+            console.error("Error reading file: " + e.getMessage());
+            return 1;
+        }
+
+        // Validate — print all issues, exit 1 on any error
+        var result = new ChronosValidator().validate(model);
+        if (result.hasErrors()) {
+            for (var issue : result.issues()) {
+                if (issue.severity() == ValidationSeverity.ERROR) {
+                    console.error(issue.toString());
+                } else {
+                    console.warning(issue.toString());
+                }
+            }
+            return 1;
+        }
+
+        // Generate
+        var output = generator.generate(model);
+
+        // Write files to outputDir
         if (!outputDir.exists()) {
             if (!outputDir.mkdirs()) {
-                System.err.println("Error: Could not create output directory: " + outputDir.getPath());
-                System.exit(1);
+                console.error("Error: Could not create output directory: " + outputDir.getPath());
+                return 1;
             }
         }
 
-        System.out.println("Compiling : " + inputFile.getPath());
-        System.out.println("Target    : " + target);
-        System.out.println("Output    : " + outputDir.getPath());
+        for (var entry : output.files().entrySet()) {
+            var dest = outputDir.toPath().resolve(entry.getKey());
+            try {
+                Files.writeString(dest, entry.getValue());
+                console.plain("Wrote: " + dest.toAbsolutePath());
+            } catch (IOException e) {
+                console.error("Error writing " + dest + ": " + e.getMessage());
+                return 1;
+            }
+        }
 
-        // TODO: wire in the real pipeline once parser and generators are built:
-        // 1. ChronosParser.parse(inputFile)    → ChronosModel
-        // 2. ChronosValidator.validate(model)  → ValidationResult
-        // 3. if validation fails, print errors and exit(1)
-        // 4. GeneratorRegistry.get(target).generate(model, outputDir)
-
-        System.out.println("Done.");
+        return 0;
     }
 }

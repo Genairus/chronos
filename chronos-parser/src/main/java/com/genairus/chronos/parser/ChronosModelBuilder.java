@@ -351,6 +351,31 @@ public class ChronosModelBuilder extends ChronosBaseVisitor<Object> {
         return new PolicyDef(name, description, traits, docComments, loc(ctx));
     }
 
+    // ── relationshipDef ───────────────────────────────────────────────────────
+
+    @Override
+    public Object visitRelationshipDef(ChronosParser.RelationshipDefContext ctx) {
+        List<TraitApplication> traits     = consumePendingTraits();
+        List<String>           docComments = consumePendingDocComments();
+        String name = ctx.ID().getText();
+
+        ChronosParser.RelationshipBodyContext body = ctx.relationshipBody();
+        String fromEntity = body.ID(0).getText();
+        String toEntity   = body.ID(1).getText();
+        Cardinality cardinality = Cardinality.fromChronosName(body.cardinalityValue().getText());
+
+        Optional<RelationshipSemantics> semantics = body.semanticsValue() != null
+                ? Optional.of(RelationshipSemantics.fromChronosName(body.semanticsValue().getText()))
+                : Optional.empty();
+
+        Optional<String> inverseField = body.ID().size() > 2
+                ? Optional.of(body.ID(2).getText())
+                : Optional.empty();
+
+        return new RelationshipDef(name, traits, docComments,
+                fromEntity, toEntity, cardinality, semantics, inverseField, loc(ctx));
+    }
+
     // ── outcomeExpr ───────────────────────────────────────────────────────────
 
     @Override

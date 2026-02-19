@@ -84,6 +84,14 @@ public record ChronosModel(
                 .toList();
     }
 
+    /** All relationship definitions in source order. */
+    public List<RelationshipDef> relationships() {
+        return shapes.stream()
+                .filter(s -> s instanceof RelationshipDef)
+                .map(s -> (RelationshipDef) s)
+                .toList();
+    }
+
     // ── Lookup ─────────────────────────────────────────────────────────────────
 
     /**

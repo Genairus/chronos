@@ -1,0 +1,100 @@
+namespace com.example.checkout
+
+use com.example.shared#Currency
+
+/// A single line item in the shopping cart.
+entity CartItem {
+    @required
+    id: String
+    quantity: Integer
+    price: Long
+    discount: Float
+    active: Boolean
+    createdAt: Timestamp
+    thumbnail: Blob
+    metadata: Document
+}
+
+shape Money {
+    amount: Float
+    currency: Currency
+}
+
+list CartItemList {
+    member: CartItem
+}
+
+map TagMap {
+    key: String
+    value: List<String>
+}
+
+enum PaymentStatus {
+    PENDING = 1
+    PROCESSING = 2
+    PAID = 3
+    DECLINED = 4
+}
+
+enum CartState {
+    EMPTY
+    ACTIVE
+    ABANDONED
+    CHECKED_OUT
+}
+
+@description("A registered shopper who can add items to the cart and complete purchases")
+actor Customer
+
+@compliance("PCI-DSS")
+policy PaymentSecurity {
+    description: "Payment card data must never be stored in plaintext"
+}
+
+/// Guides a registered customer through the checkout process.
+@kpi(metric: "checkout_completion_rate", target: "95%")
+@compliance("PCI-DSS")
+journey CheckoutJourney {
+    actor: Customer
+    preconditions: [
+        "Cart contains at least one item",
+        "Customer is authenticated"
+    ]
+    steps: [
+        step ReviewCart {
+            action: "Customer reviews cart contents"
+            expectation: "Cart summary is displayed with correct totals"
+            telemetry: [CartReviewed, PageViewed]
+            risk: "Stale price data may cause discrepancy"
+        },
+        step EnterPaymentDetails {
+            action: "Customer enters payment card details"
+            expectation: "Payment form validates and tokenises card"
+            telemetry: [PaymentFormOpened]
+            risk: "PCI scope expansion if card data is logged"
+        },
+        step ConfirmOrder {
+            action: "Customer submits the order"
+            expectation: "Order record is persisted with status PENDING"
+            outcome: TransitionTo(OrderConfirmed)
+            telemetry: [OrderSubmitted]
+        }
+    ]
+    variants: {
+        PaymentDeclined: {
+            trigger: "Payment gateway returns a declined response"
+            steps: [
+                step NotifyDeclined {
+                    action: "System notifies customer of the decline"
+                    expectation: "Error message is displayed with retry option"
+                    outcome: ReturnToStep(EnterPaymentDetails)
+                }
+            ]
+            outcome: ReturnToStep(EnterPaymentDetails)
+        }
+    }
+    outcomes: {
+        success: "Order record exists with status PAID and confirmation email sent",
+        failure: "Cart remains intact and no charge is made"
+    }
+}

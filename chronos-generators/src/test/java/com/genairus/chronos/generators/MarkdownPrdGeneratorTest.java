@@ -462,7 +462,8 @@ class MarkdownPrdGeneratorTest {
                 new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), LOC);
         var doc = md(model(listDef));
         assertTrue(doc.contains("### Collections"));
-        assertTrue(doc.contains("- **Tags** — `List<String>`"));
+        assertTrue(doc.contains("#### Tags"));
+        assertTrue(doc.contains("`List<String>`"));
     }
 
     @Test
@@ -471,7 +472,8 @@ class MarkdownPrdGeneratorTest {
                 new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING),
                 new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), LOC);
         var doc = md(model(mapDef));
-        assertTrue(doc.contains("- **Headers** — `Map<String, String>`"));
+        assertTrue(doc.contains("#### Headers"));
+        assertTrue(doc.contains("`Map<String, String>`"));
     }
 
     // ── Actors ────────────────────────────────────────────────────────────────
@@ -482,14 +484,16 @@ class MarkdownPrdGeneratorTest {
                 List.of(trait("description", "A guest user")), List.of(), Optional.empty(), LOC);
         var doc = md(model(actor));
         assertTrue(doc.contains("## Actors"));
-        assertTrue(doc.contains("| Customer | A guest user |"));
+        assertTrue(doc.contains("#### Customer"));
+        assertTrue(doc.contains("**Description:** A guest user"));
     }
 
     @Test
     void actorWithoutDescriptionShowsDash() {
         var actor = new ActorDef("Customer", List.of(), List.of(), Optional.empty(), LOC);
         var doc = md(model(actor));
-        assertTrue(doc.contains("| Customer | — |"));
+        assertTrue(doc.contains("#### Customer"));
+        assertTrue(doc.contains("**Description:** —"));
     }
 
     // ── Policies ─────────────────────────────────────────────────────────────
@@ -501,14 +505,18 @@ class MarkdownPrdGeneratorTest {
                 "Personal data purged after 7 years", LOC);
         var doc = md(model(policy));
         assertTrue(doc.contains("## Policies"));
-        assertTrue(doc.contains("| DataRetention | Personal data purged after 7 years | GDPR |"));
+        assertTrue(doc.contains("#### DataRetention"));
+        assertTrue(doc.contains("**Description:** Personal data purged after 7 years"));
+        assertTrue(doc.contains("**Compliance:** GDPR"));
     }
 
     @Test
     void policyWithoutComplianceShowsDash() {
         var policy = new PolicyDef("InternalPolicy", List.of(), List.of(), "Keep data", LOC);
         var doc = md(model(policy));
-        assertTrue(doc.contains("| InternalPolicy | Keep data | — |"));
+        assertTrue(doc.contains("#### InternalPolicy"));
+        assertTrue(doc.contains("**Description:** Keep data"));
+        assertFalse(doc.contains("**Compliance:**"));
     }
 
     // ── Prohibitions ──────────────────────────────────────────────────────────
@@ -524,7 +532,11 @@ class MarkdownPrdGeneratorTest {
                 LOC);
         var doc = md(model(deny));
         assertTrue(doc.contains("## Prohibitions"));
-        assertTrue(doc.contains("| StorePlaintextPasswords | The system must never store passwords in plaintext | UserCredential | critical | PCI-DSS |"));
+        assertTrue(doc.contains("#### StorePlaintextPasswords"));
+        assertTrue(doc.contains("**Description:** The system must never store passwords in plaintext"));
+        assertTrue(doc.contains("**Scope:** UserCredential"));
+        assertTrue(doc.contains("**Severity:** critical"));
+        assertTrue(doc.contains("**Compliance:** PCI-DSS"));
     }
 
     @Test
@@ -537,7 +549,11 @@ class MarkdownPrdGeneratorTest {
                 "low",
                 LOC);
         var doc = md(model(deny));
-        assertTrue(doc.contains("| InternalProhibition | Do not do this | Entity1 | low | — |"));
+        assertTrue(doc.contains("#### InternalProhibition"));
+        assertTrue(doc.contains("**Description:** Do not do this"));
+        assertTrue(doc.contains("**Scope:** Entity1"));
+        assertTrue(doc.contains("**Severity:** low"));
+        assertFalse(doc.contains("**Compliance:**"));
     }
 
     @Test
@@ -550,7 +566,9 @@ class MarkdownPrdGeneratorTest {
                 "critical",
                 LOC);
         var doc = md(model(deny));
-        assertTrue(doc.contains("| ExposePIIInLogs | PII must never appear in logs | CustomerProfile, PaymentInfo | critical | GDPR |"));
+        assertTrue(doc.contains("#### ExposePIIInLogs"));
+        assertTrue(doc.contains("**Scope:** CustomerProfile, PaymentInfo"));
+        assertTrue(doc.contains("**Compliance:** GDPR"));
     }
 
     @Test
@@ -579,7 +597,10 @@ class MarkdownPrdGeneratorTest {
                 LOC);
         var doc = md(model(error));
         assertTrue(doc.contains("## Error Catalog"));
-        assertTrue(doc.contains("| PaymentDeclinedError | PAYMENT_DECLINED | high | Yes | Payment gateway returned a declined response | declineReason: String, retryAllowed: Boolean |"));
+        assertTrue(doc.contains("#### PaymentDeclinedError"));
+        assertTrue(doc.contains("**Code:** PAYMENT_DECLINED | **Severity:** high | **Recoverable:** Yes"));
+        assertTrue(doc.contains("**Message:** Payment gateway returned a declined response"));
+        assertTrue(doc.contains("**Payload:** declineReason: String, retryAllowed: Boolean"));
     }
 
     @Test
@@ -594,7 +615,10 @@ class MarkdownPrdGeneratorTest {
                 List.of(),
                 LOC);
         var doc = md(model(error));
-        assertTrue(doc.contains("| TimeoutError | TIMEOUT | medium | No | Operation timed out | — |"));
+        assertTrue(doc.contains("#### TimeoutError"));
+        assertTrue(doc.contains("**Code:** TIMEOUT | **Severity:** medium | **Recoverable:** No"));
+        assertTrue(doc.contains("**Message:** Operation timed out"));
+        assertFalse(doc.contains("**Payload:**"));
     }
 
     @Test
@@ -609,8 +633,10 @@ class MarkdownPrdGeneratorTest {
         var error1 = new ErrorDef("Error1", List.of(), List.of(), "ERR-001", "critical", false, "Critical error", List.of(), LOC);
         var error2 = new ErrorDef("Error2", List.of(), List.of(), "ERR-002", "low", true, "Minor error", List.of(), LOC);
         var doc = md(model(error1, error2));
-        assertTrue(doc.contains("| Error1 | ERR-001 | critical | No | Critical error | — |"));
-        assertTrue(doc.contains("| Error2 | ERR-002 | low | Yes | Minor error | — |"));
+        assertTrue(doc.contains("#### Error1"));
+        assertTrue(doc.contains("**Code:** ERR-001 | **Severity:** critical | **Recoverable:** No"));
+        assertTrue(doc.contains("#### Error2"));
+        assertTrue(doc.contains("**Code:** ERR-002 | **Severity:** low | **Recoverable:** Yes"));
     }
 
     // ── Full PRD smoke test ───────────────────────────────────────────────────
@@ -661,8 +687,10 @@ class MarkdownPrdGeneratorTest {
         assertTrue(doc.contains("> The order"));
         assertTrue(doc.contains("| id | String |"));
         // Actor
-        assertTrue(doc.contains("| Customer | Guest user |"));
+        assertTrue(doc.contains("#### Customer"));
+        assertTrue(doc.contains("**Description:** Guest user"));
         // Policy
-        assertTrue(doc.contains("| PaymentPolicy | PCI compliance | PCI-DSS |"));
+        assertTrue(doc.contains("#### PaymentPolicy"));
+        assertTrue(doc.contains("**Compliance:** PCI-DSS"));
     }
 }

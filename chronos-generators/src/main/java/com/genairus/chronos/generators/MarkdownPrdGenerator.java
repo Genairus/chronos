@@ -3,6 +3,7 @@ package com.genairus.chronos.generators;
 import com.genairus.chronos.core.refs.SymbolRef;
 import com.genairus.chronos.ir.model.IrInheritanceResolver;
 import com.genairus.chronos.ir.model.IrModel;
+import com.genairus.chronos.ir.types.ActorDef;
 import com.genairus.chronos.ir.types.DenyDef;
 import com.genairus.chronos.ir.types.EntityDef;
 import com.genairus.chronos.ir.types.EnumDef;
@@ -22,6 +23,7 @@ import com.genairus.chronos.ir.types.TraitValue;
 import com.genairus.chronos.ir.types.TypeRef;
 import com.genairus.chronos.ir.types.Variant;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.StringJoiner;
 
@@ -307,8 +309,9 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
     private static void appendEnumsSubsection(StringBuilder sb, List<EnumDef> enums) {
         if (enums.isEmpty()) return;
         sb.append("\n### Enumerations\n");
-        for (var enumDef : enums) {
+        enums.stream().sorted(Comparator.comparing(EnumDef::name)).forEach(enumDef -> {
             sb.append("\n#### ").append(enumDef.name()).append("\n\n");
+            renderDocComments(sb, enumDef.docComments());
             sb.append("| Member | Ordinal |\n");
             sb.append("|--------|----------|\n");
             for (var member : enumDef.members()) {
@@ -319,23 +322,25 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
                   .append(" | ").append(ordinal)
                   .append(" |\n");
             }
-        }
+        });
     }
 
     private static void appendCollectionsSubsection(StringBuilder sb,
                                                      List<ListDef> lists,
                                                      List<MapDef> maps) {
         if (lists.isEmpty() && maps.isEmpty()) return;
-        sb.append("\n### Collections\n\n");
-        for (var list : lists) {
-            sb.append("- **").append(list.name()).append("** — `List<")
-              .append(renderTypeRef(list.memberType())).append(">`\n");
-        }
-        for (var map : maps) {
-            sb.append("- **").append(map.name()).append("** — `Map<")
-              .append(renderTypeRef(map.keyType())).append(", ")
-              .append(renderTypeRef(map.valueType())).append(">`\n");
-        }
+        sb.append("\n### Collections\n");
+        lists.stream().sorted(Comparator.comparing(ListDef::name)).forEach(list -> {
+            sb.append("\n#### ").append(list.name()).append("\n\n");
+            renderDocComments(sb, list.docComments());
+            sb.append("`List<").append(renderTypeRef(list.memberType())).append(">`\n\n");
+        });
+        maps.stream().sorted(Comparator.comparing(MapDef::name)).forEach(map -> {
+            sb.append("\n#### ").append(map.name()).append("\n\n");
+            renderDocComments(sb, map.docComments());
+            sb.append("`Map<").append(renderTypeRef(map.keyType())).append(", ")
+              .append(renderTypeRef(map.valueType())).append(">`\n\n");
+        });
     }
 
     // ── Global Invariants ─────────────────────────────────────────────────────
@@ -376,104 +381,98 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
     private static void appendRelationshipsSection(StringBuilder sb, IrModel model) {
         if (model.relationships().isEmpty()) return;
-        sb.append(DIVIDER).append("\n## Relationships\n\n");
-        sb.append("| Relationship | From | To | Cardinality | Semantics | Inverse Field |\n");
-        sb.append("|--------------|------|----|-----------|-----------|--------------|\n");
-        for (var rel : model.relationships()) {
-            String cardinality = rel.cardinality().chronosName();
-            String semantics = rel.effectiveSemantics().chronosName();
-            String inverseField = rel.inverseField().orElse(DASH);
-
-            sb.append("| ").append(rel.name())
-              .append(" | ").append(symRefName(rel.fromEntityRef()))
-              .append(" | ").append(symRefName(rel.toEntityRef()))
-              .append(" | ").append(cardinality)
-              .append(" | ").append(semantics)
-              .append(" | ").append(inverseField)
-              .append(" |\n");
-        }
+        sb.append(DIVIDER).append("\n## Relationships\n");
+        model.relationships().stream().sorted(Comparator.comparing(RelationshipDef::name)).forEach(rel -> {
+            sb.append("\n#### ").append(rel.name()).append("\n\n");
+            renderDocComments(sb, rel.docComments());
+            sb.append("**From:** ").append(symRefName(rel.fromEntityRef()))
+              .append(" **→** ").append(symRefName(rel.toEntityRef()))
+              .append(" (").append(rel.cardinality().chronosName()).append(")\n");
+            sb.append("**Semantics:** ").append(rel.effectiveSemantics().chronosName()).append("\n");
+            rel.inverseField().ifPresent(f ->
+                    sb.append("**Inverse Field:** ").append(f).append("\n"));
+        });
     }
 
     // ── Actors ────────────────────────────────────────────────────────────────
 
     private static void appendActorsSection(StringBuilder sb, IrModel model) {
         if (model.actors().isEmpty()) return;
-        sb.append(DIVIDER).append("\n## Actors\n\n");
-        sb.append("| Actor | Description |\n");
-        sb.append("|-------|-------------|\n");
-        for (var actor : model.actors()) {
-            sb.append("| ").append(actor.name())
-              .append(" | ").append(actor.description().orElse(DASH))
-              .append(" |\n");
-        }
+        sb.append(DIVIDER).append("\n## Actors\n");
+        model.actors().stream().sorted(Comparator.comparing(ActorDef::name)).forEach(actor -> {
+            sb.append("\n#### ").append(actor.name()).append("\n\n");
+            renderDocComments(sb, actor.docComments());
+            sb.append("**Description:** ").append(actor.description().orElse(DASH)).append("\n");
+        });
     }
 
     // ── Policies ──────────────────────────────────────────────────────────────
 
     private static void appendPoliciesSection(StringBuilder sb, IrModel model) {
         if (model.policies().isEmpty()) return;
-        sb.append(DIVIDER).append("\n## Policies\n\n");
-        sb.append("| Policy | Description | Compliance |\n");
-        sb.append("|--------|-------------|------------|\n");
-        for (var policy : model.policies()) {
-            sb.append("| ").append(policy.name())
-              .append(" | ").append(policy.description())
-              .append(" | ").append(policy.complianceFramework().orElse(DASH))
-              .append(" |\n");
-        }
+        sb.append(DIVIDER).append("\n## Policies\n");
+        model.policies().stream().sorted(Comparator.comparing(PolicyDef::name)).forEach(policy -> {
+            sb.append("\n#### ").append(policy.name()).append("\n\n");
+            renderDocComments(sb, policy.docComments());
+            sb.append("**Description:** ").append(policy.description()).append("\n");
+            policy.complianceFramework().ifPresent(c ->
+                    sb.append("**Compliance:** ").append(c).append("\n"));
+        });
     }
 
     // ── Prohibitions ──────────────────────────────────────────────────────────
 
     private static void appendProhibitionsSection(StringBuilder sb, IrModel model) {
         if (model.denies().isEmpty()) return;
-        sb.append(DIVIDER).append("\n## Prohibitions\n\n");
-        sb.append("| Prohibition | Description | Scope | Severity | Compliance |\n");
-        sb.append("|-------------|-------------|-------|----------|------------|\n");
-        for (var deny : model.denies()) {
-            String compliance = deny.traits().stream()
+        sb.append(DIVIDER).append("\n## Prohibitions\n");
+        model.denies().stream().sorted(Comparator.comparing(DenyDef::name)).forEach(deny -> {
+            sb.append("\n#### ").append(deny.name()).append("\n\n");
+            renderDocComments(sb, deny.docComments());
+            sb.append("**Description:** ").append(deny.description()).append("\n");
+            sb.append("**Scope:** ").append(String.join(", ", deny.scope())).append("\n");
+            sb.append("**Severity:** ").append(deny.severity()).append("\n");
+            deny.traits().stream()
                     .filter(t -> "compliance".equals(t.name()))
                     .flatMap(t -> t.firstPositionalValue().stream())
                     .filter(v -> v instanceof TraitValue.StringValue)
                     .map(v -> ((TraitValue.StringValue) v).value())
                     .findFirst()
-                    .orElse(DASH);
-
-            sb.append("| ").append(deny.name())
-              .append(" | ").append(deny.description())
-              .append(" | ").append(String.join(", ", deny.scope()))
-              .append(" | ").append(deny.severity())
-              .append(" | ").append(compliance)
-              .append(" |\n");
-        }
+                    .ifPresent(c -> sb.append("**Compliance:** ").append(c).append("\n"));
+        });
     }
 
     // ── Error Catalog ─────────────────────────────────────────────────────────
 
     private static void appendErrorCatalogSection(StringBuilder sb, IrModel model) {
         if (model.errors().isEmpty()) return;
-        sb.append(DIVIDER).append("\n## Error Catalog\n\n");
-        sb.append("| Error Type | Code | Severity | Recoverable | Message | Payload |\n");
-        sb.append("|------------|------|----------|-------------|---------|----------|\n");
-        for (var error : model.errors()) {
-            String payload = error.payload().isEmpty()
-                    ? DASH
-                    : error.payload().stream()
-                            .map(f -> f.name() + ": " + renderTypeRef(f.type()))
-                            .reduce((a, b) -> a + ", " + b)
-                            .orElse(DASH);
-
-            sb.append("| ").append(error.name())
-              .append(" | ").append(error.code())
-              .append(" | ").append(error.severity())
-              .append(" | ").append(error.recoverable() ? "Yes" : "No")
-              .append(" | ").append(error.message())
-              .append(" | ").append(payload)
-              .append(" |\n");
-        }
+        sb.append(DIVIDER).append("\n## Error Catalog\n");
+        model.errors().stream().sorted(Comparator.comparing(ErrorDef::name)).forEach(error -> {
+            sb.append("\n#### ").append(error.name()).append("\n\n");
+            renderDocComments(sb, error.docComments());
+            sb.append("**Code:** ").append(error.code())
+              .append(" | **Severity:** ").append(error.severity())
+              .append(" | **Recoverable:** ").append(error.recoverable() ? "Yes" : "No")
+              .append("\n");
+            sb.append("**Message:** ").append(error.message()).append("\n");
+            if (!error.payload().isEmpty()) {
+                String payload = error.payload().stream()
+                        .map(f -> f.name() + ": " + renderTypeRef(f.type()))
+                        .reduce((a, b) -> a + ", " + b)
+                        .orElse("");
+                sb.append("**Payload:** ").append(payload).append("\n");
+            }
+        });
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static void renderDocComments(StringBuilder sb, List<String> docs) {
+        if (docs == null || docs.isEmpty()) return;
+        for (var doc : docs) {
+            sb.append("> ").append(doc).append("\n");
+        }
+        sb.append("\n");
+    }
 
     private static String renderOutcomeExpr(OutcomeExpr expr) {
         return switch (expr) {

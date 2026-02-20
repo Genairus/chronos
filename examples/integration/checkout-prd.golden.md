@@ -92,15 +92,6 @@
 
 ### Enumerations
 
-#### PaymentStatus
-
-| Member | Ordinal |
-|--------|----------|
-| PENDING | 1 |
-| PROCESSING | 2 |
-| PAID | 3 |
-| DECLINED | 4 |
-
 #### CartState
 
 | Member | Ordinal |
@@ -119,31 +110,50 @@
 | PAID | — |
 | FAILED | — |
 
+#### PaymentStatus
+
+| Member | Ordinal |
+|--------|----------|
+| PENDING | 1 |
+| PROCESSING | 2 |
+| PAID | 3 |
+| DECLINED | 4 |
+
 ### Collections
 
-- **CartItemList** — `List<CartItem>`
-- **TagMap** — `Map<String, List<String>>`
+#### CartItemList
+
+`List<CartItem>`
+
+
+#### TagMap
+
+`Map<String, List<String>>`
+
 
 ---
 
 ## Actors
 
-| Actor | Description |
-|-------|-------------|
-| Customer | A registered shopper who can add items to the cart and complete purchases |
+#### Customer
+
+**Description:** A registered shopper who can add items to the cart and complete purchases
 
 ---
 
 ## Policies
 
-| Policy | Description | Compliance |
-|--------|-------------|------------|
-| PaymentSecurity | Payment card data must never be stored in plaintext | PCI-DSS |
+#### PaymentSecurity
+
+**Description:** Payment card data must never be stored in plaintext
+**Compliance:** PCI-DSS
 
 ---
 
 ## Error Catalog
 
-| Error Type | Code | Severity | Recoverable | Message | Payload |
-|------------|------|----------|-------------|---------|----------|
-| PaymentDeclinedError | PAYMENT_DECLINED | high | Yes | Payment gateway returned a declined response | declineReason: String, retryAllowed: Boolean |
+#### PaymentDeclinedError
+
+**Code:** PAYMENT_DECLINED | **Severity:** high | **Recoverable:** Yes
+**Message:** Payment gateway returned a declined response
+**Payload:** declineReason: String, retryAllowed: Boolean

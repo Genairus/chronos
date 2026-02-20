@@ -212,4 +212,51 @@ class IrJsonCodecRoundTripTest {
         assertFalse(restoredChildActor.parentRef().get().isResolved());
         assertEquals("BaseRole", restoredChildActor.parentRef().get().name().name());
     }
+
+    /**
+     * A {@link TypeRef.NamedTypeRef} backed by a resolved {@link SymbolRef} must
+     * survive a serialize → deserialize cycle with resolution state intact.
+     * The derived {@code qualifiedId()} accessor must NOT appear in the JSON
+     * (suppressed by {@code NamedTypeRefMixin}).
+     */
+    @Test
+    void namedTypeRefWithResolvedSymbolRef_roundTrips() {
+        var resolvedRef = SymbolRef.resolved(
+                SymbolKind.ENTITY,
+                ShapeId.of("com.example", "Order"),
+                Span.UNKNOWN);
+        var namedTypeRef = new TypeRef.NamedTypeRef(resolvedRef);
+
+        var field = new FieldDef("order", namedTypeRef, List.of(), Span.UNKNOWN);
+        var entity = new EntityDef(
+                "Cart",
+                List.of(),
+                List.of(),
+                Optional.empty(),
+                List.of(field),
+                List.of(),
+                Span.UNKNOWN);
+        var model = new IrModel("com.example", List.of(), List.of(entity));
+
+        String json = IrJsonCodec.toJson(model);
+
+        // qualifiedId() must NOT appear as a JSON property (it's a derived method)
+        assertFalse(json.contains("\"qualifiedId\""),
+                "qualifiedId must not be serialized — it is a derived convenience method");
+        // The SymbolRef inside NamedTypeRef must round-trip correctly
+        assertTrue(json.contains("\"named\""), "typeKind discriminator 'named' must be present");
+        assertTrue(json.contains("\"resolved\" : true"), "resolved SymbolRef must be present");
+
+        IrModel restored = IrJsonCodec.fromJson(json);
+        assertEquals(model, restored, "Model must be equal after serialize → deserialize");
+
+        var restoredEntity = restored.entities().get(0);
+        var restoredField  = restoredEntity.fields().get(0);
+        assertInstanceOf(TypeRef.NamedTypeRef.class, restoredField.type());
+        var restoredNamed = (TypeRef.NamedTypeRef) restoredField.type();
+        assertTrue(restoredNamed.ref().isResolved(), "SymbolRef must remain resolved after round-trip");
+        assertEquals("Order", restoredNamed.ref().id().name());
+        assertEquals("com.example", restoredNamed.ref().id().namespace().value());
+        assertEquals("Order", restoredNamed.qualifiedId(), "qualifiedId() convenience accessor must work");
+    }
 }

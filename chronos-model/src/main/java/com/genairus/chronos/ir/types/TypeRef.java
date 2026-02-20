@@ -1,5 +1,7 @@
 package com.genairus.chronos.ir.types;
 
+import com.genairus.chronos.core.refs.SymbolRef;
+
 /**
  * Represents a type reference in an IR field declaration.
  *
@@ -24,8 +26,26 @@ public sealed interface TypeRef
         @Override public String toString() { return "Map<" + keyType + ", " + valueType + ">"; }
     }
 
-    record NamedTypeRef(String qualifiedId) implements TypeRef {
-        @Override public String toString() { return qualifiedId; }
+    /**
+     * A named (user-defined) type reference backed by a {@link SymbolRef}.
+     *
+     * <p>Initially created with an {@link SymbolRef#unresolved unresolved} ref of kind
+     * {@link com.genairus.chronos.core.refs.SymbolKind#TYPE} by {@code BuildIrSkeletonPhase}.
+     * {@code TypeResolutionPhase} replaces the ref with a resolved one carrying the actual
+     * shape kind (ENTITY, STRUCT, ENUM, LIST, or MAP).
+     */
+    record NamedTypeRef(SymbolRef ref) implements TypeRef {
+
+        /**
+         * Convenience accessor for the simple type name — works for both resolved and
+         * unresolved refs. Used by validators and generators to obtain the readable name
+         * without inspecting resolution state.
+         */
+        public String qualifiedId() {
+            return ref.isResolved() ? ref.id().name() : ref.name().name();
+        }
+
+        @Override public String toString() { return qualifiedId(); }
     }
 
     enum PrimitiveKind {

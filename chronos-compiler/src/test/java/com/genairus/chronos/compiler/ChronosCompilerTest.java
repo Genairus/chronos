@@ -170,4 +170,42 @@ class ChronosCompilerTest {
                     "unexpected severity: " + d.severity());
         }
     }
+
+    // ── Type resolution tests (CHR-013) ───────────────────────────────────────
+
+    @Test
+    void entityFieldWithKnownType_resolvesCleanly() {
+        var result = new ChronosCompiler().compile("""
+                namespace com.example
+                enum OrderStatus { PENDING = 1 }
+                entity Order { status: OrderStatus }
+                """, "test.chronos");
+        assertTrue(result.finalized(), "Model should finalize");
+        assertTrue(result.diagnostics().stream().noneMatch(d -> "CHR-013".equals(d.code())),
+                "No CHR-013 expected for a resolvable type reference");
+    }
+
+    @Test
+    void entityFieldWithUnknownType_reportsChr013() {
+        var result = new ChronosCompiler().compile("""
+                namespace com.example
+                entity Order { status: NonExistentType }
+                """, "test.chronos");
+        assertFalse(result.finalized(), "Model should not finalize with unresolved type");
+        assertTrue(result.diagnostics().stream().anyMatch(d -> "CHR-013".equals(d.code())),
+                "CHR-013 expected for unknown type reference");
+    }
+
+    @Test
+    void collectionMemberTypes_resolveCleanly() {
+        var result = new ChronosCompiler().compile("""
+                namespace com.example
+                entity Tag { id: String }
+                list TagList { member: Tag }
+                map TagIndex { key: String  value: Tag }
+                """, "test.chronos");
+        assertTrue(result.finalized(), "Model should finalize");
+        assertTrue(result.diagnostics().stream().noneMatch(d -> "CHR-013".equals(d.code())),
+                "No CHR-013 expected for resolvable collection member types");
+    }
 }

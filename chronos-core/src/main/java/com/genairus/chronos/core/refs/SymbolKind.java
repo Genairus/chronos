@@ -65,5 +65,17 @@ public enum SymbolKind {
      * Reserved for future {@code event} declarations.
      * Currently only referenced by {@code step telemetry: [ID, ...]} lists.
      */
-    EVENT
+    EVENT,
+
+    /**
+     * Synthetic kind used for type-position {@link SymbolRef}s in field declarations
+     * and collection member/key/value positions.
+     *
+     * <p>A {@link com.genairus.chronos.ir.types.TypeRef.NamedTypeRef} begins with an
+     * unresolved {@code SymbolRef} of kind {@code TYPE} and is promoted to the actual
+     * kind (ENTITY, STRUCT, ENUM, LIST, or MAP) by {@code TypeResolutionPhase}.
+     * For externally imported shapes (via {@code use} declarations) where the exact
+     * kind is unknown, the resolved {@code SymbolRef} retains {@code TYPE}.
+     */
+    TYPE
 }

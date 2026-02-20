@@ -428,7 +428,9 @@ class MarkdownPrdGeneratorTest {
                         new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.INTEGER)),
                 List.of(), LOC);
         var namedField = new FieldDef("status",
-                new TypeRef.NamedTypeRef("OrderStatus"), List.of(), LOC);
+                new TypeRef.NamedTypeRef(
+                        SymbolRef.unresolved(SymbolKind.TYPE, QualifiedName.local("OrderStatus"), Span.UNKNOWN)),
+                List.of(), LOC);
         var entity = new EntityDef("Order", List.of(), List.of(), Optional.empty(),
                 List.of(listField, mapField, namedField), List.of(), LOC);
         var doc = md(model(entity));

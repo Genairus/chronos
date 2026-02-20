@@ -137,10 +137,11 @@ public final class IrJsonCodec {
         // Suppress derived convenience methods that are not record components.
         // Jackson bean introspection would otherwise serialize isXxx()/getXxx() helpers
         // as additional JSON properties, breaking round-trip deserialization.
-        mapper.addMixIn(FieldDef.class,   FieldDefMixin.class);
-        mapper.addMixIn(ActorDef.class,   ActorDefMixin.class);
-        mapper.addMixIn(JourneyDef.class, JourneyDefMixin.class);
-        mapper.addMixIn(PolicyDef.class,  PolicyDefMixin.class);
+        mapper.addMixIn(FieldDef.class,               FieldDefMixin.class);
+        mapper.addMixIn(ActorDef.class,               ActorDefMixin.class);
+        mapper.addMixIn(JourneyDef.class,             JourneyDefMixin.class);
+        mapper.addMixIn(PolicyDef.class,              PolicyDefMixin.class);
+        mapper.addMixIn(TypeRef.NamedTypeRef.class,   NamedTypeRefMixin.class);
 
         // SymbolRef — private constructor requires custom handling
         SimpleModule symbolRefModule = new SimpleModule("SymbolRefModule");
@@ -260,6 +261,10 @@ public final class IrJsonCodec {
     // PolicyDef.complianceFramework() → derived from @compliance trait
     @JsonIgnoreProperties("complianceFramework")
     abstract static class PolicyDefMixin {}
+
+    // TypeRef.NamedTypeRef.qualifiedId() → derived from ref; must not be serialized
+    @JsonIgnoreProperties("qualifiedId")
+    abstract static class NamedTypeRefMixin {}
 
     // ── SymbolRef custom serializer/deserializer ─────────────────────────────────
 

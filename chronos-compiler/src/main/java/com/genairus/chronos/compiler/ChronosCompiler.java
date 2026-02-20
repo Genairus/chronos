@@ -86,7 +86,7 @@ public final class ChronosCompiler {
         IrModel model = new BuildIrSkeletonPhase().execute(syntax, ctx);
 
         // ── Phase 4: Type Resolution ───────────────────────────────────────────
-        new TypeResolutionPhase().execute(model, ctx);
+        model = new TypeResolutionPhase().execute(model, ctx);
 
         // ── Phase 5: Cross-Link Resolution ────────────────────────────────────
         model = new CrossLinkResolutionPhase().execute(model, ctx);

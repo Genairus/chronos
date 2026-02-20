@@ -253,7 +253,8 @@ class ChronosValidatorTest {
         var order = new EntityDef("Order", List.of(), List.of(), Optional.empty(),
                 List.of(new FieldDef("id", new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.STRING), List.of(), LOC)), List.of(), LOC);
         var entity = new EntityDef("Cart", List.of(), List.of(), Optional.empty(),
-                List.of(new FieldDef("order", new TypeRef.NamedTypeRef("Order"), List.of(), LOC)), List.of(), LOC);
+                List.of(new FieldDef("order", new TypeRef.NamedTypeRef(
+                        SymbolRef.unresolved(SymbolKind.TYPE, QualifiedName.local("Order"), Span.UNKNOWN)), List.of(), LOC)), List.of(), LOC);
         var result = validator.validate(model(order, entity));
         assertTrue(result.errors().stream().noneMatch(i -> "CHR-008".equals(i.code())));
     }
@@ -261,7 +262,8 @@ class ChronosValidatorTest {
     @Test
     void chr008_passWithImportedRef() {
         var entity = new EntityDef("Cart", List.of(), List.of(), Optional.empty(),
-                List.of(new FieldDef("order", new TypeRef.NamedTypeRef("Order"), List.of(), LOC)), List.of(), LOC);
+                List.of(new FieldDef("order", new TypeRef.NamedTypeRef(
+                        SymbolRef.unresolved(SymbolKind.TYPE, QualifiedName.local("Order"), Span.UNKNOWN)), List.of(), LOC)), List.of(), LOC);
         var modelWithImport = new IrModel("com.example",
                 List.of(new UseDecl("com.other", "Order", LOC)),
                 List.of(entity));
@@ -272,7 +274,8 @@ class ChronosValidatorTest {
     @Test
     void chr008_failWith_unresolvedRef() {
         var entity = new EntityDef("Cart", List.of(), List.of(), Optional.empty(),
-                List.of(new FieldDef("order", new TypeRef.NamedTypeRef("UnknownType"), List.of(), LOC)), List.of(), LOC);
+                List.of(new FieldDef("order", new TypeRef.NamedTypeRef(
+                        SymbolRef.unresolved(SymbolKind.TYPE, QualifiedName.local("UnknownType"), Span.UNKNOWN)), List.of(), LOC)), List.of(), LOC);
         var result = validator.validate(model(entity));
         var errors = result.errors().stream().filter(i -> "CHR-008".equals(i.code())).toList();
         assertEquals(1, errors.size());
@@ -283,7 +286,8 @@ class ChronosValidatorTest {
     void chr008_checksNestedListTypeRef() {
         var entity = new EntityDef("Cart", List.of(), List.of(), Optional.empty(),
                 List.of(new FieldDef("items",
-                        new TypeRef.ListType(new TypeRef.NamedTypeRef("Ghost")), List.of(), LOC)), List.of(), LOC);
+                        new TypeRef.ListType(new TypeRef.NamedTypeRef(
+                                SymbolRef.unresolved(SymbolKind.TYPE, QualifiedName.local("Ghost"), Span.UNKNOWN))), List.of(), LOC)), List.of(), LOC);
         var result = validator.validate(model(entity));
         var errors = result.errors().stream().filter(i -> "CHR-008".equals(i.code())).toList();
         assertEquals(1, errors.size());

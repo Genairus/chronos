@@ -340,7 +340,8 @@ public final class BuildIrSkeletonPhase implements ResolverPhase<SyntaxModel, Ir
                 case SyntaxTypeRef.Primitive p ->
                         new TypeRef.PrimitiveType(TypeRef.PrimitiveKind.valueOf(p.kind().name()));
                 case SyntaxTypeRef.Named n ->
-                        new TypeRef.NamedTypeRef(n.name());
+                        new TypeRef.NamedTypeRef(
+                                SymbolRef.unresolved(SymbolKind.TYPE, QualifiedName.local(n.name()), Span.UNKNOWN));
                 case SyntaxTypeRef.ListType l ->
                         new TypeRef.ListType(convertTypeRef(l.element()));
                 case SyntaxTypeRef.MapType m ->

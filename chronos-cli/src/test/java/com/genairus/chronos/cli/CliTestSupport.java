@@ -10,9 +10,11 @@ import java.nio.file.Path;
 /** Shared helpers for CLI command tests. */
 class CliTestSupport {
 
-    // A minimal valid .chronos model: no errors, some warnings only (CHR-009)
+    // A minimal valid .chronos model: no errors, some warnings only (CHR-007, CHR-009)
     static final String VALID_MODEL = """
             namespace com.example
+
+            actor User
 
             journey ExampleJourney {
                 actor: User

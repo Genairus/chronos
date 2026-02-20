@@ -1,7 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -13,7 +12,7 @@ class Chr023DenyDescriptionTest {
 
     @Test
     void denyWithDescription_noError() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity UserCredential {
@@ -25,7 +24,7 @@ class Chr023DenyDescriptionTest {
                     scope: [UserCredential]
                     severity: critical
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors(), "Should not have errors when deny has description");
@@ -33,7 +32,7 @@ class Chr023DenyDescriptionTest {
 
     @Test
     void denyWithEmptyDescription_error() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity UserCredential {
@@ -45,13 +44,13 @@ class Chr023DenyDescriptionTest {
                     scope: [UserCredential]
                     severity: critical
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         
         var chr023Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-023"))
+                .filter(e -> e.code().equals("CHR-023"))
                 .toList();
         
         assertEquals(1, chr023Errors.size());
@@ -61,7 +60,7 @@ class Chr023DenyDescriptionTest {
 
     @Test
     void multipleDeniesWithMissingDescriptions_multipleErrors() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Entity1 {
@@ -89,12 +88,12 @@ class Chr023DenyDescriptionTest {
                     scope: [Entity1]
                     severity: medium
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         
         var chr023Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-023"))
+                .filter(e -> e.code().equals("CHR-023"))
                 .toList();
 
         assertEquals(2, chr023Errors.size(), "Should have 2 CHR-023 errors for Deny1 and Deny3");

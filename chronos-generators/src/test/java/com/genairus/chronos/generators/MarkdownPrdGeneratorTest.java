@@ -1,12 +1,16 @@
 package com.genairus.chronos.generators;
 
-import com.genairus.chronos.model.*;
+import com.genairus.chronos.core.refs.QualifiedName;
+import com.genairus.chronos.core.refs.Span;
+import com.genairus.chronos.core.refs.SymbolKind;
+import com.genairus.chronos.core.refs.SymbolRef;
+import com.genairus.chronos.ir.model.IrModel;
+import com.genairus.chronos.ir.types.*;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -19,23 +23,22 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class MarkdownPrdGeneratorTest {
 
-    private static final SourceLocation LOC = SourceLocation.of("test.chronos", 1, 1);
+    private static final Span LOC = Span.at("test.chronos", 1, 1);
     private static final MarkdownPrdGenerator GEN = new MarkdownPrdGenerator();
 
     // ── helpers ─────────────────────────────────────────────────────────────
 
-    private static ChronosModel model(ShapeDefinition... shapes) {
-        return new ChronosModel("com.example.checkout", List.of(), List.of(shapes));
+    private static IrModel model(IrShape... shapes) {
+        return new IrModel("com.example.checkout", List.of(), List.of(shapes));
+    }
+
+    private static SymbolRef actorRef(String name) {
+        return SymbolRef.unresolved(SymbolKind.ACTOR, new QualifiedName(null, name), Span.UNKNOWN);
     }
 
     private static TraitApplication trait(String name, String positionalString) {
         var arg = new TraitArg(null,
                 new TraitValue.StringValue(positionalString), LOC);
-        return new TraitApplication(name, List.of(arg), LOC);
-    }
-
-    private static TraitApplication namedTrait(String name, String key, String value) {
-        var arg = new TraitArg(key, new TraitValue.StringValue(value), LOC);
         return new TraitApplication(name, List.of(arg), LOC);
     }
 
@@ -49,19 +52,19 @@ class MarkdownPrdGeneratorTest {
 
     private static Step step(String name, String action, String expectation) {
         var fields = List.<StepField>of(
-                new StepField.ActionField(action, LOC),
-                new StepField.ExpectationField(expectation, LOC));
+                new StepField.Action(action, LOC),
+                new StepField.Expectation(expectation, LOC));
         return new Step(name, List.of(), fields, LOC);
     }
 
     private static Step stepWithAll(String name, String action, String expectation,
                                      OutcomeExpr outcome, List<String> events, String risk) {
         var fields = List.<StepField>of(
-                new StepField.ActionField(action, LOC),
-                new StepField.ExpectationField(expectation, LOC),
-                new StepField.OutcomeField(outcome, LOC),
-                new StepField.TelemetryField(events, LOC),
-                new StepField.RiskField(risk, LOC));
+                new StepField.Action(action, LOC),
+                new StepField.Expectation(expectation, LOC),
+                new StepField.Outcome(outcome, LOC),
+                new StepField.Telemetry(events, LOC),
+                new StepField.Risk(risk, LOC));
         return new Step(name, List.of(), fields, LOC);
     }
 
@@ -70,7 +73,7 @@ class MarkdownPrdGeneratorTest {
                 null, List.of(), List.of(), Map.of(), null, LOC);
     }
 
-    private static String md(ChronosModel m) {
+    private static String md(IrModel m) {
         var out = GEN.generate(m);
         return out.files().get("com-example-checkout-prd.md");
     }
@@ -138,7 +141,7 @@ class MarkdownPrdGeneratorTest {
     @Test
     void tocIncludesActorsAndPoliciesWhenPresent() {
         var actor  = new ActorDef("Customer", List.of(), List.of(), Optional.empty(), LOC);
-        var policy = new PolicyDef("DataPolicy", "Retain 7y", List.of(), List.of(), LOC);
+        var policy = new PolicyDef("DataPolicy", List.of(), List.of(), "Retain 7y", LOC);
         var doc = md(model(actor, policy));
         assertTrue(doc.contains("- [Actors](#actors)"));
         assertTrue(doc.contains("- [Policies](#policies)"));
@@ -156,7 +159,7 @@ class MarkdownPrdGeneratorTest {
     @Test
     void journeyMetadataShowsActor() {
         var journey = new JourneyDef("Checkout", List.of(), List.of(),
-                "Customer", List.of(), List.of(), Map.of(), null, LOC);
+                actorRef("Customer"), List.of(), List.of(), Map.of(), null, LOC);
         var doc = md(model(journey));
         assertTrue(doc.contains("**Actor:** Customer"));
     }
@@ -195,7 +198,7 @@ class MarkdownPrdGeneratorTest {
 
     @Test
     void journeyPreconditionsRenderedAsBullets() {
-        var journey = new JourneyDef("Checkout", List.of(), List.of(), "Customer",
+        var journey = new JourneyDef("Checkout", List.of(), List.of(), actorRef("Customer"),
                 List.of("Cart is not empty", "User is not logged in"),
                 List.of(), Map.of(), null, LOC);
         var doc = md(model(journey));
@@ -206,7 +209,7 @@ class MarkdownPrdGeneratorTest {
 
     @Test
     void journeyWithNoPreconditionsOmitsPreconditionsBlock() {
-        var journey = new JourneyDef("Checkout", List.of(), List.of(), "Customer",
+        var journey = new JourneyDef("Checkout", List.of(), List.of(), actorRef("Customer"),
                 List.of(), List.of(), Map.of(), null, LOC);
         var doc = md(model(journey));
         assertFalse(doc.contains("**Preconditions**"));
@@ -221,7 +224,7 @@ class MarkdownPrdGeneratorTest {
                 new OutcomeExpr.TransitionTo("Confirmed", LOC),
                 List.of("order_placed", "payment_done"),
                 "Gateway may be slow");
-        var journey = new JourneyDef("Checkout", List.of(), List.of(), "Customer",
+        var journey = new JourneyDef("Checkout", List.of(), List.of(), actorRef("Customer"),
                 List.of(), List.of(s), Map.of(), null, LOC);
         var doc = md(model(journey));
         assertTrue(doc.contains("**Happy Path**"));
@@ -233,7 +236,7 @@ class MarkdownPrdGeneratorTest {
     @Test
     void stepTableUsesDashForMissingFields() {
         var s = new Step("EmptyStep", List.of(), List.of(), LOC);
-        var journey = new JourneyDef("Checkout", List.of(), List.of(), "Customer",
+        var journey = new JourneyDef("Checkout", List.of(), List.of(), actorRef("Customer"),
                 List.of(), List.of(s), Map.of(), null, LOC);
         var doc = md(model(journey));
         assertTrue(doc.contains("| EmptyStep | — | — | — | — | — |"));
@@ -242,12 +245,12 @@ class MarkdownPrdGeneratorTest {
     @Test
     void stepTableRendersReturnToStep() {
         var s = new Step("Retry", List.of(),
-                List.of(new StepField.ActionField("retry", LOC),
-                        new StepField.ExpectationField("ok", LOC),
-                        new StepField.OutcomeField(
+                List.of(new StepField.Action("retry", LOC),
+                        new StepField.Expectation("ok", LOC),
+                        new StepField.Outcome(
                                 new OutcomeExpr.ReturnToStep("PlaceOrder", LOC), LOC)),
                 LOC);
-        var journey = new JourneyDef("Checkout", List.of(), List.of(), "Customer",
+        var journey = new JourneyDef("Checkout", List.of(), List.of(), actorRef("Customer"),
                 List.of(), List.of(s), Map.of(), null, LOC);
         var doc = md(model(journey));
         assertTrue(doc.contains("ReturnToStep(PlaceOrder)"));
@@ -255,7 +258,7 @@ class MarkdownPrdGeneratorTest {
 
     @Test
     void journeyWithNoStepsOmitsHappyPathBlock() {
-        var journey = new JourneyDef("Checkout", List.of(), List.of(), "Customer",
+        var journey = new JourneyDef("Checkout", List.of(), List.of(), actorRef("Customer"),
                 List.of(), List.of(), Map.of(), null, LOC);
         var doc = md(model(journey));
         assertFalse(doc.contains("**Happy Path**"));
@@ -268,9 +271,9 @@ class MarkdownPrdGeneratorTest {
         var variant = new Variant("PaymentDeclined",
                 "CardDeclinedError",
                 List.of(),
-                Optional.of(new OutcomeExpr.ReturnToStep("EnterCard", LOC)),
+                new OutcomeExpr.ReturnToStep("EnterCard", LOC),
                 LOC);
-        var journey = new JourneyDef("Checkout", List.of(), List.of(), "Customer",
+        var journey = new JourneyDef("Checkout", List.of(), List.of(), actorRef("Customer"),
                 List.of(), List.of(), Map.of("PaymentDeclined", variant), null, LOC);
         var doc = md(model(journey));
         assertTrue(doc.contains("**Variants**"));
@@ -284,9 +287,9 @@ class MarkdownPrdGeneratorTest {
         var variant = new Variant("NetworkError",
                 "TimeoutError",
                 List.of(step("Notify", "show msg", "msg visible")),
-                Optional.empty(),
+                null,
                 LOC);
-        var journey = new JourneyDef("Checkout", List.of(), List.of(), "Customer",
+        var journey = new JourneyDef("Checkout", List.of(), List.of(), actorRef("Customer"),
                 List.of(), List.of(), Map.of("NetworkError", variant), null, LOC);
         var doc = md(model(journey));
         assertTrue(doc.contains("| Notify |"));
@@ -294,7 +297,7 @@ class MarkdownPrdGeneratorTest {
 
     @Test
     void journeyWithNoVariantsOmitsVariantsBlock() {
-        var journey = new JourneyDef("Checkout", List.of(), List.of(), "Customer",
+        var journey = new JourneyDef("Checkout", List.of(), List.of(), actorRef("Customer"),
                 List.of(), List.of(), Map.of(), null, LOC);
         var doc = md(model(journey));
         assertFalse(doc.contains("**Variants**"));
@@ -305,7 +308,7 @@ class MarkdownPrdGeneratorTest {
     @Test
     void outcomesRenderedWithSuccessAndFailure() {
         var outcomes = new JourneyOutcomes("Order confirmed", "Cart intact", LOC);
-        var journey = new JourneyDef("Checkout", List.of(), List.of(), "Customer",
+        var journey = new JourneyDef("Checkout", List.of(), List.of(), actorRef("Customer"),
                 List.of(), List.of(), Map.of(), outcomes, LOC);
         var doc = md(model(journey));
         assertTrue(doc.contains("**Outcomes**"));
@@ -316,7 +319,7 @@ class MarkdownPrdGeneratorTest {
     @Test
     void outcomesOmitsFailureLineWhenAbsent() {
         var outcomes = new JourneyOutcomes("Order confirmed", null, LOC);
-        var journey = new JourneyDef("Checkout", List.of(), List.of(), "Customer",
+        var journey = new JourneyDef("Checkout", List.of(), List.of(), actorRef("Customer"),
                 List.of(), List.of(), Map.of(), outcomes, LOC);
         var doc = md(model(journey));
         assertTrue(doc.contains("✅ Success: Order confirmed"));
@@ -380,7 +383,8 @@ class MarkdownPrdGeneratorTest {
 
         var parent = new EntityDef("User", List.of(), List.of(), Optional.empty(),
                 List.of(idField, emailField), List.of(), LOC);
-        var child = new EntityDef("PremiumUser", List.of(), List.of(), Optional.of("User"),
+        var child = new EntityDef("PremiumUser", List.of(), List.of(),
+                Optional.of(SymbolRef.unresolved(SymbolKind.ENTITY, new QualifiedName(null, "User"), Span.UNKNOWN)),
                 List.of(tierField), List.of(), LOC);
 
         var doc = md(model(parent, child));
@@ -493,8 +497,8 @@ class MarkdownPrdGeneratorTest {
     @Test
     void policyWithComplianceFrameworkRendered() {
         var policy = new PolicyDef("DataRetention",
-                "Personal data purged after 7 years",
-                List.of(trait("compliance", "GDPR")), List.of(), LOC);
+                List.of(trait("compliance", "GDPR")), List.of(),
+                "Personal data purged after 7 years", LOC);
         var doc = md(model(policy));
         assertTrue(doc.contains("## Policies"));
         assertTrue(doc.contains("| DataRetention | Personal data purged after 7 years | GDPR |"));
@@ -502,7 +506,7 @@ class MarkdownPrdGeneratorTest {
 
     @Test
     void policyWithoutComplianceShowsDash() {
-        var policy = new PolicyDef("InternalPolicy", "Keep data", List.of(), List.of(), LOC);
+        var policy = new PolicyDef("InternalPolicy", List.of(), List.of(), "Keep data", LOC);
         var doc = md(model(policy));
         assertTrue(doc.contains("| InternalPolicy | Keep data | — |"));
     }
@@ -618,7 +622,7 @@ class MarkdownPrdGeneratorTest {
         var outcomes = new JourneyOutcomes("Order placed", "Cart intact", LOC);
         var journey = new JourneyDef("GuestCheckout", List.of(kpi),
                 List.of("Main checkout flow"),
-                "Customer",
+                actorRef("Customer"),
                 List.of("Cart not empty"),
                 List.of(step1), Map.of(), outcomes, LOC);
 
@@ -628,8 +632,9 @@ class MarkdownPrdGeneratorTest {
                 List.of(), LOC);
         var actor = new ActorDef("Customer",
                 List.of(trait("description", "Guest user")), List.of(), Optional.empty(), LOC);
-        var policy = new PolicyDef("PaymentPolicy", "PCI compliance",
-                List.of(trait("compliance", "PCI-DSS")), List.of(), LOC);
+        var policy = new PolicyDef("PaymentPolicy",
+                List.of(trait("compliance", "PCI-DSS")), List.of(),
+                "PCI compliance", LOC);
 
         var doc = md(model(journey, entity, actor, policy));
 

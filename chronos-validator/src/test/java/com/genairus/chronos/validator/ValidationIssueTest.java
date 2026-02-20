@@ -1,36 +1,42 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.model.SourceLocation;
+import com.genairus.chronos.core.diagnostics.Diagnostic;
+import com.genairus.chronos.core.diagnostics.DiagnosticSeverity;
+import com.genairus.chronos.core.refs.Span;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Tests for {@link Diagnostic} formatting and accessors (formerly ValidationIssueTest).
+ */
 class ValidationIssueTest {
 
-    private static final SourceLocation LOC = SourceLocation.of("checkout.chronos", 12, 1);
+    private static final Span SPAN = Span.at("checkout.chronos", 12, 1);
 
     @Test
-    void errorIssueFormatted() {
-        var issue = new ValidationIssue("CHR-001", ValidationSeverity.ERROR,
-                "Journey 'GuestCheckout' must declare an actor", LOC);
-        assertEquals("ERROR   [CHR-001] checkout.chronos:12  Journey 'GuestCheckout' must declare an actor",
-                issue.toString());
+    void errorDiagnosticFormatted() {
+        var d = Diagnostic.error("CHR-001",
+                "Journey 'GuestCheckout' must declare an actor", SPAN);
+        assertEquals("ERROR [CHR-001] checkout.chronos:12:1  Journey 'GuestCheckout' must declare an actor",
+                d.toString());
     }
 
     @Test
-    void warningIssueFormatted() {
-        var issue = new ValidationIssue("CHR-009", ValidationSeverity.WARNING,
-                "Journey 'GuestCheckout' is missing a @kpi trait", LOC);
-        assertEquals("WARNING [CHR-009] checkout.chronos:12  Journey 'GuestCheckout' is missing a @kpi trait",
-                issue.toString());
+    void warningDiagnosticFormatted() {
+        var d = Diagnostic.warning("CHR-009",
+                "Journey 'GuestCheckout' is missing a @kpi trait", SPAN);
+        assertEquals("WARNING [CHR-009] checkout.chronos:12:1  Journey 'GuestCheckout' is missing a @kpi trait",
+                d.toString());
     }
 
     @Test
     void accessorsReturnConstructedValues() {
-        var issue = new ValidationIssue("CHR-005", ValidationSeverity.ERROR, "Duplicate shape name 'Order'", LOC);
-        assertEquals("CHR-005", issue.ruleCode());
-        assertEquals(ValidationSeverity.ERROR, issue.severity());
-        assertEquals("Duplicate shape name 'Order'", issue.message());
-        assertEquals(LOC, issue.location());
+        var d = Diagnostic.error("CHR-005", "Duplicate shape name 'Order'", SPAN);
+        assertEquals("CHR-005", d.code());
+        assertEquals(DiagnosticSeverity.ERROR, d.severity());
+        assertEquals("Duplicate shape name 'Order'", d.message());
+        assertEquals(SPAN, d.span());
+        assertNull(d.pathOrNull());
     }
 }

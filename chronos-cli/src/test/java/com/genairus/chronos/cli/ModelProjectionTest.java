@@ -1,6 +1,11 @@
 package com.genairus.chronos.cli;
 
-import com.genairus.chronos.model.*;
+import com.genairus.chronos.core.refs.QualifiedName;
+import com.genairus.chronos.core.refs.Span;
+import com.genairus.chronos.core.refs.SymbolKind;
+import com.genairus.chronos.core.refs.SymbolRef;
+import com.genairus.chronos.ir.model.IrModel;
+import com.genairus.chronos.ir.types.*;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -11,26 +16,25 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ModelProjectionTest {
 
-    private static final SourceLocation LOC = SourceLocation.unknown();
-
     // ── Shape factories ────────────────────────────────────────────────────────
 
     private static ActorDef actor(String name) {
-        return new ActorDef(name, List.of(), List.of(), Optional.empty(), LOC);
+        return new ActorDef(name, List.of(), List.of(), Optional.empty(), Span.UNKNOWN);
     }
 
     private static EntityDef entity(String name) {
-        return new EntityDef(name, List.of(), List.of(), Optional.empty(), List.of(), List.of(), LOC);
+        return new EntityDef(name, List.of(), List.of(), Optional.empty(), List.of(), List.of(), Span.UNKNOWN);
     }
 
     private static JourneyDef journey(String name) {
         return new JourneyDef(name, List.of(), List.of(),
-                "Customer", List.of(), List.of(), Map.of(),
-                new JourneyOutcomes("done", null, LOC), LOC);
+                SymbolRef.unresolved(SymbolKind.ACTOR, new QualifiedName(null, "Customer"), Span.UNKNOWN),
+                List.of(), List.of(), Map.of(),
+                new JourneyOutcomes("done", null, Span.UNKNOWN), Span.UNKNOWN);
     }
 
-    private static ChronosModel model(ShapeDefinition... shapes) {
-        return new ChronosModel("com.example", List.of(), List.of(shapes));
+    private static IrModel model(IrShape... shapes) {
+        return new IrModel("com.example", List.of(), List.of(shapes));
     }
 
     private static BuildTarget target(List<String> include, List<String> exclude) {
@@ -118,8 +122,8 @@ class ModelProjectionTest {
 
     @Test
     void apply_preservesNamespaceAndImports() {
-        var original = new ChronosModel("com.test",
-                List.of(new UseDecl("com.other", "Foo", LOC)),
+        var original = new IrModel("com.test",
+                List.of(new UseDecl("com.other", "Foo", Span.UNKNOWN)),
                 List.of(actor("A")));
         var result = ModelProjection.apply(original, target(List.of(), List.of()));
         assertEquals("com.test", result.namespace());

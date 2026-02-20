@@ -74,6 +74,13 @@
 | thumbnail | Blob |  |
 | metadata | Document |  |
 
+#### Order
+
+| Field | Type | Required |
+|-------|------|----------|
+| id | String | ✓ |
+| status | OrderStatus |  |
+
 ### Value Objects
 
 #### Money
@@ -102,6 +109,15 @@
 | ACTIVE | — |
 | ABANDONED | — |
 | CHECKED_OUT | — |
+
+#### OrderStatus
+
+| Member | Ordinal |
+|--------|----------|
+| PENDING | — |
+| OrderConfirmed | — |
+| PAID | — |
+| FAILED | — |
 
 ### Collections
 

@@ -1,6 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,7 +14,7 @@ class Chr022UniqueInvariantNamesTest {
 
     @Test
     void entityInvariants_uniqueNames() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -31,11 +31,11 @@ class Chr022UniqueInvariantNamesTest {
                         severity: error
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr022Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-022"))
+                .filter(e -> e.code().equals("CHR-022"))
                 .toList();
         
         assertEquals(0, chr022Errors.size());
@@ -43,7 +43,7 @@ class Chr022UniqueInvariantNamesTest {
 
     @Test
     void entityInvariants_duplicateNames() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -60,11 +60,11 @@ class Chr022UniqueInvariantNamesTest {
                         severity: error
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr022Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-022"))
+                .filter(e -> e.code().equals("CHR-022"))
                 .toList();
         
         // Should have 2 errors: one for each occurrence
@@ -76,7 +76,7 @@ class Chr022UniqueInvariantNamesTest {
 
     @Test
     void entityInvariants_sameNameInDifferentEntities() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -96,11 +96,11 @@ class Chr022UniqueInvariantNamesTest {
                         severity: error
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr022Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-022"))
+                .filter(e -> e.code().equals("CHR-022"))
                 .toList();
         
         // Should have 0 errors: same name in different entities is allowed
@@ -109,7 +109,7 @@ class Chr022UniqueInvariantNamesTest {
 
     @Test
     void globalInvariants_uniqueNames() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order { total: Float }
@@ -126,11 +126,11 @@ class Chr022UniqueInvariantNamesTest {
                     expression: "count(Customer) > 0"
                     severity: error
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr022Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-022"))
+                .filter(e -> e.code().equals("CHR-022"))
                 .toList();
         
         assertEquals(0, chr022Errors.size());
@@ -138,7 +138,7 @@ class Chr022UniqueInvariantNamesTest {
 
     @Test
     void globalInvariants_duplicateNames() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order { total: Float }
@@ -154,11 +154,11 @@ class Chr022UniqueInvariantNamesTest {
                     expression: "count(Order) < 1000"
                     severity: warning
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr022Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-022"))
+                .filter(e -> e.code().equals("CHR-022"))
                 .toList();
         
         // Should have 2 errors: one for each occurrence

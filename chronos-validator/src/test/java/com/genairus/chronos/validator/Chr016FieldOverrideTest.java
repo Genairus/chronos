@@ -1,6 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -9,7 +9,7 @@ class Chr016FieldOverrideTest {
 
     @Test
     void validOverride_sameType() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity User {
@@ -21,14 +21,14 @@ class Chr016FieldOverrideTest {
                     email: String
                     tier: String
                 }
-                """);
+                """, "test").modelOrNull();
 
         var validator = new ChronosValidator();
         var result = validator.validate(model);
 
         // Should not have any CHR-016 errors
         var chr016Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-016"))
+                .filter(e -> e.code().equals("CHR-016"))
                 .toList();
         
         assertEquals(0, chr016Errors.size());
@@ -36,7 +36,7 @@ class Chr016FieldOverrideTest {
 
     @Test
     void validInheritance_noOverride() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity User {
@@ -47,14 +47,14 @@ class Chr016FieldOverrideTest {
                 entity PremiumUser extends User {
                     tier: String
                 }
-                """);
+                """, "test").modelOrNull();
 
         var validator = new ChronosValidator();
         var result = validator.validate(model);
 
         // Should not have any CHR-016 errors
         var chr016Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-016"))
+                .filter(e -> e.code().equals("CHR-016"))
                 .toList();
         
         assertEquals(0, chr016Errors.size());
@@ -62,7 +62,7 @@ class Chr016FieldOverrideTest {
 
     @Test
     void invalidOverride_differentPrimitiveType() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity User {
@@ -73,14 +73,14 @@ class Chr016FieldOverrideTest {
                 entity PremiumUser extends User {
                     age: String
                 }
-                """);
+                """, "test").modelOrNull();
 
         var validator = new ChronosValidator();
         var result = validator.validate(model);
 
         assertTrue(result.hasErrors());
         var chr016Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-016"))
+                .filter(e -> e.code().equals("CHR-016"))
                 .toList();
         
         assertEquals(1, chr016Errors.size());
@@ -90,7 +90,7 @@ class Chr016FieldOverrideTest {
 
     @Test
     void invalidOverride_differentNamedType() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 shape Address {
@@ -110,14 +110,14 @@ class Chr016FieldOverrideTest {
                 entity PremiumUser extends User {
                     location: Location
                 }
-                """);
+                """, "test").modelOrNull();
 
         var validator = new ChronosValidator();
         var result = validator.validate(model);
 
         assertTrue(result.hasErrors());
         var chr016Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-016"))
+                .filter(e -> e.code().equals("CHR-016"))
                 .toList();
         
         assertEquals(1, chr016Errors.size());
@@ -127,7 +127,7 @@ class Chr016FieldOverrideTest {
 
     @Test
     void invalidOverride_primitiveToCollection() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity User {
@@ -137,14 +137,14 @@ class Chr016FieldOverrideTest {
                 entity PremiumUser extends User {
                     id: List<String>
                 }
-                """);
+                """, "test").modelOrNull();
 
         var validator = new ChronosValidator();
         var result = validator.validate(model);
 
         assertTrue(result.hasErrors());
         var chr016Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-016"))
+                .filter(e -> e.code().equals("CHR-016"))
                 .toList();
 
         assertEquals(1, chr016Errors.size());
@@ -153,7 +153,7 @@ class Chr016FieldOverrideTest {
 
     @Test
     void invalidOverride_listElementType() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity User {
@@ -164,14 +164,14 @@ class Chr016FieldOverrideTest {
                 entity PremiumUser extends User {
                     tags: List<Integer>
                 }
-                """);
+                """, "test").modelOrNull();
 
         var validator = new ChronosValidator();
         var result = validator.validate(model);
 
         assertTrue(result.hasErrors());
         var chr016Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-016"))
+                .filter(e -> e.code().equals("CHR-016"))
                 .toList();
 
         assertEquals(1, chr016Errors.size());
@@ -180,7 +180,7 @@ class Chr016FieldOverrideTest {
 
     @Test
     void validOverride_sameListType() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity User {
@@ -192,14 +192,14 @@ class Chr016FieldOverrideTest {
                     tags: List<String>
                     tier: String
                 }
-                """);
+                """, "test").modelOrNull();
 
         var validator = new ChronosValidator();
         var result = validator.validate(model);
 
         // Should not have any CHR-016 errors
         var chr016Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-016"))
+                .filter(e -> e.code().equals("CHR-016"))
                 .toList();
 
         assertEquals(0, chr016Errors.size());
@@ -207,7 +207,7 @@ class Chr016FieldOverrideTest {
 
     @Test
     void invalidOverride_multipleFields() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity User {
@@ -220,14 +220,14 @@ class Chr016FieldOverrideTest {
                     age: String
                     email: Integer
                 }
-                """);
+                """, "test").modelOrNull();
 
         var validator = new ChronosValidator();
         var result = validator.validate(model);
 
         assertTrue(result.hasErrors());
         var chr016Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-016"))
+                .filter(e -> e.code().equals("CHR-016"))
                 .toList();
 
         // Should have 2 errors - one for age, one for email
@@ -236,20 +236,20 @@ class Chr016FieldOverrideTest {
 
     @Test
     void noErrorWhenParentNotFound() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity PremiumUser extends NonExistentUser {
                     tier: String
                 }
-                """);
+                """, "test").modelOrNull();
 
         var validator = new ChronosValidator();
         var result = validator.validate(model);
 
         // Should have CHR-008 error for undefined parent, but not CHR-016
         var chr016Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-016"))
+                .filter(e -> e.code().equals("CHR-016"))
                 .toList();
 
         assertEquals(0, chr016Errors.size());

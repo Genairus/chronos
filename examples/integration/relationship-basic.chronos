@@ -1,0 +1,40 @@
+namespace com.example.orders
+
+/// A customer who places orders.
+entity Customer {
+    @required
+    id: String
+    name: String
+    email: String
+}
+
+/// An order placed by a customer.
+entity Order {
+    @required
+    id: String
+    total: Float
+    createdAt: Timestamp
+}
+
+/// An item within an order.
+entity OrderItem {
+    @required
+    id: String
+    quantity: Integer
+    unitPrice: Float
+}
+
+/// Associates each order with the customer who placed it.
+relationship CustomerOrders {
+    from: Customer
+    to: Order
+    cardinality: one_to_many
+}
+
+/// Associates each order with its constituent line items.
+relationship OrderContents {
+    from: Order
+    to: OrderItem
+    cardinality: one_to_many
+    semantics: composition
+}

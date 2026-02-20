@@ -6,7 +6,7 @@ plugins {
 dependencies {
     antlr("org.antlr:antlr4:4.13.1")
     api("org.antlr:antlr4-runtime:4.13.1")
-    implementation(project(":chronos-model"))
+    implementation(project(":chronos-core"))
 }
 
 tasks.generateGrammarSource {

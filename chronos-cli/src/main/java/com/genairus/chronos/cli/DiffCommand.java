@@ -1,8 +1,8 @@
 package com.genairus.chronos.cli;
 
-import com.genairus.chronos.model.*;
-import com.genairus.chronos.parser.ChronosModelParser;
-import com.genairus.chronos.parser.ChronosParseException;
+import com.genairus.chronos.compiler.ChronosCompiler;
+import com.genairus.chronos.ir.model.IrModel;
+import com.genairus.chronos.ir.types.*;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Parameters;
@@ -11,6 +11,7 @@ import picocli.CommandLine.Spec;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -38,10 +39,10 @@ public class DiffCommand implements Callable<Integer> {
     public Integer call() {
         var console = parent.console(spec.commandLine().getOut(), spec.commandLine().getErr());
 
-        ChronosModel baseModel = parseOrExit(base, console);
+        IrModel baseModel = compileOrNull(base, console);
         if (baseModel == null) return 1;
 
-        ChronosModel headModel = parseOrExit(head, console);
+        IrModel headModel = compileOrNull(head, console);
         if (headModel == null) return 1;
 
         // Build name→type maps (LinkedHashMap preserves source order)
@@ -76,31 +77,37 @@ public class DiffCommand implements Callable<Integer> {
         return hasDiff ? 1 : 0;
     }
 
-    private ChronosModel parseOrExit(File file, AnsiConsole console) {
+    private IrModel compileOrNull(File file, AnsiConsole console) {
         if (!file.exists()) {
             console.error("Error: File not found: " + file.getPath());
             return null;
         }
+        String text;
         try {
-            return ChronosModelParser.parseFile(file.toPath());
-        } catch (ChronosParseException e) {
-            console.exception(e);
-            return null;
+            text = Files.readString(file.toPath());
         } catch (IOException e) {
             console.error("Error reading file: " + e.getMessage());
             return null;
         }
+        var result = new ChronosCompiler().compile(text, file.getPath());
+        if (!result.parsed()) {
+            for (var d : result.diagnostics()) {
+                console.error(d.toString());
+            }
+            return null;
+        }
+        return result.modelOrNull();
     }
 
-    private static Map<String, String> shapeMap(ChronosModel model) {
+    private static Map<String, String> shapeMap(IrModel model) {
         var map = new LinkedHashMap<String, String>();
-        for (ShapeDefinition shape : model.shapes()) {
+        for (IrShape shape : model.shapes()) {
             map.put(shape.name(), typeName(shape));
         }
         return map;
     }
 
-    private static String typeName(ShapeDefinition shape) {
+    private static String typeName(IrShape shape) {
         return switch (shape) {
             case EntityDef        e  -> "entity";
             case ShapeStructDef   s  -> "shape";

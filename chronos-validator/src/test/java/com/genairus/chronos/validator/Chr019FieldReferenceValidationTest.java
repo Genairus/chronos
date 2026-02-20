@@ -1,6 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,7 +14,7 @@ class Chr019FieldReferenceValidationTest {
 
     @Test
     void entityInvariant_validFieldReference() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -25,11 +25,11 @@ class Chr019FieldReferenceValidationTest {
                         severity: error
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr019Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-019"))
+                .filter(e -> e.code().equals("CHR-019"))
                 .toList();
         
         assertEquals(0, chr019Errors.size());
@@ -37,7 +37,7 @@ class Chr019FieldReferenceValidationTest {
 
     @Test
     void entityInvariant_multipleValidFieldReferences() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -49,11 +49,11 @@ class Chr019FieldReferenceValidationTest {
                         severity: error
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr019Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-019"))
+                .filter(e -> e.code().equals("CHR-019"))
                 .toList();
         
         assertEquals(0, chr019Errors.size());
@@ -61,7 +61,7 @@ class Chr019FieldReferenceValidationTest {
 
     @Test
     void entityInvariant_invalidFieldReference() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -72,11 +72,11 @@ class Chr019FieldReferenceValidationTest {
                         severity: error
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr019Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-019"))
+                .filter(e -> e.code().equals("CHR-019"))
                 .toList();
         
         assertEquals(1, chr019Errors.size());
@@ -86,7 +86,7 @@ class Chr019FieldReferenceValidationTest {
 
     @Test
     void entityInvariant_withInheritedFields() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity BaseOrder {
@@ -102,11 +102,11 @@ class Chr019FieldReferenceValidationTest {
                         severity: error
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr019Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-019"))
+                .filter(e -> e.code().equals("CHR-019"))
                 .toList();
         
         // Should be valid because 'total' is inherited from BaseOrder
@@ -115,7 +115,7 @@ class Chr019FieldReferenceValidationTest {
 
     @Test
     void globalInvariant_validFieldReferences() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -132,11 +132,11 @@ class Chr019FieldReferenceValidationTest {
                     expression: "exists(Customer, c => c.id == Order.customerId)"
                     severity: error
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr019Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-019"))
+                .filter(e -> e.code().equals("CHR-019"))
                 .toList();
         
         assertEquals(0, chr019Errors.size());
@@ -144,7 +144,7 @@ class Chr019FieldReferenceValidationTest {
 
     @Test
     void globalInvariant_invalidFieldReference() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -160,12 +160,12 @@ class Chr019FieldReferenceValidationTest {
                     expression: "exists(Customer, c => c.id == Order.invalidField)"
                     severity: error
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
 
         var chr019Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-019"))
+                .filter(e -> e.code().equals("CHR-019"))
                 .toList();
 
         // Should have error for 'invalidField' which doesn't exist in Order

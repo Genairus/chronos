@@ -1,6 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -9,7 +9,7 @@ class Chr018MultipleInheritanceTest {
 
     @Test
     void singleInheritance_isValid() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity User {
@@ -19,14 +19,14 @@ class Chr018MultipleInheritanceTest {
                 entity PremiumUser extends User {
                     tier: String
                 }
-                """);
+                """, "test").modelOrNull();
 
         var validator = new ChronosValidator();
         var result = validator.validate(model);
 
         // Should not have any CHR-018 errors
         var chr018Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-018"))
+                .filter(e -> e.code().equals("CHR-018"))
                 .toList();
         
         assertEquals(0, chr018Errors.size());
@@ -34,7 +34,7 @@ class Chr018MultipleInheritanceTest {
 
     @Test
     void noInheritance_isValid() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity User {
@@ -44,14 +44,14 @@ class Chr018MultipleInheritanceTest {
                 entity Order {
                     orderId: String
                 }
-                """);
+                """, "test").modelOrNull();
 
         var validator = new ChronosValidator();
         var result = validator.validate(model);
 
         // Should not have any CHR-018 errors
         var chr018Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-018"))
+                .filter(e -> e.code().equals("CHR-018"))
                 .toList();
         
         assertEquals(0, chr018Errors.size());
@@ -59,19 +59,19 @@ class Chr018MultipleInheritanceTest {
 
     @Test
     void actorSingleInheritance_isValid() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 actor User
                 actor AdminUser extends User
-                """);
+                """, "test").modelOrNull();
 
         var validator = new ChronosValidator();
         var result = validator.validate(model);
 
         // Should not have any CHR-018 errors
         var chr018Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-018"))
+                .filter(e -> e.code().equals("CHR-018"))
                 .toList();
         
         assertEquals(0, chr018Errors.size());

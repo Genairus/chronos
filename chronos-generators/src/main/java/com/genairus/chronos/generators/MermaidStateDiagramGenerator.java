@@ -1,8 +1,8 @@
 package com.genairus.chronos.generators;
 
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.model.StateMachineDef;
-import com.genairus.chronos.model.Transition;
+import com.genairus.chronos.ir.model.IrModel;
+import com.genairus.chronos.ir.types.StateMachineDef;
+import com.genairus.chronos.ir.types.Transition;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,7 +30,7 @@ import java.util.Map;
 public final class MermaidStateDiagramGenerator implements ChronosGenerator {
 
     @Override
-    public GeneratorOutput generate(ChronosModel model) {
+    public GeneratorOutput generate(IrModel model) {
         Map<String, String> files = new HashMap<>();
         
         for (StateMachineDef sm : model.stateMachines()) {

@@ -1,6 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,7 +14,7 @@ class Chr021GlobalInvariantScopeTest {
 
     @Test
     void globalInvariant_withValidScope() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order { customerId: String }
@@ -25,11 +25,11 @@ class Chr021GlobalInvariantScopeTest {
                     expression: "exists(Customer, c => c.id == Order.customerId)"
                     severity: error
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr021Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-021"))
+                .filter(e -> e.code().equals("CHR-021"))
                 .toList();
         
         assertEquals(0, chr021Errors.size());
@@ -37,7 +37,7 @@ class Chr021GlobalInvariantScopeTest {
 
     @Test
     void globalInvariant_withSingleEntityScope() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order { total: Float }
@@ -47,11 +47,11 @@ class Chr021GlobalInvariantScopeTest {
                     expression: "forAll(Order, o => o.total > 0)"
                     severity: error
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr021Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-021"))
+                .filter(e -> e.code().equals("CHR-021"))
                 .toList();
         
         assertEquals(0, chr021Errors.size());
@@ -59,7 +59,7 @@ class Chr021GlobalInvariantScopeTest {
 
     @Test
     void globalInvariant_withUndefinedEntityInScope() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order { customerId: String }
@@ -69,11 +69,11 @@ class Chr021GlobalInvariantScopeTest {
                     expression: "exists(Customer, c => c.id == Order.customerId)"
                     severity: error
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr021Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-021"))
+                .filter(e -> e.code().equals("CHR-021"))
                 .toList();
         
         assertEquals(1, chr021Errors.size());
@@ -84,7 +84,7 @@ class Chr021GlobalInvariantScopeTest {
 
     @Test
     void globalInvariant_withMultipleUndefinedEntities() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 invariant ComplexRule {
@@ -92,11 +92,11 @@ class Chr021GlobalInvariantScopeTest {
                     expression: "count(Order) <= count(Customer) * 10"
                     severity: error
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr021Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-021"))
+                .filter(e -> e.code().equals("CHR-021"))
                 .toList();
         
         // Should have 3 errors: one for each undefined entity
@@ -108,7 +108,7 @@ class Chr021GlobalInvariantScopeTest {
 
     @Test
     void globalInvariant_withMixedDefinedAndUndefined() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order { total: Float }
@@ -118,11 +118,11 @@ class Chr021GlobalInvariantScopeTest {
                     expression: "count(Order) > 0"
                     severity: error
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr021Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-021"))
+                .filter(e -> e.code().equals("CHR-021"))
                 .toList();
         
         // Should have 1 error for Customer

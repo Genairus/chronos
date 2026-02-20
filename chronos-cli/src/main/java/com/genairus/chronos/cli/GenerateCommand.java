@@ -1,12 +1,9 @@
 package com.genairus.chronos.cli;
 
+import com.genairus.chronos.compiler.ChronosCompiler;
+import com.genairus.chronos.core.diagnostics.DiagnosticSeverity;
 import com.genairus.chronos.generators.ChronosGenerator;
 import com.genairus.chronos.generators.GeneratorRegistry;
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.parser.ChronosModelParser;
-import com.genairus.chronos.parser.ChronosParseException;
-import com.genairus.chronos.validator.ChronosValidator;
-import com.genairus.chronos.validator.ValidationSeverity;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
@@ -73,33 +70,33 @@ public class GenerateCommand implements Callable<Integer> {
             return 1;
         }
 
-        // Parse
-        ChronosModel model;
+        String text;
         try {
-            model = ChronosModelParser.parseFile(inputFile.toPath());
-        } catch (ChronosParseException e) {
-            console.exception(e);
-            return 1;
+            text = Files.readString(inputFile.toPath());
         } catch (IOException e) {
             console.error("Error reading file: " + e.getMessage());
             return 1;
         }
 
-        // Validate — print all issues, exit 1 on any error
-        var result = new ChronosValidator().validate(model);
-        if (result.hasErrors()) {
-            for (var issue : result.issues()) {
-                if (issue.severity() == ValidationSeverity.ERROR) {
-                    console.error(issue.toString());
-                } else {
-                    console.warning(issue.toString());
-                }
+        // Compile (parse + resolve + validate in one pass)
+        var result = new ChronosCompiler().compile(text, inputFile.getPath());
+
+        // Always print all diagnostics
+        for (var d : result.diagnostics()) {
+            if (d.severity() == DiagnosticSeverity.ERROR) {
+                console.error(d.toString());
+            } else {
+                console.warning(d.toString());
             }
+        }
+
+        // Only generate if the IR is fully valid
+        if (!result.parsed() || !result.finalized()) {
             return 1;
         }
 
         // Generate
-        var output = generator.generate(model);
+        var output = generator.generate(result.modelOrNull());
 
         // Write files to outputDir
         if (!outputDir.exists()) {

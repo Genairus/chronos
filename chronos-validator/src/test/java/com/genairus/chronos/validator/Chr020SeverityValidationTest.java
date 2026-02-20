@@ -1,6 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,7 +14,7 @@ class Chr020SeverityValidationTest {
 
     @Test
     void entityInvariant_validSeverityError() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -25,11 +25,11 @@ class Chr020SeverityValidationTest {
                         severity: error
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr020Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-020"))
+                .filter(e -> e.code().equals("CHR-020"))
                 .toList();
         
         assertEquals(0, chr020Errors.size());
@@ -37,7 +37,7 @@ class Chr020SeverityValidationTest {
 
     @Test
     void entityInvariant_validSeverityWarning() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -48,11 +48,11 @@ class Chr020SeverityValidationTest {
                         severity: warning
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr020Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-020"))
+                .filter(e -> e.code().equals("CHR-020"))
                 .toList();
         
         assertEquals(0, chr020Errors.size());
@@ -60,7 +60,7 @@ class Chr020SeverityValidationTest {
 
     @Test
     void entityInvariant_validSeverityInfo() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -71,11 +71,11 @@ class Chr020SeverityValidationTest {
                         severity: info
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr020Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-020"))
+                .filter(e -> e.code().equals("CHR-020"))
                 .toList();
         
         assertEquals(0, chr020Errors.size());
@@ -83,7 +83,7 @@ class Chr020SeverityValidationTest {
 
     @Test
     void entityInvariant_invalidSeverity() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -94,11 +94,11 @@ class Chr020SeverityValidationTest {
                         severity: critical
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr020Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-020"))
+                .filter(e -> e.code().equals("CHR-020"))
                 .toList();
         
         assertEquals(1, chr020Errors.size());
@@ -109,7 +109,7 @@ class Chr020SeverityValidationTest {
 
     @Test
     void globalInvariant_validSeverity() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order { total: Float }
@@ -119,11 +119,11 @@ class Chr020SeverityValidationTest {
                     expression: "forAll(Order, o => o.total > 0)"
                     severity: warning
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr020Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-020"))
+                .filter(e -> e.code().equals("CHR-020"))
                 .toList();
         
         assertEquals(0, chr020Errors.size());
@@ -131,7 +131,7 @@ class Chr020SeverityValidationTest {
 
     @Test
     void globalInvariant_invalidSeverity() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order { total: Float }
@@ -141,11 +141,11 @@ class Chr020SeverityValidationTest {
                     expression: "forAll(Order, o => o.total > 0)"
                     severity: fatal
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr020Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-020"))
+                .filter(e -> e.code().equals("CHR-020"))
                 .toList();
         
         assertEquals(1, chr020Errors.size());

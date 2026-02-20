@@ -1,11 +1,12 @@
 package com.genairus.chronos.cli;
 
-import com.genairus.chronos.model.*;
+import com.genairus.chronos.ir.model.IrModel;
+import com.genairus.chronos.ir.types.*;
 
 import java.util.List;
 
 /**
- * Filters a {@link ChronosModel}'s shapes using the include/exclude patterns
+ * Filters an {@link IrModel}'s shapes using the include/exclude patterns
  * defined in a {@link BuildTarget}.
  *
  * <h3>Pattern syntax</h3>
@@ -25,20 +26,20 @@ public final class ModelProjection {
     private ModelProjection() {}
 
     /**
-     * Returns a new {@link ChronosModel} containing only the shapes that pass
+     * Returns a new {@link IrModel} containing only the shapes that pass
      * the target's include/exclude filters. The namespace and imports are unchanged.
      */
-    public static ChronosModel apply(ChronosModel model, BuildTarget target) {
-        List<ShapeDefinition> filtered = model.shapes().stream()
+    public static IrModel apply(IrModel model, BuildTarget target) {
+        List<IrShape> filtered = model.shapes().stream()
                 .filter(s -> included(s, target.include()))
                 .filter(s -> !excluded(s, target.exclude()))
                 .toList();
-        return new ChronosModel(model.namespace(), model.imports(), filtered);
+        return new IrModel(model.namespace(), model.imports(), filtered);
     }
 
     // ── Include / exclude logic ────────────────────────────────────────────────
 
-    private static boolean included(ShapeDefinition shape, List<String> include) {
+    private static boolean included(IrShape shape, List<String> include) {
         if (include.isEmpty()) return true; // empty = include all
         for (String pattern : include) {
             if (matches(shape, pattern)) return true;
@@ -46,14 +47,14 @@ public final class ModelProjection {
         return false;
     }
 
-    private static boolean excluded(ShapeDefinition shape, List<String> exclude) {
+    private static boolean excluded(IrShape shape, List<String> exclude) {
         for (String pattern : exclude) {
             if (matches(shape, pattern)) return true;
         }
         return false;
     }
 
-    private static boolean matches(ShapeDefinition shape, String pattern) {
+    private static boolean matches(IrShape shape, String pattern) {
         if ("*".equals(pattern)) return true;
 
         int colon = pattern.indexOf(':');
@@ -69,7 +70,7 @@ public final class ModelProjection {
 
     // ── Type name helpers ──────────────────────────────────────────────────────
 
-    static String typeName(ShapeDefinition shape) {
+    static String typeName(IrShape shape) {
         return switch (shape) {
             case EntityDef        e  -> "entity";
             case ShapeStructDef   s  -> "shape";

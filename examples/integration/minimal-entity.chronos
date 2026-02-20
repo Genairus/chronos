@@ -1,0 +1,17 @@
+namespace com.example.catalog
+
+/// A product available for purchase in the catalog.
+entity Product {
+    @required
+    id: String
+    name: String
+    price: Float
+    inStock: Boolean
+}
+
+/// A product category for grouping related items.
+entity Category {
+    @required
+    id: String
+    label: String
+}

@@ -1,6 +1,6 @@
 package com.genairus.chronos.generators;
 
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -11,7 +11,7 @@ class TypeScriptTypesGeneratorTest {
 
     @Test
     void entityGeneratesInterface() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
             namespace com.example
 
             entity User {
@@ -22,7 +22,7 @@ class TypeScriptTypesGeneratorTest {
                 @required
                 age: Integer
             }
-            """);
+            """, "test").modelOrNull();
 
         var output = generator.generate(model);
         var content = output.files().get("com-example.d.ts");
@@ -36,7 +36,7 @@ class TypeScriptTypesGeneratorTest {
 
     @Test
     void optionalFieldsHaveQuestionMark() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
             namespace com.example
 
             entity User {
@@ -44,7 +44,7 @@ class TypeScriptTypesGeneratorTest {
                 id: String
                 email: String
             }
-            """);
+            """, "test").modelOrNull();
 
         var output = generator.generate(model);
         var content = output.files().get("com-example.d.ts");
@@ -55,15 +55,15 @@ class TypeScriptTypesGeneratorTest {
 
     @Test
     void enumGeneratesTypeScriptEnum() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
             namespace com.example
-            
+
             enum Status {
                 ACTIVE
                 INACTIVE
                 PENDING
             }
-            """);
+            """, "test").modelOrNull();
 
         var output = generator.generate(model);
         var content = output.files().get("com-example.d.ts");
@@ -76,7 +76,7 @@ class TypeScriptTypesGeneratorTest {
 
     @Test
     void errorWithPayloadGeneratesSeparateInterface() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
             namespace com.example
 
             error PaymentDeclinedError {
@@ -89,7 +89,7 @@ class TypeScriptTypesGeneratorTest {
                     retryAllowed: Boolean
                 }
             }
-            """);
+            """, "test").modelOrNull();
 
         var output = generator.generate(model);
         var content = output.files().get("com-example.d.ts");
@@ -108,16 +108,16 @@ class TypeScriptTypesGeneratorTest {
 
     @Test
     void errorWithoutPayloadHasNoPayloadField() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
             namespace com.example
-            
+
             error SystemFailureError {
                 code: "SYS-001"
                 severity: critical
                 recoverable: false
                 message: "Critical system failure"
             }
-            """);
+            """, "test").modelOrNull();
 
         var output = generator.generate(model);
         var content = output.files().get("com-example.d.ts");
@@ -134,14 +134,14 @@ class TypeScriptTypesGeneratorTest {
 
     @Test
     void listTypeRendersAsArray() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
             namespace com.example
 
             entity Order {
                 @required
                 items: List<String>
             }
-            """);
+            """, "test").modelOrNull();
 
         var output = generator.generate(model);
         var content = output.files().get("com-example.d.ts");
@@ -151,14 +151,14 @@ class TypeScriptTypesGeneratorTest {
 
     @Test
     void mapTypeRendersAsRecord() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
             namespace com.example
 
             entity Config {
                 @required
                 settings: Map<String, Integer>
             }
-            """);
+            """, "test").modelOrNull();
 
         var output = generator.generate(model);
         var content = output.files().get("com-example.d.ts");
@@ -166,4 +166,3 @@ class TypeScriptTypesGeneratorTest {
         assertTrue(content.contains("settings: Record<string, number>;"));
     }
 }
-

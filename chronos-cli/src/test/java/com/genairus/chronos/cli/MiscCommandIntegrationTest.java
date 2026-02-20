@@ -1,6 +1,6 @@
 package com.genairus.chronos.cli;
 
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -26,8 +26,9 @@ class MiscCommandIntegrationTest {
         assertTrue(Files.exists(output), "init should create the file");
 
         // The created file must parse without error
-        assertDoesNotThrow(() -> ChronosModelParser.parseFile(output),
-                "init-created file should parse cleanly");
+        var text = Files.readString(output);
+        var compileResult = new ChronosCompiler().compile(text, output.toString());
+        assertTrue(compileResult.parsed(), "init-created file should parse cleanly");
     }
 
     // ── select ────────────────────────────────────────────────────────────────

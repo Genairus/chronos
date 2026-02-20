@@ -1,6 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,7 +14,7 @@ class Chr028ErrorSeverityValidationTest {
 
     @Test
     void validSeverity_critical_shouldPass() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 error CriticalError {
@@ -23,11 +23,11 @@ class Chr028ErrorSeverityValidationTest {
                     recoverable: false
                     message: "Critical error"
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr028Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-028"))
+                .filter(e -> e.code().equals("CHR-028"))
                 .toList();
         
         assertEquals(0, chr028Errors.size());
@@ -35,7 +35,7 @@ class Chr028ErrorSeverityValidationTest {
 
     @Test
     void validSeverity_high_shouldPass() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 error HighError {
@@ -44,11 +44,11 @@ class Chr028ErrorSeverityValidationTest {
                     recoverable: true
                     message: "High severity error"
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr028Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-028"))
+                .filter(e -> e.code().equals("CHR-028"))
                 .toList();
         
         assertEquals(0, chr028Errors.size());
@@ -56,7 +56,7 @@ class Chr028ErrorSeverityValidationTest {
 
     @Test
     void validSeverity_medium_shouldPass() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 error MediumError {
@@ -65,11 +65,11 @@ class Chr028ErrorSeverityValidationTest {
                     recoverable: true
                     message: "Medium severity error"
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr028Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-028"))
+                .filter(e -> e.code().equals("CHR-028"))
                 .toList();
         
         assertEquals(0, chr028Errors.size());
@@ -77,7 +77,7 @@ class Chr028ErrorSeverityValidationTest {
 
     @Test
     void validSeverity_low_shouldPass() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 error LowError {
@@ -86,11 +86,11 @@ class Chr028ErrorSeverityValidationTest {
                     recoverable: true
                     message: "Low severity error"
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr028Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-028"))
+                .filter(e -> e.code().equals("CHR-028"))
                 .toList();
         
         assertEquals(0, chr028Errors.size());
@@ -98,7 +98,7 @@ class Chr028ErrorSeverityValidationTest {
 
     @Test
     void invalidSeverity_shouldFail() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 error InvalidError {
@@ -107,11 +107,11 @@ class Chr028ErrorSeverityValidationTest {
                     recoverable: true
                     message: "Invalid severity"
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr028Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-028"))
+                .filter(e -> e.code().equals("CHR-028"))
                 .toList();
         
         assertEquals(1, chr028Errors.size());
@@ -122,7 +122,7 @@ class Chr028ErrorSeverityValidationTest {
 
     @Test
     void multipleMixedSeverities_shouldReportOnlyInvalid() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 error ValidError {
@@ -145,11 +145,11 @@ class Chr028ErrorSeverityValidationTest {
                     recoverable: true
                     message: "Invalid severity 2"
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr028Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-028"))
+                .filter(e -> e.code().equals("CHR-028"))
                 .toList();
 
         // Should have 2 errors for the invalid severities

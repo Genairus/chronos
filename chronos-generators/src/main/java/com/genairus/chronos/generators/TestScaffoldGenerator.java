@@ -1,6 +1,10 @@
 package com.genairus.chronos.generators;
 
-import com.genairus.chronos.model.*;
+import com.genairus.chronos.ir.model.IrModel;
+import com.genairus.chronos.ir.types.DenyDef;
+import com.genairus.chronos.ir.types.EntityDef;
+import com.genairus.chronos.ir.types.EntityInvariant;
+import com.genairus.chronos.ir.types.InvariantDef;
 
 /**
  * Generates test scaffolding with assertion stubs for invariants and deny blocks.
@@ -22,7 +26,7 @@ import com.genairus.chronos.model.*;
 public final class TestScaffoldGenerator implements ChronosGenerator {
 
     @Override
-    public GeneratorOutput generate(ChronosModel model) {
+    public GeneratorOutput generate(IrModel model) {
         var sb = new StringBuilder();
         
         String packageName = model.namespace();

@@ -1,7 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -13,7 +12,7 @@ class Chr034TransitionToValidationTest {
 
     @Test
     void validTransitionToReferencingDeclaredState() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -53,7 +52,7 @@ class Chr034TransitionToValidationTest {
                         success: "Order confirmed"
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(!result.hasErrors(), "Valid TransitionTo should pass validation");
@@ -61,7 +60,7 @@ class Chr034TransitionToValidationTest {
 
     @Test
     void invalidTransitionToReferencingUndeclaredState() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -99,19 +98,19 @@ class Chr034TransitionToValidationTest {
                         success: "Order confirmed"
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         assertEquals(1, result.errors().size());
-        assertEquals("CHR-034", result.errors().get(0).ruleCode());
+        assertEquals("CHR-034", result.errors().get(0).code());
         assertTrue(result.errors().get(0).message().contains("SHIPPED"));
         assertTrue(result.errors().get(0).message().contains("PlaceOrder"));
     }
 
     @Test
     void validTransitionToInVariantStep() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -165,7 +164,7 @@ class Chr034TransitionToValidationTest {
                         success: "Order confirmed"
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(!result.hasErrors(), "Valid TransitionTo in variant should pass validation");

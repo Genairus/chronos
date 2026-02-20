@@ -1,7 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -13,7 +12,7 @@ class Chr029StateReferencesValidationTest {
 
     @Test
     void validStateMachineWithAllStatesDeclared() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -37,7 +36,7 @@ class Chr029StateReferencesValidationTest {
                         PAID -> SHIPPED
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors(), "Valid state machine should pass validation");
@@ -45,7 +44,7 @@ class Chr029StateReferencesValidationTest {
 
     @Test
     void invalidFromStateNotDeclared() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -68,19 +67,19 @@ class Chr029StateReferencesValidationTest {
                         UNKNOWN -> PAID
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         assertEquals(1, result.errors().size());
-        assertEquals("CHR-029", result.errors().get(0).ruleCode());
+        assertEquals("CHR-029", result.errors().get(0).code());
         assertTrue(result.errors().get(0).message().contains("UNKNOWN"));
         assertTrue(result.errors().get(0).message().contains("not declared in states list"));
     }
 
     @Test
     void invalidToStateNotDeclared() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -102,19 +101,19 @@ class Chr029StateReferencesValidationTest {
                         PENDING -> UNKNOWN
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         assertEquals(1, result.errors().size());
-        assertEquals("CHR-029", result.errors().get(0).ruleCode());
+        assertEquals("CHR-029", result.errors().get(0).code());
         assertTrue(result.errors().get(0).message().contains("UNKNOWN"));
         assertTrue(result.errors().get(0).message().contains("not declared in states list"));
     }
 
     @Test
     void invalidBothStatesNotDeclared() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -135,12 +134,12 @@ class Chr029StateReferencesValidationTest {
                         UNKNOWN1 -> UNKNOWN2
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         assertEquals(2, result.errors().size());
-        assertTrue(result.errors().stream().allMatch(e -> e.ruleCode().equals("CHR-029")));
+        assertTrue(result.errors().stream().allMatch(e -> e.code().equals("CHR-029")));
     }
 }
 

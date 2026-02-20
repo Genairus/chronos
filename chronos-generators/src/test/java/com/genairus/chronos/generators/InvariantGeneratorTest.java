@@ -1,6 +1,6 @@
 package com.genairus.chronos.generators;
 
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -12,38 +12,38 @@ class InvariantGeneratorTest {
 
     @Test
     void markdownGenerator_entityWithInvariants_includesInvariantSection() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
             namespace com.example
-            
+
             entity Order {
                 total: Float
-                
+
                 invariant PositiveTotal {
                     expression: "total > 0"
                     severity: error
                     message: "Order total must be positive"
                 }
-                
+
                 invariant ReasonableTotal {
                     expression: "total < 1000000"
                     severity: warning
                 }
             }
-            """);
-        
+            """, "test").modelOrNull();
+
         var generator = new MarkdownPrdGenerator();
         var output = generator.generate(model);
-        
+
         assertEquals(1, output.files().size());
         String content = output.files().get("com-example-prd.md");
-        
+
         // Check that invariants section is present
         assertTrue(content.contains("**Invariants:**"), "Should have invariants section");
         assertTrue(content.contains("**PositiveTotal**"), "Should include first invariant name");
         assertTrue(content.contains("(error)"), "Should include severity");
         assertTrue(content.contains("`total > 0`"), "Should include expression");
         assertTrue(content.contains("Order total must be positive"), "Should include message");
-        
+
         assertTrue(content.contains("**ReasonableTotal**"), "Should include second invariant name");
         assertTrue(content.contains("(warning)"), "Should include warning severity");
         assertTrue(content.contains("`total < 1000000`"), "Should include second expression");
@@ -51,17 +51,17 @@ class InvariantGeneratorTest {
 
     @Test
     void markdownGenerator_globalInvariants_createsGlobalInvariantsSection() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
             namespace com.example
-            
+
             entity Order {
                 customerId: String
             }
-            
+
             entity Customer {
                 id: String
             }
-            
+
             /// Ensures every order references an existing customer
             invariant OrderCustomerExists {
                 scope: [Order, Customer]
@@ -69,13 +69,13 @@ class InvariantGeneratorTest {
                 severity: error
                 message: "Every order must reference an existing customer"
             }
-            """);
-        
+            """, "test").modelOrNull();
+
         var generator = new MarkdownPrdGenerator();
         var output = generator.generate(model);
-        
+
         String content = output.files().get("com-example-prd.md");
-        
+
         // Check that global invariants section is present
         assertTrue(content.contains("## Global Invariants"), "Should have global invariants section");
         assertTrue(content.contains("### OrderCustomerExists"), "Should include invariant name as heading");
@@ -88,33 +88,33 @@ class InvariantGeneratorTest {
 
     @Test
     void testScaffoldGenerator_entityInvariants_generatesTestStubs() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
             namespace com.example
-            
+
             entity Order {
                 total: Float
-                
+
                 invariant PositiveTotal {
                     expression: "total > 0"
                     severity: error
                 }
             }
-            """);
-        
+            """, "test").modelOrNull();
+
         var generator = new TestScaffoldGenerator();
         var output = generator.generate(model);
-        
+
         assertEquals(1, output.files().size());
         String content = output.files().get("ComExampleInvariantTests.java");
-        
+
         // Check package and imports
         assertTrue(content.contains("package com.example.tests;"), "Should have correct package");
         assertTrue(content.contains("import org.junit.jupiter.api.Test;"), "Should import Test annotation");
         assertTrue(content.contains("import static org.junit.jupiter.api.Assertions.*;"), "Should import assertions");
-        
+
         // Check class declaration
         assertTrue(content.contains("public class ComExampleInvariantTests"), "Should have correct class name");
-        
+
         // Check test method
         assertTrue(content.contains("@Test"), "Should have Test annotation");
         assertTrue(content.contains("void testOrder_PositiveTotal()"), "Should have correct test method name");
@@ -126,30 +126,30 @@ class InvariantGeneratorTest {
 
     @Test
     void testScaffoldGenerator_globalInvariants_generatesTestStubs() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
             namespace com.example
-            
+
             entity Order {
                 customerId: String
             }
-            
+
             entity Customer {
                 id: String
             }
-            
+
             invariant OrderCustomerExists {
                 scope: [Order, Customer]
                 expression: "exists(Customer, c => c.id == Order.customerId)"
                 severity: error
                 message: "Every order must reference an existing customer"
             }
-            """);
-        
+            """, "test").modelOrNull();
+
         var generator = new TestScaffoldGenerator();
         var output = generator.generate(model);
-        
+
         String content = output.files().get("ComExampleInvariantTests.java");
-        
+
         // Check global invariant test
         assertTrue(content.contains("// ── Global Invariants ──"), "Should have global invariants section");
         assertTrue(content.contains("void testGlobal_OrderCustomerExists()"), "Should have correct test method name");
@@ -162,7 +162,7 @@ class InvariantGeneratorTest {
 
     @Test
     void testScaffoldGenerator_denyBlocks_generatesNegativeTestStubs() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
             namespace com.example
 
             entity UserCredential {
@@ -182,7 +182,7 @@ class InvariantGeneratorTest {
                 scope: [UserCredential]
                 severity: high
             }
-            """);
+            """, "test").modelOrNull();
 
         var generator = new TestScaffoldGenerator();
         var output = generator.generate(model);
@@ -209,4 +209,3 @@ class InvariantGeneratorTest {
         assertTrue(content.contains("// Severity: high"), "Should include high severity");
     }
 }
-

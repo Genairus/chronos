@@ -1,36 +1,39 @@
 package com.genairus.chronos.validator;
 
+import com.genairus.chronos.core.diagnostics.Diagnostic;
+import com.genairus.chronos.core.diagnostics.DiagnosticSeverity;
+
 import java.util.List;
 
 /**
  * The outcome of a {@link ChronosValidator#validate} call — an ordered list of
- * all {@link ValidationIssue}s produced, in the order the rules ran.
+ * all {@link Diagnostic}s produced, in the order the rules ran.
  *
- * @param issues all diagnostics, errors before warnings within each rule
+ * @param diagnostics all diagnostics, errors before warnings within each rule
  */
-public record ValidationResult(List<ValidationIssue> issues) {
+public record ValidationResult(List<Diagnostic> diagnostics) {
 
-    /** Returns {@code true} when there are no issues at all. */
+    /** Returns {@code true} when there are no diagnostics at all. */
     public boolean isEmpty() {
-        return issues.isEmpty();
+        return diagnostics.isEmpty();
     }
 
-    /** Returns {@code true} when at least one issue has severity {@code ERROR}. */
+    /** Returns {@code true} when at least one diagnostic has severity {@code ERROR}. */
     public boolean hasErrors() {
-        return issues.stream().anyMatch(i -> i.severity() == ValidationSeverity.ERROR);
+        return diagnostics.stream().anyMatch(d -> d.severity() == DiagnosticSeverity.ERROR);
     }
 
-    /** All issues with severity {@code ERROR}, in encounter order. */
-    public List<ValidationIssue> errors() {
-        return issues.stream()
-                .filter(i -> i.severity() == ValidationSeverity.ERROR)
+    /** All diagnostics with severity {@code ERROR}, in encounter order. */
+    public List<Diagnostic> errors() {
+        return diagnostics.stream()
+                .filter(d -> d.severity() == DiagnosticSeverity.ERROR)
                 .toList();
     }
 
-    /** All issues with severity {@code WARNING}, in encounter order. */
-    public List<ValidationIssue> warnings() {
-        return issues.stream()
-                .filter(i -> i.severity() == ValidationSeverity.WARNING)
+    /** All diagnostics with severity {@code WARNING}, in encounter order. */
+    public List<Diagnostic> warnings() {
+        return diagnostics.stream()
+                .filter(d -> d.severity() == DiagnosticSeverity.WARNING)
                 .toList();
     }
 }

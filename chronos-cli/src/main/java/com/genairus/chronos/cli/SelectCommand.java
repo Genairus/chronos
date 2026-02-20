@@ -1,8 +1,8 @@
 package com.genairus.chronos.cli;
 
-import com.genairus.chronos.model.*;
-import com.genairus.chronos.parser.ChronosModelParser;
-import com.genairus.chronos.parser.ChronosParseException;
+import com.genairus.chronos.compiler.ChronosCompiler;
+import com.genairus.chronos.ir.model.IrModel;
+import com.genairus.chronos.ir.types.*;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
@@ -12,6 +12,7 @@ import picocli.CommandLine.Spec;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.concurrent.Callable;
 
 @Command(
@@ -47,28 +48,37 @@ public class SelectCommand implements Callable<Integer> {
             return 1;
         }
 
-        ChronosModel model;
+        String text;
         try {
-            model = ChronosModelParser.parseFile(inputFile.toPath());
-        } catch (ChronosParseException e) {
-            console.exception(e);
-            return 1;
+            text = Files.readString(inputFile.toPath());
         } catch (IOException e) {
             console.error("Error reading file: " + e.getMessage());
             return 1;
         }
 
+        var result = new ChronosCompiler().compile(text, inputFile.getPath());
+        if (!result.parsed()) {
+            for (var d : result.diagnostics()) {
+                console.error(d.toString());
+            }
+            return 1;
+        }
+
+        IrModel model = result.modelOrNull();
+
         String lowerPattern = pattern.toLowerCase();
-        for (ShapeDefinition shape : model.shapes()) {
+        for (IrShape shape : model.shapes()) {
             if (shape.name().toLowerCase().contains(lowerPattern)) {
-                console.plain(typeName(shape) + "  " + shape.name() + "  " + shape.location());
+                var span = shape.span();
+                String location = span.sourceName() + ":" + span.startLine();
+                console.plain(typeName(shape) + "  " + shape.name() + "  " + location);
             }
         }
 
         return 0;
     }
 
-    private static String typeName(ShapeDefinition shape) {
+    private static String typeName(IrShape shape) {
         return switch (shape) {
             case EntityDef        e  -> "entity";
             case ShapeStructDef   s  -> "shape";

@@ -1,7 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -13,7 +12,7 @@ class Chr024DenyScopeValidationTest {
 
     @Test
     void denyScopeReferencesDefinedEntity_noError() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity UserCredential {
@@ -25,7 +24,7 @@ class Chr024DenyScopeValidationTest {
                     scope: [UserCredential]
                     severity: critical
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors(), "Should not have errors when scope references defined entity");
@@ -33,7 +32,7 @@ class Chr024DenyScopeValidationTest {
 
     @Test
     void denyScopeReferencesMultipleDefinedEntities_noError() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity CustomerProfile {
@@ -49,7 +48,7 @@ class Chr024DenyScopeValidationTest {
                     scope: [CustomerProfile, PaymentInfo]
                     severity: critical
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors());
@@ -57,7 +56,7 @@ class Chr024DenyScopeValidationTest {
 
     @Test
     void denyScopeReferencesUndefinedEntity_error() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity UserCredential {
@@ -69,13 +68,13 @@ class Chr024DenyScopeValidationTest {
                     scope: [UndefinedEntity]
                     severity: critical
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         
         var chr024Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-024"))
+                .filter(e -> e.code().equals("CHR-024"))
                 .toList();
         
         assertEquals(1, chr024Errors.size());
@@ -85,7 +84,7 @@ class Chr024DenyScopeValidationTest {
 
     @Test
     void denyScopeReferencesImportedEntity_noError() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 use com.other#Order
@@ -95,7 +94,7 @@ class Chr024DenyScopeValidationTest {
                     scope: [Order]
                     severity: critical
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors(), "Should not have errors when scope references imported entity");
@@ -103,7 +102,7 @@ class Chr024DenyScopeValidationTest {
 
     @Test
     void denyScopePartiallyUndefined_errorForUndefinedOnly() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity CustomerProfile {
@@ -115,12 +114,12 @@ class Chr024DenyScopeValidationTest {
                     scope: [CustomerProfile, UndefinedEntity, AnotherUndefined]
                     severity: critical
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         
         var chr024Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-024"))
+                .filter(e -> e.code().equals("CHR-024"))
                 .toList();
 
         assertEquals(2, chr024Errors.size(), "Should have 2 errors for the 2 undefined entities");
@@ -136,7 +135,7 @@ class Chr024DenyScopeValidationTest {
 
     @Test
     void multipleDeniesWithUndefinedScopes_multipleErrors() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Entity1 {
@@ -160,12 +159,12 @@ class Chr024DenyScopeValidationTest {
                     scope: [UndefinedEntity2]
                     severity: medium
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         
         var chr024Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-024"))
+                .filter(e -> e.code().equals("CHR-024"))
                 .toList();
 
         assertEquals(2, chr024Errors.size());

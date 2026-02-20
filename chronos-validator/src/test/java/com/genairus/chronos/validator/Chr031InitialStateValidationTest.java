@@ -1,7 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -13,7 +12,7 @@ class Chr031InitialStateValidationTest {
 
     @Test
     void validInitialStateInStatesList() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -39,7 +38,7 @@ class Chr031InitialStateValidationTest {
                         PAID -> SHIPPED
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(!result.hasErrors(), "Valid initial state should pass validation");
@@ -47,7 +46,7 @@ class Chr031InitialStateValidationTest {
 
     @Test
     void invalidInitialStateNotInStatesList() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -72,19 +71,19 @@ class Chr031InitialStateValidationTest {
                         PENDING -> PAID
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertFalse(!result.hasErrors());
         assertEquals(1, result.errors().size());
-        assertEquals("CHR-031", result.errors().get(0).ruleCode());
+        assertEquals("CHR-031", result.errors().get(0).code());
         assertTrue(result.errors().get(0).message().contains("UNKNOWN"));
         assertTrue(result.errors().get(0).message().contains("not declared in states list"));
     }
 
     @Test
     void validInitialStateCanBeTerminal() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -109,7 +108,7 @@ class Chr031InitialStateValidationTest {
                         PENDING -> COMPLETE
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors(), "Initial state can also be a terminal state");

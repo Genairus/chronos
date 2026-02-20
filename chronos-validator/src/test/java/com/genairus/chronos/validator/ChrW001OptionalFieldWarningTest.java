@@ -1,6 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,7 +14,7 @@ class ChrW001OptionalFieldWarningTest {
 
     @Test
     void entityInvariant_requiredField_noWarning() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -26,11 +26,11 @@ class ChrW001OptionalFieldWarningTest {
                         severity: error
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chrW001Warnings = result.warnings().stream()
-                .filter(w -> w.ruleCode().equals("CHR-W001"))
+                .filter(w -> w.code().equals("CHR-W001"))
                 .toList();
         
         assertEquals(0, chrW001Warnings.size());
@@ -38,7 +38,7 @@ class ChrW001OptionalFieldWarningTest {
 
     @Test
     void entityInvariant_optionalFieldWithoutNullGuard_warning() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -49,11 +49,11 @@ class ChrW001OptionalFieldWarningTest {
                         severity: error
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chrW001Warnings = result.warnings().stream()
-                .filter(w -> w.ruleCode().equals("CHR-W001"))
+                .filter(w -> w.code().equals("CHR-W001"))
                 .toList();
         
         assertEquals(1, chrW001Warnings.size());
@@ -64,7 +64,7 @@ class ChrW001OptionalFieldWarningTest {
 
     @Test
     void entityInvariant_optionalFieldWithNullGuard_noWarning() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -75,11 +75,11 @@ class ChrW001OptionalFieldWarningTest {
                         severity: error
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chrW001Warnings = result.warnings().stream()
-                .filter(w -> w.ruleCode().equals("CHR-W001"))
+                .filter(w -> w.code().equals("CHR-W001"))
                 .toList();
         
         assertEquals(0, chrW001Warnings.size());
@@ -87,7 +87,7 @@ class ChrW001OptionalFieldWarningTest {
 
     @Test
     void entityInvariant_optionalFieldWithNullGuardReversed_noWarning() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -98,11 +98,11 @@ class ChrW001OptionalFieldWarningTest {
                         severity: error
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chrW001Warnings = result.warnings().stream()
-                .filter(w -> w.ruleCode().equals("CHR-W001"))
+                .filter(w -> w.code().equals("CHR-W001"))
                 .toList();
         
         assertEquals(0, chrW001Warnings.size());
@@ -110,7 +110,7 @@ class ChrW001OptionalFieldWarningTest {
 
     @Test
     void entityInvariant_multipleOptionalFields_multipleWarnings() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -122,11 +122,11 @@ class ChrW001OptionalFieldWarningTest {
                         severity: error
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chrW001Warnings = result.warnings().stream()
-                .filter(w -> w.ruleCode().equals("CHR-W001"))
+                .filter(w -> w.code().equals("CHR-W001"))
                 .toList();
         
         assertEquals(2, chrW001Warnings.size());
@@ -136,7 +136,7 @@ class ChrW001OptionalFieldWarningTest {
 
     @Test
     void globalInvariant_optionalFieldWithoutNullGuard_warning() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -152,11 +152,11 @@ class ChrW001OptionalFieldWarningTest {
                     expression: "exists(Customer, c => c.id == Order.customerId)"
                     severity: error
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chrW001Warnings = result.warnings().stream()
-                .filter(w -> w.ruleCode().equals("CHR-W001"))
+                .filter(w -> w.code().equals("CHR-W001"))
                 .toList();
 
         // Only Order.customerId should warn - c.id is a lambda parameter reference
@@ -166,7 +166,7 @@ class ChrW001OptionalFieldWarningTest {
 
     @Test
     void globalInvariant_optionalFieldWithNullGuard_noWarning() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -182,11 +182,11 @@ class ChrW001OptionalFieldWarningTest {
                     expression: "Order.customerId != null && exists(Customer, c => c.id == Order.customerId)"
                     severity: error
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chrW001Warnings = result.warnings().stream()
-                .filter(w -> w.ruleCode().equals("CHR-W001"))
+                .filter(w -> w.code().equals("CHR-W001"))
                 .toList();
 
         // No warnings - Order.customerId has a null guard, and c.id is a lambda parameter reference
@@ -195,7 +195,7 @@ class ChrW001OptionalFieldWarningTest {
 
     @Test
     void entityInvariant_inheritedOptionalField_warning() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity BaseOrder {
@@ -208,11 +208,11 @@ class ChrW001OptionalFieldWarningTest {
                         severity: error
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chrW001Warnings = result.warnings().stream()
-                .filter(w -> w.ruleCode().equals("CHR-W001"))
+                .filter(w -> w.code().equals("CHR-W001"))
                 .toList();
 
         assertEquals(1, chrW001Warnings.size());
@@ -221,7 +221,7 @@ class ChrW001OptionalFieldWarningTest {
 
     @Test
     void entityInvariant_noOptionalFieldsReferenced_noWarning() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -234,11 +234,11 @@ class ChrW001OptionalFieldWarningTest {
                         severity: error
                     }
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chrW001Warnings = result.warnings().stream()
-                .filter(w -> w.ruleCode().equals("CHR-W001"))
+                .filter(w -> w.code().equals("CHR-W001"))
                 .toList();
 
         // No warning because only 'total' is referenced and it's required

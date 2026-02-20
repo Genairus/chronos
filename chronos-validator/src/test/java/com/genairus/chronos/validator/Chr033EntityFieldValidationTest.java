@@ -1,7 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -13,7 +12,7 @@ class Chr033EntityFieldValidationTest {
 
     @Test
     void validStateMachineWithEnumField() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -37,7 +36,7 @@ class Chr033EntityFieldValidationTest {
                         PAID -> SHIPPED
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors(), "Valid statemachine with enum field should pass validation");
@@ -45,7 +44,7 @@ class Chr033EntityFieldValidationTest {
 
     @Test
     void invalidEntityNotDefined() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 enum OrderStatus {
@@ -63,19 +62,19 @@ class Chr033EntityFieldValidationTest {
                         PENDING -> PAID
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         assertEquals(1, result.errors().size());
-        assertEquals("CHR-033", result.errors().get(0).ruleCode());
+        assertEquals("CHR-033", result.errors().get(0).code());
         assertTrue(result.errors().get(0).message().contains("Order"));
         assertTrue(result.errors().get(0).message().contains("not defined"));
     }
 
     @Test
     void invalidFieldNotDefined() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -97,19 +96,19 @@ class Chr033EntityFieldValidationTest {
                         PENDING -> PAID
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         assertEquals(1, result.errors().size());
-        assertEquals("CHR-033", result.errors().get(0).ruleCode());
+        assertEquals("CHR-033", result.errors().get(0).code());
         assertTrue(result.errors().get(0).message().contains("status"));
         assertTrue(result.errors().get(0).message().contains("not defined on entity"));
     }
 
     @Test
     void invalidFieldTypeNotEnum() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order {
@@ -126,12 +125,12 @@ class Chr033EntityFieldValidationTest {
                         PENDING -> PAID
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         assertEquals(1, result.errors().size());
-        assertEquals("CHR-033", result.errors().get(0).ruleCode());
+        assertEquals("CHR-033", result.errors().get(0).code());
         assertTrue(result.errors().get(0).message().contains("status"));
         assertTrue(result.errors().get(0).message().contains("must have an enum type"));
     }

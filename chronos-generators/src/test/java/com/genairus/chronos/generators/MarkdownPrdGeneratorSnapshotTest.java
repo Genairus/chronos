@@ -1,6 +1,6 @@
 package com.genairus.chronos.generators;
 
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -32,8 +32,11 @@ class MarkdownPrdGeneratorSnapshotTest {
         assertTrue(Files.exists(FIXTURE),
                 "Fixture not found: " + FIXTURE);
 
-        var model = ChronosModelParser.parseFile(FIXTURE);
-        var output = new MarkdownPrdGenerator().generate(model);
+        var src = Files.readString(FIXTURE);
+        var result = new ChronosCompiler().compile(src, FIXTURE.toString());
+        assertNotNull(result.modelOrNull(),
+                "Fixture compiled with errors: " + result.diagnostics());
+        var output = new MarkdownPrdGenerator().generate(result.modelOrNull());
         String actual = output.content();
 
         if (!Files.exists(GOLDEN)) {

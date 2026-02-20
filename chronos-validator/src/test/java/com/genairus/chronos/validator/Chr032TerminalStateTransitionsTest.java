@@ -1,7 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -13,7 +12,7 @@ class Chr032TerminalStateTransitionsTest {
 
     @Test
     void validTerminalStateWithNoOutbound() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -39,7 +38,7 @@ class Chr032TerminalStateTransitionsTest {
                         PAID -> SHIPPED
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(!result.hasErrors(), "Terminal state with no outbound transitions should be valid");
@@ -47,7 +46,7 @@ class Chr032TerminalStateTransitionsTest {
 
     @Test
     void invalidTerminalStateWithOutbound() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -73,19 +72,19 @@ class Chr032TerminalStateTransitionsTest {
                         PAID -> SHIPPED
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         assertEquals(1, result.errors().size());
-        assertEquals("CHR-032", result.errors().get(0).ruleCode());
+        assertEquals("CHR-032", result.errors().get(0).code());
         assertTrue(result.errors().get(0).message().contains("PAID"));
         assertTrue(result.errors().get(0).message().contains("must not have outbound transitions"));
     }
 
     @Test
     void invalidMultipleTerminalStatesWithOutbound() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -112,17 +111,17 @@ class Chr032TerminalStateTransitionsTest {
                         SHIPPED -> DELIVERED
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         assertEquals(2, result.errors().size());
-        assertTrue(result.errors().stream().allMatch(e -> e.ruleCode().equals("CHR-032")));
+        assertTrue(result.errors().stream().allMatch(e -> e.code().equals("CHR-032")));
     }
 
     @Test
     void validMultipleTerminalStatesWithNoOutbound() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -148,7 +147,7 @@ class Chr032TerminalStateTransitionsTest {
                         PENDING -> CANCELLED
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(!result.hasErrors(), "Multiple terminal states with no outbound transitions should be valid");

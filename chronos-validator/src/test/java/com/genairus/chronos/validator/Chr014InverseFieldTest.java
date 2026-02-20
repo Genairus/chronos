@@ -1,7 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -13,7 +12,7 @@ class Chr014InverseFieldTest {
 
     @Test
     void validRelationship_withInverseField() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -31,7 +30,7 @@ class Chr014InverseFieldTest {
                     cardinality: one_to_many
                     inverse: orders
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors(), "Should be valid when inverse field exists on target entity");
@@ -39,7 +38,7 @@ class Chr014InverseFieldTest {
 
     @Test
     void validRelationship_withoutInverseField() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order { id: String }
@@ -50,7 +49,7 @@ class Chr014InverseFieldTest {
                     to: Customer
                     cardinality: one_to_many
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors(), "Should be valid when no inverse field is specified");
@@ -58,7 +57,7 @@ class Chr014InverseFieldTest {
 
     @Test
     void invalidRelationship_inverseFieldDoesNotExist() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -76,14 +75,14 @@ class Chr014InverseFieldTest {
                     cardinality: one_to_many
                     inverse: orders
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         assertEquals(1, result.errors().size());
 
         var error = result.errors().get(0);
-        assertEquals("CHR-014", error.ruleCode());
+        assertEquals("CHR-014", error.code());
         assertTrue(error.message().contains("orders"));
         assertTrue(error.message().contains("Customer"));
         assertTrue(error.message().contains("OrderCustomer"));
@@ -91,7 +90,7 @@ class Chr014InverseFieldTest {
 
     @Test
     void validRelationship_inverseFieldExistsOnTargetEntity() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity User { 
@@ -109,7 +108,7 @@ class Chr014InverseFieldTest {
                     cardinality: one_to_one
                     inverse: user
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors(), "Should be valid when inverse field exists");
@@ -117,7 +116,7 @@ class Chr014InverseFieldTest {
 
     @Test
     void invalidRelationship_targetEntityDoesNotExist() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order {
@@ -130,7 +129,7 @@ class Chr014InverseFieldTest {
                     cardinality: one_to_many
                     inverse: orders
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
@@ -138,14 +137,14 @@ class Chr014InverseFieldTest {
         // Should have CHR-011 error (undefined target entity)
         // but NOT CHR-014 error (since we skip validation when target doesn't exist)
         var chr014Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-014"))
+                .filter(e -> e.code().equals("CHR-014"))
                 .toList();
 
         assertEquals(0, chr014Errors.size(),
                 "Should not report CHR-014 when target entity doesn't exist (already caught by CHR-011)");
 
         var chr011Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-011"))
+                .filter(e -> e.code().equals("CHR-011"))
                 .toList();
 
         assertEquals(1, chr011Errors.size(), "Should report CHR-011 for undefined target entity");

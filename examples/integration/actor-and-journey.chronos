@@ -1,0 +1,41 @@
+namespace com.example.store
+
+/// A registered user of the platform who can browse and purchase products.
+@description("Registered platform user with purchasing rights")
+actor Customer
+
+/// A product available for purchase.
+entity Product {
+    @required
+    id: String
+    name: String
+    price: Float
+}
+
+/// Guides a customer through the product purchase flow.
+@kpi(metric: "purchase_completion_rate", target: "80%")
+journey PurchaseJourney {
+    actor: Customer
+    preconditions: [
+        "Customer is authenticated",
+        "At least one product is in stock"
+    ]
+    steps: [
+        step BrowseProducts {
+            action: "Customer searches the product catalog"
+            expectation: "Matching products are displayed with prices"
+        },
+        step AddToCart {
+            action: "Customer adds a product to the cart"
+            expectation: "Product appears in cart with correct quantity and price"
+        },
+        step SubmitOrder {
+            action: "Customer confirms and submits the order"
+            expectation: "Order is created and confirmation number is returned"
+        }
+    ]
+    outcomes: {
+        success: "Order is confirmed, inventory is decremented, and email is sent",
+        failure: "Cart is preserved and no charge is made"
+    }
+}

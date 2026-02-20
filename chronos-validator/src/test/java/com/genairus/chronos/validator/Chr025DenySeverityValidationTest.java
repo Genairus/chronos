@@ -1,7 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -13,7 +12,7 @@ class Chr025DenySeverityValidationTest {
 
     @Test
     void denySeverityCritical_noError() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity UserCredential {
@@ -25,7 +24,7 @@ class Chr025DenySeverityValidationTest {
                     scope: [UserCredential]
                     severity: critical
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors());
@@ -33,7 +32,7 @@ class Chr025DenySeverityValidationTest {
 
     @Test
     void denySeverityHigh_noError() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity UserCredential {
@@ -45,7 +44,7 @@ class Chr025DenySeverityValidationTest {
                     scope: [UserCredential]
                     severity: high
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors());
@@ -53,7 +52,7 @@ class Chr025DenySeverityValidationTest {
 
     @Test
     void denySeverityMedium_noError() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity UserCredential {
@@ -65,7 +64,7 @@ class Chr025DenySeverityValidationTest {
                     scope: [UserCredential]
                     severity: medium
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors());
@@ -73,7 +72,7 @@ class Chr025DenySeverityValidationTest {
 
     @Test
     void denySeverityLow_noError() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity UserCredential {
@@ -85,7 +84,7 @@ class Chr025DenySeverityValidationTest {
                     scope: [UserCredential]
                     severity: low
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors());
@@ -93,7 +92,7 @@ class Chr025DenySeverityValidationTest {
 
     @Test
     void denySeverityInvalid_error() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity UserCredential {
@@ -105,13 +104,13 @@ class Chr025DenySeverityValidationTest {
                     scope: [UserCredential]
                     severity: invalid
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         
         var chr025Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-025"))
+                .filter(e -> e.code().equals("CHR-025"))
                 .toList();
         
         assertEquals(1, chr025Errors.size());
@@ -122,29 +121,27 @@ class Chr025DenySeverityValidationTest {
 
     @Test
     void denySeverityError_error() {
-        // "error" is valid for invariants (CHR-020) but not for denies (CHR-025)
-        // Since "error" is now a keyword, it cannot be used as an ID in deny severity
-        // This should fail at parse time, not validation time
-        assertThrows(com.genairus.chronos.parser.ChronosParseException.class, () -> {
-            ChronosModelParser.parseString("test", """
-                    namespace com.example
+        // "error" is a keyword, so it cannot be used as a severity ID — parse fails
+        // ChronosCompiler swallows the parse error into diagnostics and returns null model
+        var result = new ChronosCompiler().compile("""
+                namespace com.example
 
-                    entity UserCredential {
-                        username: String
-                    }
+                entity UserCredential {
+                    username: String
+                }
 
-                    deny StorePlaintextPasswords {
-                        description: "The system must never store passwords in plaintext"
-                        scope: [UserCredential]
-                        severity: error
-                    }
-                    """);
-        });
+                deny StorePlaintextPasswords {
+                    description: "The system must never store passwords in plaintext"
+                    scope: [UserCredential]
+                    severity: error
+                }
+                """, "test");
+        assertNull(result.modelOrNull(), "Expected parse failure for reserved keyword 'error' as severity");
     }
 
     @Test
     void multipleDeniesWithInvalidSeverities_multipleErrors() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Entity1 {
@@ -168,12 +165,12 @@ class Chr025DenySeverityValidationTest {
                     scope: [Entity1]
                     severity: invalid2
                 }
-                """);
+                """, "test").modelOrNull();
 
         ValidationResult result = new ChronosValidator().validate(model);
         
         var chr025Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-025"))
+                .filter(e -> e.code().equals("CHR-025"))
                 .toList();
 
         assertEquals(2, chr025Errors.size(), "Should have 2 CHR-025 errors for Deny1 and Deny3");

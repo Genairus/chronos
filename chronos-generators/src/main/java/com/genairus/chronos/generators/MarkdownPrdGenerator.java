@@ -1,13 +1,33 @@
 package com.genairus.chronos.generators;
 
-import com.genairus.chronos.model.*;
+import com.genairus.chronos.core.refs.SymbolRef;
+import com.genairus.chronos.ir.model.IrInheritanceResolver;
+import com.genairus.chronos.ir.model.IrModel;
+import com.genairus.chronos.ir.types.DenyDef;
+import com.genairus.chronos.ir.types.EntityDef;
+import com.genairus.chronos.ir.types.EnumDef;
+import com.genairus.chronos.ir.types.ErrorDef;
+import com.genairus.chronos.ir.types.FieldDef;
+import com.genairus.chronos.ir.types.InvariantDef;
+import com.genairus.chronos.ir.types.IrShape;
+import com.genairus.chronos.ir.types.JourneyDef;
+import com.genairus.chronos.ir.types.ListDef;
+import com.genairus.chronos.ir.types.MapDef;
+import com.genairus.chronos.ir.types.OutcomeExpr;
+import com.genairus.chronos.ir.types.PolicyDef;
+import com.genairus.chronos.ir.types.RelationshipDef;
+import com.genairus.chronos.ir.types.ShapeStructDef;
+import com.genairus.chronos.ir.types.Step;
+import com.genairus.chronos.ir.types.TraitValue;
+import com.genairus.chronos.ir.types.TypeRef;
+import com.genairus.chronos.ir.types.Variant;
 
 import java.util.List;
 import java.util.StringJoiner;
 
 /**
  * Generates a Markdown Product Requirements Document (PRD) from a
- * {@link ChronosModel}.
+ * {@link IrModel}.
  *
  * <p>The output is a single {@code <namespace>-prd.md} file with the following
  * structure (sections with no content are omitted from both the TOC and body):
@@ -30,9 +50,9 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
     private static final String DIVIDER = "\n---\n";
 
     @Override
-    public GeneratorOutput generate(ChronosModel model) {
+    public GeneratorOutput generate(IrModel model) {
         var sb = new StringBuilder();
-        var inheritanceResolver = new InheritanceResolver(model);
+        var inheritanceResolver = new IrInheritanceResolver(model);
 
         appendTitle(sb, model);
         appendToc(sb, model);
@@ -51,13 +71,13 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
     // ── Title ─────────────────────────────────────────────────────────────────
 
-    private static void appendTitle(StringBuilder sb, ChronosModel model) {
+    private static void appendTitle(StringBuilder sb, IrModel model) {
         sb.append("# ").append(model.namespace()).append(" — Product Requirements\n");
     }
 
     // ── Table of Contents ─────────────────────────────────────────────────────
 
-    private static void appendToc(StringBuilder sb, ChronosModel model) {
+    private static void appendToc(StringBuilder sb, IrModel model) {
         sb.append("\n## Table of Contents\n\n");
 
         if (!model.journeys().isEmpty()) {
@@ -101,7 +121,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
     // ── Journeys ──────────────────────────────────────────────────────────────
 
-    private static void appendJourneysSection(StringBuilder sb, ChronosModel model) {
+    private static void appendJourneysSection(StringBuilder sb, IrModel model) {
         if (model.journeys().isEmpty()) return;
         sb.append(DIVIDER).append("\n## Journeys\n");
         for (var journey : model.journeys()) {
@@ -176,8 +196,8 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         // Journey-level outcomes
         journey.journeyOutcomes().ifPresent(o -> {
             sb.append("**Outcomes**\n\n");
-            o.successOutcome().ifPresent(s -> sb.append("- \u2705 Success: ").append(s).append("\n"));
-            o.failureOutcome().ifPresent(f -> sb.append("- \u274c Failure: ").append(f).append("\n"));
+            if (o.successOrNull() != null) sb.append("- \u2705 Success: ").append(o.successOrNull()).append("\n");
+            if (o.failureOrNull() != null) sb.append("- \u274c Failure: ").append(o.failureOrNull()).append("\n");
             sb.append("\n");
         });
     }
@@ -201,7 +221,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
     private static void appendVariant(StringBuilder sb, String name, Variant variant) {
         sb.append("\n#### ").append(name).append("\n\n");
-        sb.append("- **Trigger:** ").append(variant.trigger()).append("\n");
+        sb.append("- **Trigger:** ").append(variant.triggerName()).append("\n");
         if (!variant.steps().isEmpty()) {
             sb.append("\n");
             appendStepTable(sb, variant.steps());
@@ -212,7 +232,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
     // ── Data Model ────────────────────────────────────────────────────────────
 
-    private static void appendDataModelSection(StringBuilder sb, ChronosModel model, InheritanceResolver resolver) {
+    private static void appendDataModelSection(StringBuilder sb, IrModel model, IrInheritanceResolver resolver) {
         boolean hasDataModel = !model.entities().isEmpty()
                 || !model.shapeStructs().isEmpty()
                 || !model.enums().isEmpty()
@@ -229,9 +249,9 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
     }
 
     private static void appendFieldedShapes(StringBuilder sb,
-                                             List<? extends ShapeDefinition> shapes,
+                                             List<? extends IrShape> shapes,
                                              String heading,
-                                             InheritanceResolver resolver) {
+                                             IrInheritanceResolver resolver) {
         if (shapes.isEmpty()) return;
         sb.append("\n### ").append(heading).append("\n");
         for (var shape : shapes) {
@@ -239,7 +259,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             List<FieldDef> fields;
             if (shape instanceof EntityDef e) {
                 docs   = e.docComments();
-                // Use InheritanceResolver to get all fields including inherited ones
+                // Use IrInheritanceResolver to get all fields including inherited ones
                 fields = resolver.resolveAllFields(e);
             } else if (shape instanceof ShapeStructDef s) {
                 docs   = s.docComments();
@@ -250,8 +270,8 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             sb.append("\n#### ").append(shape.name()).append("\n\n");
 
             // Show parent type if entity has one
-            if (shape instanceof EntityDef e && e.parentType().isPresent()) {
-                sb.append("*Extends: ").append(e.parentType().get()).append("*\n\n");
+            if (shape instanceof EntityDef e && IrInheritanceResolver.parentName(e).isPresent()) {
+                sb.append("*Extends: ").append(IrInheritanceResolver.parentName(e).get()).append("*\n\n");
             }
 
             for (var doc : docs) {
@@ -292,8 +312,8 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             sb.append("| Member | Ordinal |\n");
             sb.append("|--------|----------|\n");
             for (var member : enumDef.members()) {
-                String ordinal = member.ordinal().isPresent()
-                        ? String.valueOf(member.ordinal().getAsInt())
+                String ordinal = member.ordinalOrNull() != null
+                        ? String.valueOf(member.ordinalOrNull())
                         : DASH;
                 sb.append("| ").append(member.name())
                   .append(" | ").append(ordinal)
@@ -320,7 +340,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
     // ── Global Invariants ─────────────────────────────────────────────────────
 
-    private static void appendGlobalInvariantsSection(StringBuilder sb, ChronosModel model) {
+    private static void appendGlobalInvariantsSection(StringBuilder sb, IrModel model) {
         if (model.invariants().isEmpty()) return;
         sb.append(DIVIDER).append("\n## Global Invariants\n\n");
         sb.append("Cross-entity constraints that must always hold true:\n\n");
@@ -354,7 +374,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
     // ── Relationships ─────────────────────────────────────────────────────────
 
-    private static void appendRelationshipsSection(StringBuilder sb, ChronosModel model) {
+    private static void appendRelationshipsSection(StringBuilder sb, IrModel model) {
         if (model.relationships().isEmpty()) return;
         sb.append(DIVIDER).append("\n## Relationships\n\n");
         sb.append("| Relationship | From | To | Cardinality | Semantics | Inverse Field |\n");
@@ -365,8 +385,8 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             String inverseField = rel.inverseField().orElse(DASH);
 
             sb.append("| ").append(rel.name())
-              .append(" | ").append(rel.fromEntity())
-              .append(" | ").append(rel.toEntity())
+              .append(" | ").append(symRefName(rel.fromEntityRef()))
+              .append(" | ").append(symRefName(rel.toEntityRef()))
               .append(" | ").append(cardinality)
               .append(" | ").append(semantics)
               .append(" | ").append(inverseField)
@@ -376,7 +396,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
     // ── Actors ────────────────────────────────────────────────────────────────
 
-    private static void appendActorsSection(StringBuilder sb, ChronosModel model) {
+    private static void appendActorsSection(StringBuilder sb, IrModel model) {
         if (model.actors().isEmpty()) return;
         sb.append(DIVIDER).append("\n## Actors\n\n");
         sb.append("| Actor | Description |\n");
@@ -390,7 +410,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
     // ── Policies ──────────────────────────────────────────────────────────────
 
-    private static void appendPoliciesSection(StringBuilder sb, ChronosModel model) {
+    private static void appendPoliciesSection(StringBuilder sb, IrModel model) {
         if (model.policies().isEmpty()) return;
         sb.append(DIVIDER).append("\n## Policies\n\n");
         sb.append("| Policy | Description | Compliance |\n");
@@ -405,7 +425,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
     // ── Prohibitions ──────────────────────────────────────────────────────────
 
-    private static void appendProhibitionsSection(StringBuilder sb, ChronosModel model) {
+    private static void appendProhibitionsSection(StringBuilder sb, IrModel model) {
         if (model.denies().isEmpty()) return;
         sb.append(DIVIDER).append("\n## Prohibitions\n\n");
         sb.append("| Prohibition | Description | Scope | Severity | Compliance |\n");
@@ -430,7 +450,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
     // ── Error Catalog ─────────────────────────────────────────────────────────
 
-    private static void appendErrorCatalogSection(StringBuilder sb, ChronosModel model) {
+    private static void appendErrorCatalogSection(StringBuilder sb, IrModel model) {
         if (model.errors().isEmpty()) return;
         sb.append(DIVIDER).append("\n## Error Catalog\n\n");
         sb.append("| Error Type | Code | Severity | Recoverable | Message | Payload |\n");
@@ -457,8 +477,8 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
     private static String renderOutcomeExpr(OutcomeExpr expr) {
         return switch (expr) {
-            case OutcomeExpr.TransitionTo t -> "TransitionTo(" + t.target() + ")";
-            case OutcomeExpr.ReturnToStep r -> "ReturnToStep(" + r.target() + ")";
+            case OutcomeExpr.TransitionTo t -> "TransitionTo(" + t.stateId() + ")";
+            case OutcomeExpr.ReturnToStep r -> "ReturnToStep(" + r.stepId() + ")";
         };
     }
 
@@ -470,6 +490,11 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
                                                    + renderTypeRef(m.valueType()) + ">";
             case TypeRef.NamedTypeRef n  -> n.qualifiedId();
         };
+    }
+
+    /** Extracts the simple name from a resolved or unresolved {@link SymbolRef}. */
+    private static String symRefName(SymbolRef ref) {
+        return ref.isResolved() ? ref.id().name() : ref.name().name();
     }
 
     /** Generates a GitHub-flavoured Markdown heading anchor from a PascalCase name. */

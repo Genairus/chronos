@@ -1,6 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,7 +14,7 @@ class Chr026ErrorCodeUniquenessTest {
 
     @Test
     void uniqueErrorCodes_shouldPass() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 error PaymentDeclinedError {
@@ -30,11 +30,11 @@ class Chr026ErrorCodeUniquenessTest {
                     recoverable: true
                     message: "Network timeout occurred"
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr026Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-026"))
+                .filter(e -> e.code().equals("CHR-026"))
                 .toList();
         
         assertEquals(0, chr026Errors.size());
@@ -42,7 +42,7 @@ class Chr026ErrorCodeUniquenessTest {
 
     @Test
     void duplicateErrorCodes_shouldFail() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 error PaymentDeclinedError {
@@ -58,11 +58,11 @@ class Chr026ErrorCodeUniquenessTest {
                     recoverable: false
                     message: "Payment failed"
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr026Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-026"))
+                .filter(e -> e.code().equals("CHR-026"))
                 .toList();
         
         // Should have 2 errors: one for each occurrence
@@ -73,7 +73,7 @@ class Chr026ErrorCodeUniquenessTest {
 
     @Test
     void triplicateErrorCodes_shouldReportAll() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 error Error1 {
@@ -96,11 +96,11 @@ class Chr026ErrorCodeUniquenessTest {
                     recoverable: false
                     message: "Error 3"
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = validator.validate(model);
         var chr026Errors = result.errors().stream()
-                .filter(e -> e.ruleCode().equals("CHR-026"))
+                .filter(e -> e.code().equals("CHR-026"))
                 .toList();
         
         // Should have 3 errors: one for each occurrence

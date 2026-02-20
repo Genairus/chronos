@@ -1,7 +1,6 @@
 package com.genairus.chronos.generators;
 
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -10,19 +9,19 @@ class MermaidStateDiagramGeneratorTest {
 
     @Test
     void generateSimpleStateDiagram() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
-                
+
                 entity Order {
                     status: OrderStatus
                 }
-                
+
                 enum OrderStatus {
                     PENDING
                     PAID
                     SHIPPED
                 }
-                
+
                 statemachine OrderLifecycle {
                     entity: Order
                     field: status
@@ -34,48 +33,48 @@ class MermaidStateDiagramGeneratorTest {
                         PAID -> SHIPPED
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         GeneratorOutput output = new MermaidStateDiagramGenerator().generate(model);
-        
+
         assertEquals(1, output.files().size());
         assertTrue(output.files().containsKey("OrderLifecycle.mmd"));
-        
+
         String diagram = output.files().get("OrderLifecycle.mmd");
-        
+
         // Check header
         assertTrue(diagram.contains("stateDiagram-v2"));
-        
+
         // Check note with entity and field
         assertTrue(diagram.contains("note right of PENDING : Order.status"));
-        
+
         // Check initial state
         assertTrue(diagram.contains("[*] --> PENDING"));
-        
+
         // Check transitions
         assertTrue(diagram.contains("PENDING --> PAID"));
         assertTrue(diagram.contains("PAID --> SHIPPED"));
-        
+
         // Check terminal state
         assertTrue(diagram.contains("SHIPPED --> [*]"));
     }
 
     @Test
     void generateStateDiagramWithGuardsAndActions() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
-                
+
                 entity Order {
                     status: OrderStatus
                 }
-                
+
                 enum OrderStatus {
                     PENDING
                     PAID
                     SHIPPED
                     DELIVERED
                 }
-                
+
                 statemachine OrderLifecycle {
                     entity: Order
                     field: status
@@ -95,44 +94,44 @@ class MermaidStateDiagramGeneratorTest {
                         }
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         GeneratorOutput output = new MermaidStateDiagramGenerator().generate(model);
         String diagram = output.files().get("OrderLifecycle.mmd");
-        
+
         // Check transition with guard and action
         assertTrue(diagram.contains("PENDING --> PAID : payment received / Emit PaymentReceivedEvent"));
-        
+
         // Check transition with guard only
         assertTrue(diagram.contains("PAID --> SHIPPED : fulfillment dispatched"));
-        
+
         // Check transition with action only
         assertTrue(diagram.contains("SHIPPED --> DELIVERED : Notify customer"));
     }
 
     @Test
     void generateMultipleStateDiagrams() {
-        ChronosModel model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
-                
+
                 entity Order {
                     status: OrderStatus
                 }
-                
+
                 entity Payment {
                     status: PaymentStatus
                 }
-                
+
                 enum OrderStatus {
                     PENDING
                     COMPLETED
                 }
-                
+
                 enum PaymentStatus {
                     UNPAID
                     PAID
                 }
-                
+
                 statemachine OrderLifecycle {
                     entity: Order
                     field: status
@@ -143,7 +142,7 @@ class MermaidStateDiagramGeneratorTest {
                         PENDING -> COMPLETED
                     ]
                 }
-                
+
                 statemachine PaymentLifecycle {
                     entity: Payment
                     field: status
@@ -154,13 +153,12 @@ class MermaidStateDiagramGeneratorTest {
                         UNPAID -> PAID
                     ]
                 }
-                """);
+                """, "test").modelOrNull();
 
         GeneratorOutput output = new MermaidStateDiagramGenerator().generate(model);
-        
+
         assertEquals(2, output.files().size());
         assertTrue(output.files().containsKey("OrderLifecycle.mmd"));
         assertTrue(output.files().containsKey("PaymentLifecycle.mmd"));
     }
 }
-

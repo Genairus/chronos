@@ -1,8 +1,8 @@
 package com.genairus.chronos.generators;
 
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.model.StateMachineDef;
-import com.genairus.chronos.model.Transition;
+import com.genairus.chronos.ir.model.IrModel;
+import com.genairus.chronos.ir.types.StateMachineDef;
+import com.genairus.chronos.ir.types.Transition;
 
 /**
  * Generates transition-coverage test scaffolding for {@link StateMachineDef} declarations.
@@ -22,7 +22,7 @@ import com.genairus.chronos.model.Transition;
 public final class StateMachineTestGenerator implements ChronosGenerator {
 
     @Override
-    public GeneratorOutput generate(ChronosModel model) {
+    public GeneratorOutput generate(IrModel model) {
         var sb = new StringBuilder();
         
         String packageName = model.namespace();

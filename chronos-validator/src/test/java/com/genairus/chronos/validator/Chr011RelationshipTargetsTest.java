@@ -1,7 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -13,7 +12,7 @@ class Chr011RelationshipTargetsTest {
 
     @Test
     void validRelationship_bothEntitiesDefined() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order { id: String }
@@ -24,7 +23,7 @@ class Chr011RelationshipTargetsTest {
                     to: OrderItem
                     cardinality: one_to_many
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors(), "Should be valid when both entities are defined");
@@ -32,7 +31,7 @@ class Chr011RelationshipTargetsTest {
 
     @Test
     void invalidRelationship_fromEntityUndefined() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity OrderItem { id: String }
@@ -42,21 +41,21 @@ class Chr011RelationshipTargetsTest {
                     to: OrderItem
                     cardinality: one_to_many
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         assertEquals(1, result.errors().size());
 
         var error = result.errors().get(0);
-        assertEquals("CHR-011", error.ruleCode());
+        assertEquals("CHR-011", error.code());
         assertTrue(error.message().contains("Order"));
         assertTrue(error.message().contains("from"));
     }
 
     @Test
     void invalidRelationship_toEntityUndefined() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 entity Order { id: String }
@@ -66,21 +65,21 @@ class Chr011RelationshipTargetsTest {
                     to: OrderItem
                     cardinality: one_to_many
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         assertEquals(1, result.errors().size());
 
         var error = result.errors().get(0);
-        assertEquals("CHR-011", error.ruleCode());
+        assertEquals("CHR-011", error.code());
         assertTrue(error.message().contains("OrderItem"));
         assertTrue(error.message().contains("to"));
     }
 
     @Test
     void invalidRelationship_bothEntitiesUndefined() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 relationship OrderItems {
@@ -88,18 +87,18 @@ class Chr011RelationshipTargetsTest {
                     to: OrderItem
                     cardinality: one_to_many
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         assertEquals(2, result.errors().size());
 
-        assertTrue(result.errors().stream().allMatch(e -> e.ruleCode().equals("CHR-011")));
+        assertTrue(result.errors().stream().allMatch(e -> e.code().equals("CHR-011")));
     }
 
     @Test
     void validRelationship_importedEntity() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 use com.other#Order
@@ -111,7 +110,7 @@ class Chr011RelationshipTargetsTest {
                     to: OrderItem
                     cardinality: one_to_many
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors(), "Should be valid when entity is imported");
@@ -119,7 +118,7 @@ class Chr011RelationshipTargetsTest {
 
     @Test
     void validRelationship_bothEntitiesImported() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
 
                 use com.other#Order
@@ -130,7 +129,7 @@ class Chr011RelationshipTargetsTest {
                     to: OrderItem
                     cardinality: one_to_many
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors(), "Should be valid when both entities are imported");

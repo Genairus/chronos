@@ -1,10 +1,7 @@
 package com.genairus.chronos.cli;
 
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.parser.ChronosModelParser;
-import com.genairus.chronos.parser.ChronosParseException;
-import com.genairus.chronos.validator.ChronosValidator;
-import com.genairus.chronos.validator.ValidationSeverity;
+import com.genairus.chronos.compiler.ChronosCompiler;
+import com.genairus.chronos.core.diagnostics.DiagnosticSeverity;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
@@ -14,6 +11,7 @@ import picocli.CommandLine.Spec;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.concurrent.Callable;
 
 @Command(
@@ -44,28 +42,25 @@ public class ValidateCommand implements Callable<Integer> {
             return 1;
         }
 
-        ChronosModel model;
+        String text;
         try {
-            model = ChronosModelParser.parseFile(inputFile.toPath());
-        } catch (ChronosParseException e) {
-            console.exception(e);
-            return 1;
+            text = Files.readString(inputFile.toPath());
         } catch (IOException e) {
             console.error("Error reading file: " + e.getMessage());
             return 1;
         }
 
-        var result = new ChronosValidator().validate(model);
+        var result = new ChronosCompiler().compile(text, inputFile.getPath());
 
-        for (var issue : result.issues()) {
-            if (issue.severity() == ValidationSeverity.ERROR) {
-                console.error(issue.toString());
+        for (var d : result.diagnostics()) {
+            if (d.severity() == DiagnosticSeverity.ERROR) {
+                console.error(d.toString());
             } else {
-                console.warning(issue.toString());
+                console.warning(d.toString());
             }
         }
 
-        if (result.hasErrors()) {
+        if (!result.parsed() || !result.finalized()) {
             return 1;
         }
 

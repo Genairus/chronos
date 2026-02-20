@@ -1,8 +1,10 @@
 package com.genairus.chronos.generators;
 
-import com.genairus.chronos.model.*;
-
-import java.util.StringJoiner;
+import com.genairus.chronos.ir.model.IrModel;
+import com.genairus.chronos.ir.types.EnumDef;
+import com.genairus.chronos.ir.types.ErrorDef;
+import com.genairus.chronos.ir.types.FieldDef;
+import com.genairus.chronos.ir.types.TypeRef;
 
 /**
  * Generates TypeScript type definitions from a {@link ChronosModel}.
@@ -17,7 +19,7 @@ import java.util.StringJoiner;
 public final class TypeScriptTypesGenerator implements ChronosGenerator {
 
     @Override
-    public GeneratorOutput generate(ChronosModel model) {
+    public GeneratorOutput generate(IrModel model) {
         var sb = new StringBuilder();
         
         // File header

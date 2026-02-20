@@ -1,11 +1,8 @@
 package com.genairus.chronos.cli;
 
+import com.genairus.chronos.compiler.ChronosCompiler;
+import com.genairus.chronos.core.diagnostics.DiagnosticSeverity;
 import com.genairus.chronos.generators.GeneratorRegistry;
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.parser.ChronosModelParser;
-import com.genairus.chronos.parser.ChronosParseException;
-import com.genairus.chronos.validator.ChronosValidator;
-import com.genairus.chronos.validator.ValidationSeverity;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
@@ -88,35 +85,36 @@ public class BuildCommand implements Callable<Integer> {
         boolean anySourceFailed = false;
 
         for (Path source : sourceFiles) {
-            // Parse
-            ChronosModel model;
+            // Read source text
+            String text;
             try {
-                model = ChronosModelParser.parseFile(source);
-            } catch (ChronosParseException e) {
-                console.error("Parse error in " + source + ":");
-                console.exception(e);
-                anySourceFailed = true;
-                continue;
+                text = Files.readString(source);
             } catch (IOException e) {
                 console.error("Error reading " + source + ": " + e.getMessage());
                 anySourceFailed = true;
                 continue;
             }
 
-            // Validate — skip source on any ERROR
-            var result = new ChronosValidator().validate(model);
-            if (result.hasErrors()) {
-                for (var issue : result.issues()) {
-                    if (issue.severity() == ValidationSeverity.ERROR) {
-                        console.error(issue.toString());
-                    } else {
-                        console.warning(issue.toString());
-                    }
+            // Compile (parse + resolve + validate in one pass)
+            var compileResult = new ChronosCompiler().compile(text, source.toString());
+
+            // Print all diagnostics for this source
+            for (var d : compileResult.diagnostics()) {
+                if (d.severity() == DiagnosticSeverity.ERROR) {
+                    console.error(d.toString());
+                } else {
+                    console.warning(d.toString());
                 }
-                console.error("Skipping " + source.getFileName() + " due to validation errors.");
+            }
+
+            // Skip source if it didn't compile cleanly
+            if (!compileResult.parsed() || !compileResult.finalized()) {
+                console.error("Skipping " + source.getFileName() + " due to compilation errors.");
                 anySourceFailed = true;
                 continue;
             }
+
+            var model = compileResult.modelOrNull();
 
             // Generate for each target
             for (BuildTarget target : config.targets()) {

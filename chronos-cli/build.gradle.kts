@@ -13,8 +13,9 @@ tasks.named<JavaExec>("run") {
 }
 
 dependencies {
+    implementation(project(":chronos-core"))
     implementation(project(":chronos-model"))
-    implementation(project(":chronos-parser"))
+    implementation(project(":chronos-compiler"))
     implementation(project(":chronos-validator"))
     implementation(project(":chronos-generators"))
     implementation("info.picocli:picocli:4.7.5")

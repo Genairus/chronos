@@ -1,7 +1,6 @@
 package com.genairus.chronos.validator;
 
-import com.genairus.chronos.model.ChronosModel;
-import com.genairus.chronos.parser.ChronosModelParser;
+import com.genairus.chronos.compiler.ChronosCompiler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -13,7 +12,7 @@ class Chr012CompositionSingleOwnerTest {
 
     @Test
     void validComposition_singleOwner() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order { id: String }
@@ -25,7 +24,7 @@ class Chr012CompositionSingleOwnerTest {
                     cardinality: one_to_many
                     semantics: composition
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors(), "Should be valid when composition has single owner");
@@ -33,7 +32,7 @@ class Chr012CompositionSingleOwnerTest {
 
     @Test
     void validComposition_multipleAssociations() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order { id: String }
@@ -53,7 +52,7 @@ class Chr012CompositionSingleOwnerTest {
                     cardinality: one_to_many
                     semantics: association
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors(), "Should be valid when multiple associations reference same target");
@@ -61,7 +60,7 @@ class Chr012CompositionSingleOwnerTest {
 
     @Test
     void invalidComposition_multipleOwners() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order { id: String }
@@ -81,21 +80,21 @@ class Chr012CompositionSingleOwnerTest {
                     cardinality: one_to_many
                     semantics: composition
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         assertEquals(1, result.errors().size());
         
         var error = result.errors().get(0);
-        assertEquals("CHR-012", error.ruleCode());
+        assertEquals("CHR-012", error.code());
         assertTrue(error.message().contains("LineItem"));
         assertTrue(error.message().contains("OrderItems"));
     }
 
     @Test
     void invalidComposition_threeOwners() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order { id: String }
@@ -123,19 +122,19 @@ class Chr012CompositionSingleOwnerTest {
                     cardinality: one_to_many
                     semantics: composition
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = new ChronosValidator().validate(model);
         assertTrue(result.hasErrors());
         assertEquals(2, result.errors().size());
         
-        assertTrue(result.errors().stream().allMatch(e -> e.ruleCode().equals("CHR-012")));
+        assertTrue(result.errors().stream().allMatch(e -> e.code().equals("CHR-012")));
         assertTrue(result.errors().stream().allMatch(e -> e.message().contains("LineItem")));
     }
 
     @Test
     void validComposition_defaultSemanticsIsAssociation() {
-        var model = ChronosModelParser.parseString("test", """
+        var model = new ChronosCompiler().compile("""
                 namespace com.example
                 
                 entity Order { id: String }
@@ -153,7 +152,7 @@ class Chr012CompositionSingleOwnerTest {
                     to: OrderItem
                     cardinality: one_to_many
                 }
-                """);
+                """, "test").modelOrNull();
 
         var result = new ChronosValidator().validate(model);
         assertFalse(result.hasErrors(), "Should be valid when default semantics (association) is used");

@@ -32,3 +32,6 @@ build
 chronos-parser/src/main/antlr/com/genairus/chronos/parser/Chronos.g4
 
 .DS_Store
+
+# MkDocs generated site output
+site/

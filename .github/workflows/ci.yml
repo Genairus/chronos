@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      # Run the full check suite (tests + architectural boundary verification).
+      # The boundary scripts require bash — on Windows we skip them and run
+      # only the per-subproject tests to avoid shell incompatibilities.
+      - name: Check (Unix)
+        if: runner.os != 'Windows'
+        run: ./gradlew check --continue
+
+      - name: Test (Windows)
+        if: runner.os == 'Windows'
+        # Skip the root-level bash boundary scripts; run per-subproject tests directly.
+        run: ./gradlew test --continue
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ matrix.os }}
+          path: '**/build/reports/tests/'
+          if-no-files-found: ignore
+          retention-days: 7

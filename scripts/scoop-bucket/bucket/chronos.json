@@ -1,0 +1,23 @@
+{
+  "version": "0.1.0",
+  "description": "Requirements modeling language and compiler for AI-assisted development",
+  "homepage": "https://genairus.github.io/chronos/",
+  "license": "Apache-2.0",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/Genairus/chronos/releases/download/v0.1.0/chronos-windows-x86_64.zip",
+      "hash": "sha256:PLACEHOLDER",
+      "bin": "chronos.exe"
+    }
+  },
+  "checkver": {
+    "github": "https://github.com/Genairus/chronos"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/Genairus/chronos/releases/download/v$version/chronos-windows-x86_64.zip"
+      }
+    }
+  }
+}

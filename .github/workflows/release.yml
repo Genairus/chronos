@@ -1,0 +1,225 @@
+name: Release
+
+# Triggered by pushing a version tag, e.g.:
+#   git tag v0.1.0 && git push origin v0.1.0
+on:
+  push:
+    tags: ['v*.*.*']
+
+jobs:
+  # ── Job 1: build native binary per platform ──────────────────────────────
+  build-native:
+    name: Build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            platform: macos-aarch64
+            binary: chronos
+            archive_ext: tar.gz
+          - os: macos-13
+            platform: macos-x86_64
+            binary: chronos
+            archive_ext: tar.gz
+          - os: ubuntu-22.04
+            platform: linux-x86_64
+            binary: chronos
+            archive_ext: tar.gz
+          - os: ubuntu-22.04-arm
+            platform: linux-aarch64
+            binary: chronos
+            archive_ext: tar.gz
+          - os: windows-latest
+            platform: windows-x86_64
+            binary: chronos.exe
+            archive_ext: zip
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up GraalVM JDK 21
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build native image
+        run: ./gradlew :chronos-cli:nativeCompile
+
+      - name: Package binary (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          BINARY=chronos-cli/build/native/nativeCompile/${{ matrix.binary }}
+          tar -czf chronos-${{ matrix.platform }}.tar.gz \
+            -C "$(dirname "$BINARY")" "$(basename "$BINARY")"
+
+      - name: Package binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $binary = "chronos-cli\build\native\nativeCompile\${{ matrix.binary }}"
+          Compress-Archive -Path $binary -DestinationPath "chronos-${{ matrix.platform }}.zip"
+
+      - name: Upload archive artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chronos-${{ matrix.platform }}
+          path: chronos-${{ matrix.platform }}.${{ matrix.archive_ext }}
+          if-no-files-found: error
+          retention-days: 1
+
+  # ── Job 2: create GitHub Release ─────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: build-native
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+
+    steps:
+      - name: Extract version from tag
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Compute SHA256 checksums
+        run: |
+          cd artifacts
+          sha256sum * | tee SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          draft: false
+          body: |
+            ## Installation
+
+            **macOS / Linux (Homebrew)**
+            ```sh
+            brew tap Genairus/tap
+            brew install chronos
+            ```
+
+            **Windows (Scoop)**
+            ```powershell
+            scoop bucket add chronos https://github.com/Genairus/scoop-chronos
+            scoop install chronos
+            ```
+
+            **Direct download**
+            See the assets below. Extract and place `chronos` (or `chronos.exe`) on your `PATH`.
+
+  # ── Job 3: update Homebrew tap ───────────────────────────────────────────
+  update-homebrew:
+    name: Update Homebrew tap
+    needs: release
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out homebrew-tap repo
+        uses: actions/checkout@v4
+        with:
+          repository: Genairus/homebrew-tap
+          token: ${{ secrets.RELEASE_BOT_TOKEN }}
+          path: tap
+
+      - name: Check out chronos repo (for update script)
+        uses: actions/checkout@v4
+        with:
+          path: chronos
+
+      - name: Download platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Compute SHA256 per platform
+        id: sha
+        run: |
+          echo "macos_arm=$(sha256sum artifacts/chronos-macos-aarch64.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "macos_x86=$(sha256sum artifacts/chronos-macos-x86_64.tar.gz  | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "linux_x86=$(sha256sum artifacts/chronos-linux-x86_64.tar.gz  | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "linux_arm=$(sha256sum artifacts/chronos-linux-aarch64.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Update formula
+        run: |
+          python3 chronos/scripts/update-formula.py \
+            tap/Formula/chronos.rb \
+            "${{ needs.release.outputs.version }}" \
+            "${{ steps.sha.outputs.macos_arm }}" \
+            "${{ steps.sha.outputs.macos_x86 }}" \
+            "${{ steps.sha.outputs.linux_x86 }}" \
+            "${{ steps.sha.outputs.linux_arm }}"
+
+      - name: Commit and push
+        run: |
+          cd tap
+          git config user.name "chronos-bot"
+          git config user.email "bot@genairus.com"
+          git add Formula/chronos.rb
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: bump chronos to v${{ needs.release.outputs.version }}"
+          git push
+
+  # ── Job 4: update Scoop bucket ────────────────────────────────────────────
+  update-scoop:
+    name: Update Scoop bucket
+    needs: release
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out scoop-chronos repo
+        uses: actions/checkout@v4
+        with:
+          repository: Genairus/scoop-chronos
+          token: ${{ secrets.RELEASE_BOT_TOKEN }}
+          path: bucket
+
+      - name: Check out chronos repo (for update script)
+        uses: actions/checkout@v4
+        with:
+          path: chronos
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: chronos-windows-x86_64
+          path: artifacts
+
+      - name: Compute SHA256 (Windows)
+        id: sha
+        run: |
+          echo "windows=$(sha256sum artifacts/chronos-windows-x86_64.zip | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Update manifest
+        run: |
+          python3 chronos/scripts/update-scoop.py \
+            bucket/bucket/chronos.json \
+            "${{ needs.release.outputs.version }}" \
+            "${{ steps.sha.outputs.windows }}"
+
+      - name: Commit and push
+        run: |
+          cd bucket
+          git config user.name "chronos-bot"
+          git config user.email "bot@genairus.com"
+          git add bucket/chronos.json
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: bump chronos to v${{ needs.release.outputs.version }}"
+          git push

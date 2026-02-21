@@ -1,0 +1,81 @@
+site_name: Chronos
+site_description: A requirements modeling language for AI-assisted development
+site_url: https://genairus.github.io/chronos/
+repo_name: Genairus/chronos
+repo_url: https://github.com/Genairus/chronos
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; 2024 Genairus
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+  icon:
+    repo: fontawesome/brands/github
+
+# Exclude internal development notes that contain relative links to source files
+# (these are not part of the public documentation site)
+exclude_docs: |
+  status/
+  ir/
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: install.md
+    - Quick Start: examples/getting-started.md
+  - Language Reference: quick-reference.md
+  - Generators: generators.md
+  - CLI Reference: cli.md
+  - Examples:
+    - E-Commerce Model: examples/ecommerce.md
+  - Architecture:
+    - ADR-0001 IR & Resolver: architecture/ADR-0001-chronos-ir-and-resolver.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - admonition
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Genairus/chronos

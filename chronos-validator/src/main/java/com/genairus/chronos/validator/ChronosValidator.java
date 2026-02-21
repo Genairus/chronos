@@ -268,6 +268,8 @@ public class ChronosValidator {
                                      List<Diagnostic> issues) {
         switch (type) {
             case TypeRef.NamedTypeRef r -> {
+                // If TypeResolutionPhase already resolved this ref globally, trust it.
+                if (r.ref().isResolved()) break;
                 String name = r.qualifiedId();
                 boolean resolved = model.findShape(name).isPresent()
                         || importedNames.contains(name);

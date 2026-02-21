@@ -160,8 +160,8 @@ public final class TypeResolutionPhase implements ResolverPhase<IrModel, IrModel
         String simpleName        = ref.name().name();
         DiagnosticCollector diag = ctx.diagnostics();
 
-        // ── 1. Local symbol table ─────────────────────────────────────────────
-        Optional<Symbol> found = ctx.symbols().lookup(simpleName);
+        // ── 1. Global-aware resolution (local → imports → global same-namespace) ──
+        Optional<Symbol> found = ctx.resolveName(simpleName);
         if (found.isPresent()) {
             Symbol sym = found.get();
             if (VALID_TYPE_KINDS.contains(sym.kind())) {

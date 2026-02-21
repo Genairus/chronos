@@ -1,0 +1,24 @@
+namespace shop.journeys
+
+/// A customer browsing the catalog.
+actor Customer
+
+/// Customer session state.
+enum Status {
+    ONLINE = 1
+    OFFLINE = 2
+}
+
+/// Browse the product catalog and view details.
+journey BrowseCatalog {
+    actor: Customer
+    steps: [
+        step viewListing {
+            action: "Customer views product listing"
+            expectation: "Product grid is displayed"
+        }
+    ]
+    outcomes: {
+        success: "Products displayed to customer"
+    }
+}

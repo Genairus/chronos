@@ -1,0 +1,14 @@
+namespace shop.domain
+
+/// Core product available in the catalog.
+entity Product {
+    id: String
+    name: String
+    price: Float
+}
+
+/// Product availability status.
+enum Status {
+    ACTIVE = 1
+    INACTIVE = 2
+}

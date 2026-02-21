@@ -25,7 +25,10 @@ import com.genairus.chronos.ir.types.Variant;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.StringJoiner;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Generates a Markdown Product Requirements Document (PRD) from a
@@ -133,7 +136,10 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
     private static void appendJourney(StringBuilder sb, JourneyDef journey) {
         sb.append("\n### ").append(journey.name()).append("\n\n");
+        appendJourneyContent(sb, journey);
+    }
 
+    private static void appendJourneyContent(StringBuilder sb, JourneyDef journey) {
         // Doc comments as blockquote
         for (var doc : journey.docComments()) {
             sb.append("> ").append(doc).append("\n");
@@ -462,6 +468,344 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
                 sb.append("**Payload:** ").append(payload).append("\n");
             }
         });
+    }
+
+    // ── Combined multi-file PRD ───────────────────────────────────────────────
+
+    /**
+     * Generates a single combined PRD covering all models in a multi-file compilation unit.
+     *
+     * <p>Shapes from all models are merged into per-type lists and sorted by their
+     * fully-qualified name ({@code namespace.SimpleName}) so output is deterministic
+     * regardless of source ordering.  Each shape heading includes the namespace prefix
+     * (e.g. {@code #### shop.domain.Order}) to avoid collisions when multiple namespaces
+     * define the same simple name.
+     *
+     * @param models  the compiled {@link IrModel}s — order does not matter
+     * @param docName base name for the output file, or {@code null} for {@code "chronos-prd"}
+     * @return a {@link GeneratorOutput} containing one file: {@code <docName>.md}
+     */
+    public GeneratorOutput generateCombined(List<IrModel> models, String docName) {
+        var sb = new StringBuilder();
+
+        var journeys      = nsSort(models, IrModel::journeys);
+        var entities      = nsSort(models, IrModel::entities);
+        var structs       = nsSort(models, IrModel::shapeStructs);
+        var enums         = nsSort(models, IrModel::enums);
+        var lists         = nsSort(models, IrModel::lists);
+        var maps          = nsSort(models, IrModel::maps);
+        var invariants    = nsSort(models, IrModel::invariants);
+        var relationships = nsSort(models, IrModel::relationships);
+        var actors        = nsSort(models, IrModel::actors);
+        var policies      = nsSort(models, IrModel::policies);
+        var denies        = nsSort(models, IrModel::denies);
+        var errors        = nsSort(models, IrModel::errors);
+
+        // One IrInheritanceResolver per namespace for entity field resolution
+        Map<String, IrInheritanceResolver> resolvers = models.stream()
+                .collect(Collectors.toMap(IrModel::namespace, IrInheritanceResolver::new));
+
+        // Title
+        sb.append("# Chronos Product Requirements Document\n");
+
+        // Namespaces section
+        var namespaces = models.stream().map(IrModel::namespace).distinct().sorted().toList();
+        sb.append("\n## Namespaces\n\n");
+        namespaces.forEach(ns -> sb.append("- `").append(ns).append("`\n"));
+
+        appendCombinedToc(sb, journeys, entities, structs, enums, lists, maps,
+                invariants, relationships, actors, policies, denies, errors);
+        appendCombinedJourneysSection(sb, journeys);
+        appendCombinedDataModelSection(sb, entities, structs, enums, lists, maps, resolvers);
+        appendCombinedGlobalInvariantsSection(sb, invariants);
+        appendCombinedRelationshipsSection(sb, relationships);
+        appendCombinedActorsSection(sb, actors);
+        appendCombinedPoliciesSection(sb, policies);
+        appendCombinedProhibitionsSection(sb, denies);
+        appendCombinedErrorCatalogSection(sb, errors);
+
+        String filename = (docName == null ? "chronos-prd" : docName) + ".md";
+        return GeneratorOutput.of(filename, sb.toString());
+    }
+
+    /** Collects shapes of type T from all models, sorted by fully-qualified name (ns.name). */
+    private static <T extends IrShape> List<Map.Entry<String, T>> nsSort(
+            List<IrModel> models, Function<IrModel, List<T>> accessor) {
+        return models.stream()
+                .flatMap(m -> accessor.apply(m).stream()
+                        .map(s -> Map.entry(m.namespace(), s)))
+                .sorted(Comparator.comparing(e -> e.getKey() + "." + e.getValue().name()))
+                .toList();
+    }
+
+    private static void appendCombinedToc(
+            StringBuilder sb,
+            List<Map.Entry<String, JourneyDef>> journeys,
+            List<Map.Entry<String, EntityDef>> entities,
+            List<Map.Entry<String, ShapeStructDef>> structs,
+            List<Map.Entry<String, EnumDef>> enums,
+            List<Map.Entry<String, ListDef>> lists,
+            List<Map.Entry<String, MapDef>> maps,
+            List<Map.Entry<String, InvariantDef>> invariants,
+            List<Map.Entry<String, RelationshipDef>> relationships,
+            List<Map.Entry<String, ActorDef>> actors,
+            List<Map.Entry<String, PolicyDef>> policies,
+            List<Map.Entry<String, DenyDef>> denies,
+            List<Map.Entry<String, ErrorDef>> errors) {
+
+        sb.append("\n## Table of Contents\n\n");
+
+        if (!journeys.isEmpty()) {
+            sb.append("- [Journeys](#journeys)\n");
+            for (var e : journeys) {
+                String fq = e.getKey() + "." + e.getValue().name();
+                sb.append("  - [").append(fq).append("](#").append(anchor(fq)).append(")\n");
+            }
+        }
+        boolean hasDataModel = !entities.isEmpty() || !structs.isEmpty()
+                || !enums.isEmpty() || !lists.isEmpty() || !maps.isEmpty();
+        if (hasDataModel) {
+            sb.append("- [Data Model](#data-model)\n");
+            if (!entities.isEmpty()) sb.append("  - [Entities](#entities)\n");
+            if (!structs.isEmpty())  sb.append("  - [Value Objects](#value-objects)\n");
+            if (!enums.isEmpty())    sb.append("  - [Enumerations](#enumerations)\n");
+            if (!lists.isEmpty() || !maps.isEmpty())
+                sb.append("  - [Collections](#collections)\n");
+        }
+        if (!invariants.isEmpty())    sb.append("- [Global Invariants](#global-invariants)\n");
+        if (!relationships.isEmpty()) sb.append("- [Relationships](#relationships)\n");
+        if (!actors.isEmpty())        sb.append("- [Actors](#actors)\n");
+        if (!policies.isEmpty())      sb.append("- [Policies](#policies)\n");
+        if (!denies.isEmpty())        sb.append("- [Prohibitions](#prohibitions)\n");
+        if (!errors.isEmpty())        sb.append("- [Error Catalog](#error-catalog)\n");
+    }
+
+    private static void appendCombinedJourneysSection(
+            StringBuilder sb,
+            List<Map.Entry<String, JourneyDef>> journeys) {
+        if (journeys.isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Journeys\n");
+        for (var e : journeys) {
+            sb.append("\n### ").append(e.getKey()).append(".").append(e.getValue().name()).append("\n\n");
+            appendJourneyContent(sb, e.getValue());
+        }
+    }
+
+    private static void appendCombinedDataModelSection(
+            StringBuilder sb,
+            List<Map.Entry<String, EntityDef>> entities,
+            List<Map.Entry<String, ShapeStructDef>> structs,
+            List<Map.Entry<String, EnumDef>> enums,
+            List<Map.Entry<String, ListDef>> lists,
+            List<Map.Entry<String, MapDef>> maps,
+            Map<String, IrInheritanceResolver> resolvers) {
+
+        boolean hasDataModel = !entities.isEmpty() || !structs.isEmpty()
+                || !enums.isEmpty() || !lists.isEmpty() || !maps.isEmpty();
+        if (!hasDataModel) return;
+        sb.append(DIVIDER).append("\n## Data Model\n");
+
+        if (!entities.isEmpty()) {
+            sb.append("\n### Entities\n");
+            for (var e : entities) {
+                String ns = e.getKey();
+                EntityDef entity = e.getValue();
+                sb.append("\n#### ").append(ns).append(".").append(entity.name()).append("\n\n");
+                if (IrInheritanceResolver.parentName(entity).isPresent()) {
+                    sb.append("*Extends: ").append(IrInheritanceResolver.parentName(entity).get()).append("*\n\n");
+                }
+                renderDocComments(sb, entity.docComments());
+                IrInheritanceResolver resolver = resolvers.get(ns);
+                List<FieldDef> fields = resolver != null
+                        ? resolver.resolveAllFields(entity) : entity.fields();
+                if (!fields.isEmpty()) {
+                    sb.append("| Field | Type | Required |\n");
+                    sb.append("|-------|------|----------|\n");
+                    for (var field : fields) {
+                        sb.append("| ").append(field.name())
+                          .append(" | ").append(renderTypeRef(field.type()))
+                          .append(" | ").append(field.isRequired() ? "\u2713" : "")
+                          .append(" |\n");
+                    }
+                }
+                if (!entity.invariants().isEmpty()) {
+                    sb.append("\n**Invariants:**\n\n");
+                    for (var inv : entity.invariants()) {
+                        sb.append("- **").append(inv.name()).append("**");
+                        sb.append(" (").append(inv.severity()).append(")");
+                        sb.append("\n  - Expression: `").append(inv.expression()).append("`\n");
+                        if (inv.message().isPresent()) {
+                            sb.append("  - Message: ").append(inv.message().get()).append("\n");
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!structs.isEmpty()) {
+            sb.append("\n### Value Objects\n");
+            for (var e : structs) {
+                ShapeStructDef s = e.getValue();
+                sb.append("\n#### ").append(e.getKey()).append(".").append(s.name()).append("\n\n");
+                renderDocComments(sb, s.docComments());
+                if (!s.fields().isEmpty()) {
+                    sb.append("| Field | Type | Required |\n");
+                    sb.append("|-------|------|----------|\n");
+                    for (var field : s.fields()) {
+                        sb.append("| ").append(field.name())
+                          .append(" | ").append(renderTypeRef(field.type()))
+                          .append(" | ").append(field.isRequired() ? "\u2713" : "")
+                          .append(" |\n");
+                    }
+                }
+            }
+        }
+
+        if (!enums.isEmpty()) {
+            sb.append("\n### Enumerations\n");
+            for (var e : enums) {
+                EnumDef enumDef = e.getValue();
+                sb.append("\n#### ").append(e.getKey()).append(".").append(enumDef.name()).append("\n\n");
+                renderDocComments(sb, enumDef.docComments());
+                sb.append("| Member | Ordinal |\n");
+                sb.append("|--------|----------|\n");
+                for (var member : enumDef.members()) {
+                    String ordinal = member.ordinalOrNull() != null
+                            ? String.valueOf(member.ordinalOrNull()) : DASH;
+                    sb.append("| ").append(member.name())
+                      .append(" | ").append(ordinal)
+                      .append(" |\n");
+                }
+            }
+        }
+
+        if (!lists.isEmpty() || !maps.isEmpty()) {
+            sb.append("\n### Collections\n");
+            for (var e : lists) {
+                ListDef list = e.getValue();
+                sb.append("\n#### ").append(e.getKey()).append(".").append(list.name()).append("\n\n");
+                renderDocComments(sb, list.docComments());
+                sb.append("`List<").append(renderTypeRef(list.memberType())).append(">`\n\n");
+            }
+            for (var e : maps) {
+                MapDef map = e.getValue();
+                sb.append("\n#### ").append(e.getKey()).append(".").append(map.name()).append("\n\n");
+                renderDocComments(sb, map.docComments());
+                sb.append("`Map<").append(renderTypeRef(map.keyType())).append(", ")
+                  .append(renderTypeRef(map.valueType())).append(">`\n\n");
+            }
+        }
+    }
+
+    private static void appendCombinedGlobalInvariantsSection(
+            StringBuilder sb,
+            List<Map.Entry<String, InvariantDef>> invariants) {
+        if (invariants.isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Global Invariants\n\n");
+        sb.append("Cross-entity constraints that must always hold true:\n\n");
+        for (var e : invariants) {
+            InvariantDef inv = e.getValue();
+            sb.append("### ").append(e.getKey()).append(".").append(inv.name()).append("\n\n");
+            renderDocComments(sb, inv.docComments());
+            sb.append("**Scope:** ").append(String.join(", ", inv.scope())).append("\n\n");
+            sb.append("**Expression:** `").append(inv.expression()).append("`\n\n");
+            sb.append("**Severity:** ").append(inv.severity()).append("\n\n");
+            if (inv.message().isPresent()) {
+                sb.append("**Message:** ").append(inv.message().get()).append("\n\n");
+            }
+        }
+    }
+
+    private static void appendCombinedRelationshipsSection(
+            StringBuilder sb,
+            List<Map.Entry<String, RelationshipDef>> relationships) {
+        if (relationships.isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Relationships\n");
+        for (var e : relationships) {
+            RelationshipDef rel = e.getValue();
+            sb.append("\n#### ").append(e.getKey()).append(".").append(rel.name()).append("\n\n");
+            renderDocComments(sb, rel.docComments());
+            sb.append("**From:** ").append(symRefName(rel.fromEntityRef()))
+              .append(" **→** ").append(symRefName(rel.toEntityRef()))
+              .append(" (").append(rel.cardinality().chronosName()).append(")\n");
+            sb.append("**Semantics:** ").append(rel.effectiveSemantics().chronosName()).append("\n");
+            rel.inverseField().ifPresent(f ->
+                    sb.append("**Inverse Field:** ").append(f).append("\n"));
+        }
+    }
+
+    private static void appendCombinedActorsSection(
+            StringBuilder sb,
+            List<Map.Entry<String, ActorDef>> actors) {
+        if (actors.isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Actors\n");
+        for (var e : actors) {
+            ActorDef actor = e.getValue();
+            sb.append("\n#### ").append(e.getKey()).append(".").append(actor.name()).append("\n\n");
+            renderDocComments(sb, actor.docComments());
+            sb.append("**Description:** ").append(actor.description().orElse(DASH)).append("\n");
+        }
+    }
+
+    private static void appendCombinedPoliciesSection(
+            StringBuilder sb,
+            List<Map.Entry<String, PolicyDef>> policies) {
+        if (policies.isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Policies\n");
+        for (var e : policies) {
+            PolicyDef policy = e.getValue();
+            sb.append("\n#### ").append(e.getKey()).append(".").append(policy.name()).append("\n\n");
+            renderDocComments(sb, policy.docComments());
+            sb.append("**Description:** ").append(policy.description()).append("\n");
+            policy.complianceFramework().ifPresent(c ->
+                    sb.append("**Compliance:** ").append(c).append("\n"));
+        }
+    }
+
+    private static void appendCombinedProhibitionsSection(
+            StringBuilder sb,
+            List<Map.Entry<String, DenyDef>> denies) {
+        if (denies.isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Prohibitions\n");
+        for (var e : denies) {
+            DenyDef deny = e.getValue();
+            sb.append("\n#### ").append(e.getKey()).append(".").append(deny.name()).append("\n\n");
+            renderDocComments(sb, deny.docComments());
+            sb.append("**Description:** ").append(deny.description()).append("\n");
+            sb.append("**Scope:** ").append(String.join(", ", deny.scope())).append("\n");
+            sb.append("**Severity:** ").append(deny.severity()).append("\n");
+            deny.traits().stream()
+                    .filter(t -> "compliance".equals(t.name()))
+                    .flatMap(t -> t.firstPositionalValue().stream())
+                    .filter(v -> v instanceof TraitValue.StringValue)
+                    .map(v -> ((TraitValue.StringValue) v).value())
+                    .findFirst()
+                    .ifPresent(c -> sb.append("**Compliance:** ").append(c).append("\n"));
+        }
+    }
+
+    private static void appendCombinedErrorCatalogSection(
+            StringBuilder sb,
+            List<Map.Entry<String, ErrorDef>> errors) {
+        if (errors.isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Error Catalog\n");
+        for (var e : errors) {
+            ErrorDef error = e.getValue();
+            sb.append("\n#### ").append(e.getKey()).append(".").append(error.name()).append("\n\n");
+            renderDocComments(sb, error.docComments());
+            sb.append("**Code:** ").append(error.code())
+              .append(" | **Severity:** ").append(error.severity())
+              .append(" | **Recoverable:** ").append(error.recoverable() ? "Yes" : "No")
+              .append("\n");
+            sb.append("**Message:** ").append(error.message()).append("\n");
+            if (!error.payload().isEmpty()) {
+                String payload = error.payload().stream()
+                        .map(f -> f.name() + ": " + renderTypeRef(f.type()))
+                        .reduce((a, b) -> a + ", " + b)
+                        .orElse("");
+                sb.append("**Payload:** ").append(payload).append("\n");
+            }
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -20,7 +20,8 @@ import java.io.PrintWriter;
         SelectCommand.class,
         DiffCommand.class,
         CleanCommand.class,
-        BuildCommand.class
+        BuildCommand.class,
+        PrdCommand.class
     }
 )
 public class ChronosCli implements Runnable {

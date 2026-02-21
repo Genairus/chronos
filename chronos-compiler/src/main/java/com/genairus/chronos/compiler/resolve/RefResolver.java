@@ -74,7 +74,7 @@ public final class RefResolver {
         }
 
         String simpleName = ref.name().name();
-        Optional<Symbol> found = ctx.symbols().lookup(simpleName);
+        Optional<Symbol> found = ctx.resolveName(simpleName);
 
         if (found.isPresent() && expectedKinds.contains(found.get().kind())) {
             Symbol sym = found.get();

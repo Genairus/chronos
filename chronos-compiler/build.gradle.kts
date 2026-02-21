@@ -8,3 +8,7 @@ dependencies {
     implementation(project(":chronos-parser"))
     implementation(project(":chronos-validator"))
 }
+
+tasks.test {
+    systemProperty("chronos.rootDir", rootProject.projectDir.absolutePath)
+}

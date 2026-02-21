@@ -1,0 +1,49 @@
+namespace catalog.journeys
+
+use catalog.domain#Product
+use catalog.domain#Supplier
+
+/// The catalog manager who adds, edits, and publishes products.
+@description("Internal team member managing the product catalog")
+actor CatalogManager
+
+/// All product data must be accurate and verified before publication.
+@compliance("internal-data-quality-policy")
+policy DataQuality {
+    description: "Product descriptions, prices, and category assignments must be reviewed and approved before a product becomes visible to shoppers."
+}
+
+/// The complete flow for adding a new product to the catalog.
+/// Run with: chronos prd examples/getting-started/
+@description("End-to-end flow for onboarding a new product from supplier to catalog")
+@kpi(metric: "catalog_onboarding_time", target: "<2 business days")
+journey AddProduct {
+    actor: CatalogManager
+    preconditions: [
+        "Supplier exists in the system",
+        "Product details have been reviewed by the catalog team"
+    ]
+    steps: [
+        step EnterProductDetails {
+            action: "Manager enters product name, description, price, and category"
+            expectation: "Form validates all required fields; price is positive"
+            telemetry: [ProductFormOpened]
+            risk: "Free-text description fields may contain unvetted content"
+        },
+        step SelectSupplier {
+            action: "Manager associates the product with an existing supplier"
+            expectation: "Supplier lookup returns a matching result by name or ID"
+            telemetry: [SupplierSelected]
+        },
+        step PublishProduct {
+            action: "Manager confirms and publishes the product to the catalog"
+            expectation: "Product appears in catalog with inStock status and correct price"
+            outcome: TransitionTo(Published)
+            telemetry: [ProductPublished]
+        }
+    ]
+    outcomes: {
+        success: "New product is visible in the catalog with correct details and supplier link",
+        failure: "Product draft is saved but not published; manager sees a validation error summary"
+    }
+}

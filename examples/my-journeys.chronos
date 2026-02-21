@@ -1,5 +1,7 @@
 namespace com.genairus.holodeck
 
+actor User
+
 journey LoginJourney {
   actor: User
   steps: [
@@ -16,4 +18,7 @@ journey LoginJourney {
       expectation: "Dashboard is displayed"
     }
   ]
+  outcomes: {
+    success: "User is authenticated and the dashboard is displayed"
+  }
 }

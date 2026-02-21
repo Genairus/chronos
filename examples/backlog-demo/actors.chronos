@@ -1,0 +1,34 @@
+namespace acme.hiring
+
+/// The person responsible for defining the role, approving candidates,
+/// and making the final hiring decision. Hiring Managers initiate the
+/// recruitment process and have the authority to extend offers.
+@description("Department lead who owns the headcount and makes the hiring decision")
+actor HiringManager
+
+/// A member of the Talent Acquisition team who manages the pipeline,
+/// screens inbound applications, coordinates interviews, and acts as
+/// the primary point of contact for candidates throughout the process.
+@description("Talent team member who manages the candidate pipeline and coordinates interviews")
+actor Recruiter
+
+/// External person applying for a position. Interacts with the system
+/// through the public careers portal. Has limited visibility — can only
+/// see their own application status, scheduled interviews, and any
+/// offers extended to them.
+@description("External applicant interacting via the careers portal")
+actor CandidateActor
+
+/// All candidate personal data is subject to GDPR.
+/// Deletion requests must be fulfilled within 30 days.
+@compliance("GDPR")
+policy CandidateDataPrivacy {
+    description: "Candidate PII must be purgeable within 30 days of a deletion request. Anonymised hiring metrics may be retained indefinitely for reporting purposes."
+}
+
+/// Anti-discrimination policy applied to all hiring decisions.
+/// Interview scorecards must use structured rubrics to minimise unconscious bias.
+@compliance("EEOC")
+policy FairHiringPolicy {
+    description: "All hiring decisions must be based on objective, role-relevant criteria. Structured scorecards are mandatory for every interview. Demographic data must not be visible to interviewers during the evaluation process."
+}

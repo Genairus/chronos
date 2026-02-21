@@ -1,0 +1,60 @@
+namespace catalog.domain
+
+/// A monetary value with an explicit currency code.
+/// Use this for all price fields — never use a bare Float for money.
+shape Price {
+    amount: Float
+    currency: String
+}
+
+/// Top-level categories for classifying products.
+enum Category {
+    BOOKS       = 1
+    ELECTRONICS = 2
+    CLOTHING    = 3
+    HOME        = 4
+}
+
+/// A product available in the catalog.
+/// Products are owned by the Catalog team and managed via the AddProduct journey.
+entity Product {
+    @required
+    id: String
+    name: String
+    summary: String
+    price: Price
+    listPrice: Float
+    category: Category
+    inStock: Boolean
+
+    /// List price must be positive to be valid for publication.
+    invariant PositiveListPrice {
+        expression: "listPrice > 0"
+        severity: error
+        message: "List price must be positive"
+    }
+}
+
+/// A supplier who provides products to the catalog.
+entity Supplier {
+    @required
+    id: String
+    name: String
+    contactEmail: String
+}
+
+/// Every product should be traceable to a known supplier.
+/// This is a warning (not error) to allow products in staging before formal onboarding.
+invariant ProductHasKnownSupplier {
+    scope: [Product, Supplier]
+    expression: "true"
+    severity: warning
+    message: "Every product should reference a known supplier"
+}
+
+/// A supplier may supply many products.
+relationship SupplierProducts {
+    from: Supplier
+    to: Product
+    cardinality: one_to_many
+}

@@ -1,0 +1,23 @@
+"Summary","Issue Type","Description","Priority","Labels","Epic Name","Epic Link","Story Points"
+"CheckoutJourney","Epic","Guides a registered customer through the checkout process.
+Actor: Customer
+Preconditions: Cart contains at least one item; Customer is authenticated
+Success: Order record exists with status PAID and confirmation email sent
+Failure: Cart remains intact and no charge is made
+KPI: metric=checkout_completion_rate target=95%
+Compliance: PCI-DSS","Medium","com.example.checkout","CheckoutJourney","","3"
+"ReviewCart: Customer reviews cart contents","Story","Expectation: Cart summary is displayed with correct totals
+Risk: Stale price data may cause discrepancy
+Telemetry: CartReviewed, PageViewed","Medium","com.example.checkout","","CheckoutJourney","1"
+"EnterPaymentDetails: Customer enters payment card details","Story","Expectation: Payment form validates and tokenises card
+Risk: PCI scope expansion if card data is logged
+Telemetry: PaymentFormOpened","Medium","com.example.checkout","","CheckoutJourney","1"
+"ConfirmOrder: Customer submits the order","Story","Expectation: Order record is persisted with status PENDING
+Outcome: TransitionTo(OrderConfirmed)
+Telemetry: OrderSubmitted","Medium","com.example.checkout","","CheckoutJourney","1"
+"[PaymentDeclined] error path: PaymentDeclinedError","Story","Error path triggered by: PaymentDeclinedError
+Steps:
+  - NotifyDeclined: System notifies customer of the decline
+Resolution: ReturnToStep(EnterPaymentDetails)","High","com.example.checkout variant","","CheckoutJourney","1"
+"[Policy] PaymentSecurity","Story","Payment card data must never be stored in plaintext
+Compliance framework: PCI-DSS","High","com.example.checkout compliance PCI-DSS","","","0"

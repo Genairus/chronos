@@ -1,8 +1,8 @@
-namespace dogfood.payments
+namespace ecommerce.payments
 
-use dogfood.common#Money
-use dogfood.common#Customer
-use dogfood.common#MetadataMap
+use ecommerce.common#Money
+use ecommerce.common#Customer
+use ecommerce.common#MetadataMap
 
 /// Payment methods accepted at checkout.
 /// The method determines which authorisation flow the payment service invokes.
@@ -22,7 +22,7 @@ entity PaymentInstrument {
     customerId: String
     method: PaymentMethod
     maskedPan: String
-    billingAddress: dogfood.common.Address
+    billingAddress: ecommerce.common.Address
 }
 
 /// The result returned by the payment gateway after an authorisation attempt.

@@ -1,0 +1,144 @@
+namespace acme.hiring
+
+/// Monetary value as an amount/currency pair.
+shape Money {
+    amount: Float
+    currency: String
+}
+
+/// A person applying for a role at the company.
+/// Created when an external candidate submits an application through the careers portal
+/// or when a recruiter uploads a profile manually. The candidate record persists across
+/// multiple job applications and interview cycles so historical data is never lost.
+entity Candidate {
+    id: String
+    @pii
+    name: String
+    @pii
+    email: String
+    resumeUrl: String
+    source: String
+    appliedAt: Timestamp
+
+    invariant EmailRequired {
+        expression: "email != null && email != \"\""
+        severity: error
+        message: "Candidate must have a valid email address"
+    }
+}
+
+/// A published role that the company is actively seeking to fill.
+/// JobPostings are created by Hiring Managers and approved by Talent Ops before
+/// going live on the careers site. A posting can accept applications until it is
+/// either filled or manually closed.
+entity JobPosting {
+    id: String
+    title: String
+    department: String
+    location: String
+    salaryRange: String
+    status: PostingStatus
+    hiringManagerId: String
+    createdAt: Timestamp
+}
+
+/// An interview scheduled between a candidate and one or more interviewers.
+/// Represents a single timeslot in the interview process. Each interview
+/// captures structured feedback via a scorecard submitted after the session.
+entity Interview {
+    id: String
+    candidateId: String
+    jobPostingId: String
+    interviewerId: String
+    scheduledAt: Timestamp
+    format: InterviewFormat
+    status: InterviewStatus
+    scorecardUrl: String
+}
+
+/// An employment offer extended to a candidate who has passed all interview stages.
+/// Offers have an expiration window (typically 5 business days) after which they are
+/// automatically withdrawn if the candidate has not responded.
+entity Offer {
+    id: String
+    candidateId: String
+    jobPostingId: String
+    salary: Money
+    startDate: Timestamp
+    status: OfferStatus
+    expiresAt: Timestamp
+
+    invariant SalaryRequired {
+        expression: "salary != null"
+        severity: error
+        message: "Offer must include a salary"
+    }
+}
+
+/// Lifecycle stages for a job posting.
+enum PostingStatus {
+    DRAFT = 1
+    OPEN = 2
+    CLOSED = 3
+    FILLED = 4
+}
+
+/// Supported interview formats.
+enum InterviewFormat {
+    PHONE_SCREEN = 1
+    VIDEO_CALL = 2
+    ONSITE = 3
+    TAKE_HOME = 4
+}
+
+/// Lifecycle stages for an interview slot.
+enum InterviewStatus {
+    SCHEDULED = 1
+    COMPLETED = 2
+    CANCELLED = 3
+    NO_SHOW = 4
+}
+
+/// Lifecycle stages for a candidate offer.
+enum OfferStatus {
+    DRAFT = 1
+    EXTENDED = 2
+    ACCEPTED = 3
+    DECLINED = 4
+    WITHDRAWN = 5
+}
+
+/// A Candidate applies to one or more JobPostings over time.
+@description("Tracks which candidates have applied to which roles")
+relationship CandidateApplications {
+    from: Candidate
+    to: JobPosting
+    cardinality: many_to_many
+}
+
+/// Each JobPosting may have many Interviews across multiple candidates.
+@description("Links interviews to the role they are evaluating for")
+relationship PostingInterviews {
+    from: JobPosting
+    to: Interview
+    cardinality: one_to_many
+    semantics: composition
+}
+
+/// An Offer is always tied to exactly one Candidate.
+@description("Links an offer to the candidate it was extended to")
+relationship CandidateOffers {
+    from: Candidate
+    to: Offer
+    cardinality: one_to_many
+    semantics: aggregation
+}
+
+/// Candidates must not be discriminated against based on protected characteristics.
+/// This deny rule ensures the system never exposes demographic data to interviewers
+/// or factors it into automated scoring or ranking algorithms.
+deny NoBiasInScoring {
+    description: "Interview scorecards and automated ranking must never incorporate candidate age, gender, ethnicity, or any other protected characteristic. Scoring rubrics must evaluate only role-relevant competencies."
+    scope: [Interview, Candidate]
+    severity: critical
+}

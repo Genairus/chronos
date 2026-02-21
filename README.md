@@ -2,6 +2,10 @@
 
 A requirements language compiler — define journeys, generate artifacts.
 
+**[Language Quick Reference →](docs/quick-reference.md)**
+
+**[AI Bot Requirements How-To (Prompt Templates + Workflow) →](docs/ai-bot-requirements-howto.md)**
+
 ## Commands (v0.1)
 
 | Command | Description |
@@ -31,4 +35,3 @@ source ~/.zshrc
 # Confirm everything works
 java -version
 native-image --version
-

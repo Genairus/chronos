@@ -12,3 +12,7 @@ dependencies {
 tasks.generateGrammarSource {
     arguments = listOf("-visitor", "-no-listener", "-package", "com.genairus.chronos.parser.generated")
 }
+
+tasks.test {
+    systemProperty("chronos.rootDir", rootProject.projectDir.absolutePath)
+}

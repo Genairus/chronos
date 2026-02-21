@@ -1,4 +1,4 @@
-namespace dogfood.common
+namespace ecommerce.common
 
 /// The primary end-user of the storefront — a person browsing and purchasing products.
 /// CustomerActor covers both guest (unauthenticated) and registered (authenticated) shoppers.

@@ -1,12 +1,12 @@
-namespace dogfood.checkout
+namespace ecommerce.checkout
 
-use dogfood.common#CustomerActor
-use dogfood.checkout#Cart
-use dogfood.checkout#Order
-use dogfood.checkout#OrderStatus
-use dogfood.payments#PaymentDeclinedError
-use dogfood.payments#PaymentGatewayTimeoutError
-use dogfood.payments#CardExpiredError
+use ecommerce.common#CustomerActor
+use ecommerce.checkout#Cart
+use ecommerce.checkout#Order
+use ecommerce.checkout#OrderStatus
+use ecommerce.payments#PaymentDeclinedError
+use ecommerce.payments#PaymentGatewayTimeoutError
+use ecommerce.payments#CardExpiredError
 
 /// Guest checkout flow that allows unauthenticated shoppers to purchase without an account.
 /// The actor supplies a shipping address and payment details inline during the flow.

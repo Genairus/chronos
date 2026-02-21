@@ -1,4 +1,4 @@
-namespace dogfood.common
+namespace ecommerce.common
 
 /// Monetary value as an amount/currency pair following ISO 4217.
 /// All money fields across the system must use this type rather than a bare numeric.
@@ -72,5 +72,5 @@ invariant PositiveQuantitiesOnly {
     scope: [Product, Customer]
     expression: "true"
     severity: warning
-    message: "Placeholder global invariant for dogfood coverage"
+    message: "Placeholder global invariant for ecommerce coverage"
 }

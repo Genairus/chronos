@@ -9,6 +9,7 @@ import java.util.Map;
  * <ul>
  *   <li>{@code "markdown"} — Markdown PRD document</li>
  *   <li>{@code "prd"} — alias for {@code "markdown"}</li>
+ *   <li>{@code "jira"} — Jira-importable CSV backlog (epics + stories)</li>
  *   <li>{@code "test-scaffold"} — JUnit test scaffolding for invariants</li>
  *   <li>{@code "typescript"} — TypeScript type definitions (.d.ts)</li>
  *   <li>{@code "mermaid-state"} — Mermaid state diagrams for statemachines</li>
@@ -20,6 +21,7 @@ import java.util.Map;
 public final class GeneratorRegistry {
 
     private static final ChronosGenerator MARKDOWN = new MarkdownPrdGenerator();
+    private static final ChronosGenerator JIRA_BACKLOG = new JiraBacklogGenerator();
     private static final ChronosGenerator TEST_SCAFFOLD = new TestScaffoldGenerator();
     private static final ChronosGenerator TYPESCRIPT = new TypeScriptTypesGenerator();
     private static final ChronosGenerator MERMAID_STATE = new MermaidStateDiagramGenerator();
@@ -28,6 +30,7 @@ public final class GeneratorRegistry {
     private static final Map<String, ChronosGenerator> REGISTRY = Map.ofEntries(
             Map.entry("markdown", MARKDOWN),
             Map.entry("prd", MARKDOWN),
+            Map.entry("jira", JIRA_BACKLOG),
             Map.entry("test-scaffold", TEST_SCAFFOLD),
             Map.entry("typescript", TYPESCRIPT),
             Map.entry("mermaid-state", MERMAID_STATE),

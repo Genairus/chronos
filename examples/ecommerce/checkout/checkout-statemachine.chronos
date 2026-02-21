@@ -1,7 +1,7 @@
-namespace dogfood.checkout
+namespace ecommerce.checkout
 
-use dogfood.checkout#Order
-use dogfood.checkout#OrderStatus
+use ecommerce.checkout#Order
+use ecommerce.checkout#OrderStatus
 
 /// Governs all valid status transitions for an Order through its fulfilment lifecycle.
 /// Transitions are driven by domain events — OrderPaid, OrderShipped, OrderDelivered,

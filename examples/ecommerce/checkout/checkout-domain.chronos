@@ -1,14 +1,14 @@
-namespace dogfood.checkout
+namespace ecommerce.checkout
 
-use dogfood.common#Money
-use dogfood.common#Customer
-use dogfood.common#Product
-use dogfood.common#LineItem
-use dogfood.common#LineItemList
-use dogfood.common#MetadataMap
-use dogfood.common#Address
+use ecommerce.common#Money
+use ecommerce.common#Customer
+use ecommerce.common#Product
+use ecommerce.common#LineItem
+use ecommerce.common#LineItemList
+use ecommerce.common#MetadataMap
+use ecommerce.common#Address
 
-use dogfood.payments#PaymentMethod
+use ecommerce.payments#PaymentMethod
 
 /// Valid lifecycle states for an Order.
 /// Transitions between states are governed by the OrderLifecycle state machine.

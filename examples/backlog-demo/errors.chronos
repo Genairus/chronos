@@ -1,0 +1,63 @@
+namespace acme.hiring
+
+/// The candidate did not join the scheduled interview within the grace period.
+/// After 10 minutes past the scheduled start time, the system automatically marks
+/// the interview as a no-show. A first no-show triggers a reschedule prompt;
+/// a second consecutive no-show flags the candidate for pipeline review.
+error CandidateNoShowError {
+    code: "HIRE-001"
+    severity: medium
+    recoverable: true
+    message: "Candidate did not attend the scheduled interview"
+    payload: {
+        interviewId: String
+        scheduledAt: Timestamp
+        waitedMinutes: Integer
+    }
+}
+
+/// The assigned interviewer has a calendar conflict that was detected after
+/// the interview was confirmed. This typically happens when a higher-priority
+/// meeting is added to the interviewer's calendar after the interview invite
+/// was accepted. The recruiter must find an alternative slot or interviewer.
+error InterviewerConflictError {
+    code: "HIRE-002"
+    severity: medium
+    recoverable: true
+    message: "Interviewer has a conflicting calendar event"
+    payload: {
+        interviewId: String
+        interviewerId: String
+        conflictReason: String
+    }
+}
+
+/// The candidate has declined the extended offer. The decline reason is captured
+/// for analytics to help the team improve offer competitiveness. Common reasons
+/// include compensation, competing offers, relocation concerns, and role fit.
+error OfferDeclinedError {
+    code: "HIRE-003"
+    severity: high
+    recoverable: false
+    message: "Candidate declined the offer"
+    payload: {
+        offerId: String
+        declineReason: String
+    }
+}
+
+/// The offer deadline has passed without a response from the candidate.
+/// Expired offers are automatically transitioned to WITHDRAWN status.
+/// The hiring manager is notified and can choose to issue a new offer
+/// with an extended deadline or move on to other candidates.
+error OfferExpiredError {
+    code: "HIRE-004"
+    severity: medium
+    recoverable: true
+    message: "Offer expired without a candidate response"
+    payload: {
+        offerId: String
+        expiresAt: Timestamp
+    }
+}
+

@@ -1,0 +1,227 @@
+namespace acme.hiring
+
+use acme.hiring#Recruiter
+use acme.hiring#HiringManager
+use acme.hiring#CandidateActor
+use acme.hiring#Candidate
+use acme.hiring#JobPosting
+use acme.hiring#Interview
+use acme.hiring#Offer
+use acme.hiring#OfferStatus
+use acme.hiring#PostingStatus
+use acme.hiring#InterviewStatus
+use acme.hiring#CandidateNoShowError
+use acme.hiring#InterviewerConflictError
+use acme.hiring#OfferDeclinedError
+use acme.hiring#OfferExpiredError
+
+// ─── Epic 1: Candidate Application Pipeline ──────────────────────────────────
+
+/// Covers the end-to-end flow from a candidate discovering an open role
+/// to the recruiter reviewing their submitted application. This is the
+/// top-of-funnel journey and the primary driver of pipeline volume.
+/// Every friction point in this flow directly impacts applicant conversion.
+@epic("Candidate Application Pipeline")
+@priority(high)
+@kpi(metric: "ApplicationConversion", target: ">60%")
+@owner("talent-acquisition")
+@compliance("GDPR")
+journey SubmitApplication {
+    actor: CandidateActor
+    preconditions: ["At least one job posting is in OPEN status"]
+    steps: [
+        @story("Browse open positions with filters")
+        @estimate(3)
+        step BrowseOpenRoles {
+            action: "Search and filter open positions by department, location, and keywords"
+            expectation: "System displays matching open roles with title, department, location, and a brief description; results are paginated and sortable"
+            telemetry: [JobSearchPerformed]
+        },
+        @story("View full job posting details")
+        @estimate(2)
+        step ViewJobDetails {
+            action: "Select a role to view its full description, requirements, and salary range"
+            expectation: "System displays the complete posting including responsibilities, qualifications, compensation range, and an apply button"
+            telemetry: [JobPostingViewed]
+        },
+        @story("Submit application with resume upload")
+        @estimate(5)
+        @priority(high)
+        step SubmitApplication {
+            action: "Fill out the application form and upload a resume"
+            expectation: "System validates required fields, stores the resume securely, creates a Candidate record, and sends a confirmation email within 60 seconds"
+            telemetry: [ApplicationSubmitted, ConfirmationEmailQueued]
+            risk: "Resume upload depends on cloud storage service availability; large files may timeout on slow connections"
+        },
+        @story("View application confirmation and status")
+        @estimate(2)
+        step ViewConfirmation {
+            action: "Review the submission confirmation and initial application status"
+            expectation: "System displays a confirmation page with application ID, submitted timestamp, and current status set to RECEIVED; candidate can bookmark the status page"
+            telemetry: [ConfirmationViewed]
+        }
+    ]
+    outcomes: {
+        success: "Candidate record exists with a linked application; recruiter sees the new application in their pipeline dashboard within 5 minutes",
+        failure: "Application is not persisted; candidate sees a clear error with the option to retry without re-entering data"
+    }
+}
+
+// ─── Epic 2: Interview Scheduling & Feedback ─────────────────────────────────
+
+/// Handles the scheduling, execution, and feedback collection for candidate
+/// interviews. The recruiter coordinates availability between candidates and
+/// interviewers, the interview takes place, and structured feedback is captured
+/// via a scorecard. This journey is the core evaluation loop and typically
+/// repeats 2-4 times per candidate across different interview stages.
+@epic("Interview Scheduling & Feedback")
+@priority(high)
+@kpi(metric: "TimeToSchedule", target: "<48h")
+@owner("talent-acquisition")
+journey ScheduleAndReviewInterview {
+    actor: Recruiter
+    preconditions: ["Candidate has a submitted application", "Job posting is in OPEN status"]
+    steps: [
+        @story("Select candidate and choose interview format")
+        @estimate(2)
+        step SelectCandidate {
+            action: "Pick a candidate from the pipeline and choose the appropriate interview format"
+            expectation: "System shows candidate profile, application history, and available interview formats; recruiter selects format and proceeds to scheduling"
+            telemetry: [CandidateSelectedForInterview]
+        },
+        @story("Schedule interview with calendar integration")
+        @estimate(5)
+        @priority(high)
+        step ScheduleInterview {
+            action: "Find a mutually available timeslot and send calendar invites to candidate and interviewer"
+            expectation: "System checks interviewer availability via calendar integration, proposes available slots, and on confirmation sends calendar invites to all participants with video call link"
+            telemetry: [InterviewScheduled, CalendarInviteSent]
+            risk: "Calendar API rate limits may delay availability lookups during peak scheduling periods"
+        },
+        @story("Send interview preparation materials")
+        @estimate(3)
+        step SendPrepMaterials {
+            action: "Send the candidate interview prep details and the interviewer a candidate brief"
+            expectation: "System emails the candidate with interview format, duration, and what to prepare; interviewer receives the candidate's resume, application, and a structured scorecard template"
+            telemetry: [PrepMaterialsSent]
+        },
+        @story("Capture structured interview feedback")
+        @estimate(5)
+        @priority(high)
+        step RecordFeedback {
+            action: "Interviewer completes the structured scorecard after the interview"
+            expectation: "System presents the scorecard rubric with rating scales for each competency; interviewer submits scores and written notes; overall recommendation is captured as strong-yes, yes, no, or strong-no"
+            telemetry: [ScorecardSubmitted]
+        },
+        @story("Review aggregated feedback and advance or reject")
+        @estimate(3)
+        step ReviewAndDecide {
+            action: "Review all scorecard feedback for the candidate and decide next steps"
+            expectation: "System aggregates scores across all completed interviews, highlights consensus and divergence, and presents advance-to-next-round or reject options"
+            telemetry: [CandidateDecisionRecorded]
+        }
+    ]
+    variants: {
+        CandidateNoShow: {
+            trigger: CandidateNoShowError
+            steps: [
+                step HandleNoShow {
+                    action: "Mark the interview as no-show and decide whether to reschedule"
+                    expectation: "System updates interview status to NO_SHOW, notifies the recruiter, and offers a one-click reschedule option; if this is the second no-show the system flags the candidate for review"
+                    telemetry: [InterviewNoShowRecorded]
+                }
+            ]
+            outcome: ReturnToStep(ScheduleInterview)
+        },
+        InterviewerUnavailable: {
+            trigger: InterviewerConflictError
+            steps: [
+                step RescheduleInterview {
+                    action: "Find an alternative interviewer or timeslot"
+                    expectation: "System suggests replacement interviewers with matching competency areas or alternative timeslots with the original interviewer; updated invites are sent automatically"
+                    telemetry: [InterviewRescheduled]
+                }
+            ]
+            outcome: ReturnToStep(ScheduleInterview)
+        }
+    }
+    outcomes: {
+        success: "All scheduled interviews are completed with submitted scorecards; recruiter has a clear aggregate view to support the hiring decision",
+        failure: "Interview is not completed; candidate and interviewer are notified; the interview can be rescheduled without data loss"
+    }
+}
+
+// ─── Epic 3: Offer Management ────────────────────────────────────────────────
+
+/// Covers the end-to-end offer workflow from the hiring manager drafting
+/// an offer through candidate acceptance or decline. Offers have a
+/// configurable expiration window (default 5 business days) and the system
+/// tracks the full audit trail of offer revisions for compliance.
+@epic("Offer Management")
+@priority(medium)
+@kpi(metric: "OfferAcceptanceRate", target: ">80%")
+@owner("talent-acquisition")
+journey ExtendAndManageOffer {
+    actor: HiringManager
+    preconditions: ["Candidate has completed all required interview rounds", "At least one scorecard recommends hire"]
+    steps: [
+        @story("Draft offer with compensation details")
+        @estimate(3)
+        step DraftOffer {
+            action: "Create an offer with salary, start date, and benefits package"
+            expectation: "System pre-fills role details from the job posting; hiring manager enters salary, equity, start date, and any signing bonus; offer is saved in DRAFT status"
+            telemetry: [OfferDrafted]
+        },
+        @story("Submit offer for approval")
+        @estimate(2)
+        step ApproveOffer {
+            action: "Submit the draft offer for compensation band and budget approval"
+            expectation: "System validates the salary falls within the approved band for the role and level; if within band the offer is auto-approved; if outside band it is routed to the VP for manual approval"
+            telemetry: [OfferApprovalRequested]
+            risk: "VP approval may introduce multi-day delays; the system should surface time-to-approval metrics to set candidate expectations"
+        },
+        @story("Send offer letter to candidate")
+        @estimate(3)
+        @priority(high)
+        step ExtendOffer {
+            action: "Send the approved offer to the candidate via the portal and email"
+            expectation: "System generates a formatted offer letter, emails it to the candidate with a link to the portal, sets status to EXTENDED, and starts the expiration countdown"
+            outcome: TransitionTo(EXTENDED)
+            telemetry: [OfferExtended, OfferLetterEmailed]
+        },
+        @story("Candidate reviews and responds to offer")
+        @estimate(3)
+        step CandidateResponds {
+            action: "Candidate reviews the offer details and accepts or declines"
+            expectation: "System presents full offer details in the candidate portal; candidate can accept (transitions to ACCEPTED), decline with a reason (transitions to DECLINED), or request negotiation"
+            telemetry: [OfferResponseReceived]
+        }
+    ]
+    variants: {
+        OfferDeclined: {
+            trigger: OfferDeclinedError
+            steps: [
+                step ReviewDeclineReason {
+                    action: "Review the candidate's decline reason and decide whether to make a counter-offer"
+                    expectation: "System presents the decline reason; hiring manager can create a revised offer or close out the candidate; decline reason is captured for offer competitiveness analytics"
+                    telemetry: [OfferDeclineReviewed]
+                }
+            ]
+        },
+        OfferExpired: {
+            trigger: OfferExpiredError
+            steps: [
+                step HandleExpiredOffer {
+                    action: "Review the expired offer and decide whether to extend the deadline or withdraw"
+                    expectation: "System marks offer as WITHDRAWN after expiry; hiring manager can create a new offer with a fresh deadline or close the candidacy; the expired offer is retained for audit trail"
+                    telemetry: [OfferExpiredHandled]
+                }
+            ]
+            outcome: TransitionTo(WITHDRAWN)
+        }
+    }
+    outcomes: {
+        success: "Offer is accepted; candidate record is updated; onboarding team is notified to begin pre-boarding within 24 hours",
+        failure: "Offer is declined, withdrawn, or expired; hiring manager is notified; role remains open for additional candidates"
+    }
+}

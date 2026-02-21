@@ -1,0 +1,39 @@
+namespace acme.hiring
+
+use acme.hiring#Offer
+use acme.hiring#OfferStatus
+
+/// Controls the lifecycle of an Offer from initial draft through to final
+/// disposition. The hiring manager creates a draft, extends it to the
+/// candidate, and the candidate either accepts or declines. Offers that
+/// are not responded to within the expiration window are automatically
+/// withdrawn by a scheduled job.
+statemachine OfferLifecycle {
+    entity: Offer
+    field: status
+    states: [DRAFT, EXTENDED, ACCEPTED, DECLINED, WITHDRAWN]
+    initial: DRAFT
+    terminal: [ACCEPTED, DECLINED, WITHDRAWN]
+    transitions: [
+        DRAFT -> EXTENDED {
+            guard: "salary > 0 && startDate > now"
+            action: "Generate offer letter PDF; send email to candidate with portal link; start expiration timer"
+        },
+        EXTENDED -> ACCEPTED {
+            guard: "expiresAt > now"
+            action: "Notify hiring manager and recruiter; trigger onboarding pre-boarding workflow; close job posting if last open slot"
+        },
+        EXTENDED -> DECLINED {
+            guard: "true"
+            action: "Record decline reason; notify hiring manager; update pipeline analytics"
+        },
+        EXTENDED -> WITHDRAWN {
+            guard: "expiresAt <= now"
+            action: "Mark offer as expired; notify hiring manager; candidate portal shows expired status"
+        },
+        DRAFT -> WITHDRAWN {
+            guard: "true"
+            action: "Discard draft offer; no external notifications sent"
+        }
+    ]
+}

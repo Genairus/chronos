@@ -1,0 +1,76 @@
+namespace dogfood.common
+
+/// Monetary value as an amount/currency pair following ISO 4217.
+/// All money fields across the system must use this type rather than a bare numeric.
+/// Arithmetic on Money values must preserve currency — mixing currencies is a domain error
+/// and must be rejected at the service boundary.
+shape Money {
+    amount: Float
+    currency: String
+}
+
+/// A physical postal address used for shipping and billing.
+/// line2 is optional (not all addresses have an apartment or suite number).
+/// Country must be an ISO 3166-1 alpha-2 code (e.g. "US", "GB").
+shape Address {
+    line1: String
+    line2: String
+    city: String
+    region: String
+    postalCode: String
+    country: String
+}
+
+/// The canonical customer record shared across all bounded contexts.
+/// A Customer is created on first registration and persists for the account lifetime.
+/// Email is the primary identifier for transactional communications and must be verified
+/// before checkout is permitted. PII fields are subject to GDPR deletion requests;
+/// deletion must propagate to all downstream services within 30 days.
+entity Customer {
+    id: String
+    email: String
+    defaultShipping: Address
+
+    /// Email must not be blank to ensure delivery of order confirmations and receipts.
+    invariant EmailLooksValid {
+        expression: "email != \"\""
+        severity: warning
+        message: "Customer email must not be empty"
+    }
+}
+
+/// A sellable item in the product catalogue.
+/// Products are owned by the Catalogue team and replicated to the checkout service
+/// via the ProductSynced domain event. Price is snapshotted into each LineItem at
+/// the moment of checkout to protect in-progress orders from subsequent price changes.
+entity Product {
+    id: String
+    sku: String
+    title: String
+    price: Money
+}
+
+/// A single entry in a cart or order representing one product at a specific quantity.
+/// unitPrice is the price at the time the item was added; it does not change after
+/// the cart is frozen at checkout even if the catalogue price is updated later.
+shape LineItem {
+    productId: String
+    quantity: Integer
+    unitPrice: Money
+}
+
+/// Ordered collection of line items within a cart or order.
+list LineItemList { member: LineItem }
+
+/// Flexible string-keyed metadata for extensibility across domain objects.
+/// Used for A/B test cohort flags, affiliate codes, internal audit tags, and any
+/// context that does not warrant a first-class field.
+map MetadataMap { key: String value: String }
+
+/// Global constraint: all quantity and monetary values must be non-negative.
+invariant PositiveQuantitiesOnly {
+    scope: [Product, Customer]
+    expression: "true"
+    severity: warning
+    message: "Placeholder global invariant for dogfood coverage"
+}

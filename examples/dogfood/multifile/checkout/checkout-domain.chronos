@@ -1,0 +1,79 @@
+namespace dogfood.checkout
+
+use dogfood.common#Money
+use dogfood.common#Customer
+use dogfood.common#Product
+use dogfood.common#LineItem
+use dogfood.common#LineItemList
+use dogfood.common#MetadataMap
+use dogfood.common#Address
+
+use dogfood.payments#PaymentMethod
+
+/// Valid lifecycle states for an Order.
+/// Transitions between states are governed by the OrderLifecycle state machine.
+/// Terminal states (DELIVERED, CANCELLED) cannot be exited; any further modification
+/// requires creating a new amendment record rather than altering the original order.
+enum OrderStatus {
+    PENDING = 1
+    PAID = 2
+    SHIPPED = 3
+    DELIVERED = 4
+    CANCELLED = 5
+}
+
+/// An in-progress product selection created when a shopper first adds an item.
+/// Carts are ephemeral: they are converted into an Order on successful payment or
+/// abandoned if the shopper does not complete checkout. Abandoned carts older than
+/// 30 days are purged by a scheduled cleanup job; a re-engagement email is sent at 24h.
+entity Cart {
+    id: String
+    customerId: String
+    items: LineItemList
+    metadata: MetadataMap
+}
+
+/// The canonical record of a placed order, created when a Cart is checked out.
+/// An Order is effectively immutable once in PAID status; post-payment modifications
+/// (e.g. address corrections, quantity adjustments) require a separate amendment flow
+/// tracked by the Operations team. Orders that remain in PENDING status for more than
+/// 24 hours without a successful payment attempt are automatically cancelled by a
+/// background job, releasing any inventory holds.
+entity Order {
+    id: String
+    customerId: String
+    status: OrderStatus
+    total: Money
+    items: LineItemList
+    shippingAddress: Address
+
+    /// Order total must be present; zero-value orders require explicit business approval.
+    invariant TotalNonNegative {
+        expression: "total != null"
+        severity: error
+        message: "Order total must be non-negative"
+    }
+}
+
+/// A Customer may have multiple active or historical Carts; only one should be active
+/// at any given time on a single device. Multi-device scenarios may result in multiple
+/// active carts which are merged when the customer authenticates.
+@description("Customer can have multiple carts over time; only one active cart per session")
+relationship CustomerCarts {
+    from: Customer
+    to: Cart
+    cardinality: one_to_many
+    semantics: aggregation
+}
+
+/// A Customer accumulates Orders over their account lifetime.
+/// This relationship powers order history, loyalty calculations, and support lookup.
+/// It must be preserved even after account deletion (orders are anonymised, not deleted)
+/// to satisfy financial record-keeping obligations.
+@description("Full history of orders placed by a customer; used for loyalty and support lookups")
+relationship CustomerOrders {
+    from: Customer
+    to: Order
+    cardinality: one_to_many
+    semantics: aggregation
+}

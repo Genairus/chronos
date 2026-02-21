@@ -772,12 +772,16 @@ public class ChronosValidator {
         Set<String> definedErrors = model.errors().stream()
                 .map(ErrorDef::name)
                 .collect(Collectors.toSet());
+        // In multi-file compilation the error type may be imported rather than locally defined.
+        Set<String> importedNames = model.imports().stream()
+                .map(UseDecl::name)
+                .collect(Collectors.toSet());
 
         for (JourneyDef journey : model.journeys()) {
             for (Variant variant : journey.variants().values()) {
                 String trigger = variant.triggerName();
 
-                if (!definedErrors.contains(trigger)) {
+                if (!definedErrors.contains(trigger) && !importedNames.contains(trigger)) {
                     issues.add(error("CHR-027",
                             "Variant trigger must reference a defined error type. " +
                             "Error type '" + trigger + "' is not defined. " +
@@ -886,10 +890,18 @@ public class ChronosValidator {
                 .collect(Collectors.toMap(EntityDef::name, e -> e, (e1, e2) -> e1));
         Map<String, EnumDef> enumMap = model.enums().stream()
                 .collect(Collectors.toMap(EnumDef::name, e -> e, (e1, e2) -> e1));
+        // In multi-file compilation the entity may be imported rather than locally defined.
+        Set<String> importedNames = model.imports().stream()
+                .map(UseDecl::name)
+                .collect(Collectors.toSet());
 
         for (StateMachineDef sm : model.stateMachines()) {
             EntityDef entity = entityMap.get(sm.entityName());
             if (entity == null) {
+                if (importedNames.contains(sm.entityName())) {
+                    // Entity is imported from another file; field/enum checks are skipped.
+                    continue;
+                }
                 issues.add(error("CHR-033",
                         "Entity '" + sm.entityName() + "' referenced in statemachine '" + sm.name() + "' is not defined",
                         sm.span()));
@@ -930,6 +942,10 @@ public class ChronosValidator {
 
     /** TransitionTo() in journey steps must reference a state declared in a statemachine. */
     private void checkChr034(IrModel model, List<Diagnostic> issues) {
+        // In multi-file compilation, statemachines may be defined in a different file.
+        // If this file declares no statemachines, skip the check rather than false-positiving.
+        if (model.stateMachines().isEmpty()) return;
+
         Set<String> allDeclaredStates = new HashSet<>();
         for (StateMachineDef sm : model.stateMachines()) {
             allDeclaredStates.addAll(sm.states());

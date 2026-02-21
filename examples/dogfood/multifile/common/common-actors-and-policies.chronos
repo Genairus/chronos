@@ -1,0 +1,38 @@
+namespace dogfood.common
+
+/// The primary end-user of the storefront — a person browsing and purchasing products.
+/// CustomerActor covers both guest (unauthenticated) and registered (authenticated) shoppers.
+/// Actors in this role have access to all self-service checkout and account management flows.
+@description("A shopper using the storefront UI")
+actor CustomerActor
+
+/// A customer support representative who can act on behalf of shoppers.
+/// SupportAgent inherits CustomerActor capabilities and additionally has access to
+/// order management, refund initiation, address correction, and dispute resolution flows.
+/// All SupportAgent actions are audit-logged with the agent's employee ID.
+@description("Support team member handling refunds and disputes")
+actor SupportAgent extends CustomerActor
+
+/// An internal system or warehouse operative responsible for picking, packing, and shipping.
+/// FulfillmentActor interacts with the order management system after payment is confirmed.
+/// This actor is never customer-facing and operates within the fulfilment bounded context.
+@description("Warehouse operative or automated fulfilment system")
+actor FulfillmentActor
+
+/// Policy mandating GDPR-compliant handling of all personal data collected by the platform.
+/// Personal data must be purgeable within 30 days of a customer deletion request.
+/// Retention periods are defined per data class in the Data Classification Register and
+/// must be enforced by automated purge jobs that run nightly.
+@compliance("GDPR")
+policy DataRetention {
+    description: "Personal data must be purgeable on request and retained only as long as legally necessary. Customers may invoke their right to erasure at any time via account settings. All purge operations must be idempotent and produce an audit record."
+}
+
+/// Policy mandating PCI-DSS Level 1 compliance for all payment data handling.
+/// No raw cardholder data may enter application servers; all card details must be
+/// tokenised through the certified payment gateway before any persistence layer is touched.
+/// Developers must complete annual PCI-DSS training, and a QSA must perform an annual audit.
+@compliance("PCI-DSS")
+policy PciCompliance {
+    description: "All payment card data must be handled, stored, and transmitted in accordance with PCI-DSS Level 1 requirements. Tokenisation is mandatory. Raw PAN and CVV must never be logged, stored in plaintext, or transmitted outside the certified cardholder data environment."
+}

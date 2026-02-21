@@ -34,4 +34,14 @@ public record RelationshipDef(
     public RelationshipSemantics effectiveSemantics() {
         return semantics.orElse(RelationshipSemantics.ASSOCIATION);
     }
+
+    /** Returns the one-line summary from a {@code @description} trait, if present. */
+    public Optional<String> description() {
+        return traits.stream()
+                .filter(t -> "description".equals(t.name()))
+                .flatMap(t -> t.firstPositionalValue().stream())
+                .filter(v -> v instanceof TraitValue.StringValue)
+                .map(v -> ((TraitValue.StringValue) v).value())
+                .findFirst();
+    }
 }

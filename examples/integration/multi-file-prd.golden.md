@@ -5,6 +5,15 @@
 - `shop.domain`
 - `shop.journeys`
 
+## Executive Summary
+
+This PRD covers 1 journey, 1 entity, 0 value objects, 2 enumerations, 1 actor, 0 policies, 0 error types, and 0 state machines across 2 namespaces.
+
+**Journeys:**
+
+- **shop.journeys.BrowseCatalog**
+
+
 ## Table of Contents
 
 - [Journeys](#journeys)
@@ -26,9 +35,9 @@
 
 **Happy Path**
 
-| Step | Action | Expectation | Outcome | Telemetry | Risk |
-|------|--------|-------------|---------|-----------|------|
-| viewListing | Customer views product listing | Product grid is displayed | — | — | — |
+| Step | Action | Expectation | Outcome | SLO | Telemetry | Risk |
+|------|--------|-------------|---------|-----|-----------|------|
+| <a id="shopjourneysbrowsecatalog-viewlisting"></a>viewListing | Customer views product listing | Product grid is displayed | — | — | — | — |
 
 **Outcomes**
 
@@ -45,11 +54,11 @@
 
 > Core product available in the catalog.
 
-| Field | Type | Required |
-|-------|------|----------|
-| id | String |  |
-| name | String |  |
-| price | Float |  |
+| Field | Type |
+|-------|------|
+| id | String |
+| name | String |
+| price | Float |
 
 ### Enumerations
 

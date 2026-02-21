@@ -4,6 +4,15 @@
 
 - `com.example`
 
+## Executive Summary
+
+This PRD covers 1 journey, 0 entities, 0 value objects, 0 enumerations, 1 actor, 0 policies, 0 error types, and 0 state machines across 1 namespace.
+
+**Journeys:**
+
+- **com.example.ExampleJourney**
+
+
 ## Table of Contents
 
 - [Journeys](#journeys)
@@ -20,9 +29,9 @@
 
 **Happy Path**
 
-| Step | Action | Expectation | Outcome | Telemetry | Risk |
-|------|--------|-------------|---------|-----------|------|
-| doSomething | Actor performs an action | System responds appropriately | — | — | — |
+| Step | Action | Expectation | Outcome | SLO | Telemetry | Risk |
+|------|--------|-------------|---------|-----|-----------|------|
+| <a id="comexampleexamplejourney-dosomething"></a>doSomething | Actor performs an action | System responds appropriately | — | — | — | — |
 
 **Outcomes**
 

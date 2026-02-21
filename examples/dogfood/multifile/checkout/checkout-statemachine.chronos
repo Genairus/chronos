@@ -1,0 +1,36 @@
+namespace dogfood.checkout
+
+use dogfood.checkout#Order
+use dogfood.checkout#OrderStatus
+
+/// Governs all valid status transitions for an Order through its fulfilment lifecycle.
+/// Transitions are driven by domain events — OrderPaid, OrderShipped, OrderDelivered,
+/// and OrderCancelled — emitted by the Order Service. Guards are evaluated before any
+/// transition is applied; a failed guard must result in a rejection event, not a silent no-op.
+/// Once an Order reaches a terminal state (DELIVERED or CANCELLED) no further transitions
+/// are permitted; any dispute or amendment must be tracked in a separate bounded context.
+statemachine OrderLifecycle {
+    entity: Order
+    field: status
+    states: [PENDING, PAID, SHIPPED, DELIVERED, CANCELLED]
+    initial: PENDING
+    terminal: [DELIVERED, CANCELLED]
+    transitions: [
+        PENDING -> PAID {
+            guard: "true"
+            action: "Emit OrderPaidEvent; reserve inventory allocation; queue customer confirmation email"
+        },
+        PAID -> SHIPPED {
+            guard: "true"
+            action: "Emit OrderShippedEvent; record carrier tracking number; notify customer with tracking link"
+        },
+        SHIPPED -> DELIVERED {
+            guard: "true"
+            action: "Emit OrderDeliveredEvent; credit loyalty points; close open fulfilment task"
+        },
+        PENDING -> CANCELLED {
+            guard: "true"
+            action: "Emit OrderCancelledEvent; release inventory hold; issue refund if payment was captured"
+        }
+    ]
+}

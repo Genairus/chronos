@@ -18,35 +18,46 @@ import com.genairus.chronos.ir.types.OutcomeExpr;
 import com.genairus.chronos.ir.types.PolicyDef;
 import com.genairus.chronos.ir.types.RelationshipDef;
 import com.genairus.chronos.ir.types.ShapeStructDef;
+import com.genairus.chronos.ir.types.StateMachineDef;
 import com.genairus.chronos.ir.types.Step;
 import com.genairus.chronos.ir.types.TraitValue;
 import com.genairus.chronos.ir.types.TypeRef;
 import com.genairus.chronos.ir.types.Variant;
 
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.StringJoiner;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Generates a Markdown Product Requirements Document (PRD) from a
- * {@link IrModel}.
+ * Generates a Markdown Product Requirements Document (PRD) from a {@link IrModel}.
  *
  * <p>The output is a single {@code <namespace>-prd.md} file with the following
  * structure (sections with no content are omitted from both the TOC and body):
  * <ol>
  *   <li>Title — {@code namespace — Product Requirements}</li>
+ *   <li>Executive Summary — counts, journey KPIs, compliance frameworks</li>
  *   <li>Table of Contents — anchor links to each populated section</li>
- *   <li>Journeys — metadata block, preconditions, happy-path step table,
+ *   <li>Journeys — metadata block, preconditions, happy-path step table (with SLO),
  *       variant subsections, and outcome statements</li>
- *   <li>Data Model — entity/value-object field tables, enum member tables,
+ *   <li>Data Model — ER diagram, entity/value-object field tables, enum member tables,
  *       and collection type summaries</li>
- *   <li>Relationships — relationship metadata with cardinality, semantics, and inverse fields</li>
- *   <li>Actors — name and {@code @description}</li>
+ *   <li>Global Invariants</li>
+ *   <li>Relationships</li>
+ *   <li>State Machines — transition table and Mermaid state diagram</li>
+ *   <li>Actors — name, {@code @description}, and {@code extends} if applicable</li>
  *   <li>Policies — name, description, and compliance framework</li>
+ *   <li>Prohibitions</li>
  *   <li>Error Catalog — error codes, severity, recoverability, and payload schemas</li>
+ *   <li>Telemetry Catalog — all telemetry events by journey, step, and path</li>
  * </ol>
  */
 public final class MarkdownPrdGenerator implements ChronosGenerator {
@@ -54,21 +65,67 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
     private static final String DASH    = "—";
     private static final String DIVIDER = "\n---\n";
 
+    // ── Cross-reference context ────────────────────────────────────────────────
+
+    /**
+     * Carries per-document cross-reference state through rendering helpers.
+     *
+     * @param fqJourneyId        fully-qualified journey name used to build step anchors
+     * @param symbolAnchors      shape name → heading anchor (simple and FQ both stored)
+     * @param enumMemberAnchors  enum member name → enum heading anchor
+     */
+    private record RenderCtx(
+            String fqJourneyId,
+            Map<String, String> symbolAnchors,
+            Map<String, String> enumMemberAnchors) {
+
+        static final RenderCtx NONE = new RenderCtx("", Map.of(), Map.of());
+
+        /** Returns the Markdown anchor for a step in the current journey. */
+        String stepAnchor(String stepName) {
+            if (fqJourneyId.isEmpty()) return "";
+            return anchor(fqJourneyId + "-" + stepName);
+        }
+
+        /** Returns {@code [name](#anchor)} if the name is in the symbol map, else plain {@code name}. */
+        String linkName(String name) {
+            String a = symbolAnchors.get(name);
+            return a != null ? "[" + name + "](#" + a + ")" : name;
+        }
+
+        /** Returns {@code [memberName](#enumAnchor)} if the enum member is known, else plain text. */
+        String linkEnumMember(String memberName) {
+            String a = enumMemberAnchors.get(memberName);
+            return a != null ? "[" + memberName + "](#" + a + ")" : memberName;
+        }
+    }
+
+    // ── Telemetry row ──────────────────────────────────────────────────────────
+
+    private record TelemetryEntry(String event, String journey, String step, String path) {}
+
+    // ── Single-file entry point ────────────────────────────────────────────────
+
     @Override
     public GeneratorOutput generate(IrModel model) {
         var sb = new StringBuilder();
         var inheritanceResolver = new IrInheritanceResolver(model);
+        var symbolAnchors      = buildSymbolAnchors(model);
+        var enumMemberAnchors  = buildEnumMemberAnchors(model);
 
         appendTitle(sb, model);
+        appendExecutiveSummary(sb, model);
         appendToc(sb, model);
-        appendJourneysSection(sb, model);
-        appendDataModelSection(sb, model, inheritanceResolver);
+        appendJourneysSection(sb, model, symbolAnchors, enumMemberAnchors);
+        appendDataModelSection(sb, model, inheritanceResolver, symbolAnchors);
         appendGlobalInvariantsSection(sb, model);
-        appendRelationshipsSection(sb, model);
-        appendActorsSection(sb, model);
+        appendRelationshipsSection(sb, model, symbolAnchors);
+        appendStateMachinesSection(sb, model);
+        appendActorsSection(sb, model, symbolAnchors);
         appendPoliciesSection(sb, model);
         appendProhibitionsSection(sb, model);
         appendErrorCatalogSection(sb, model);
+        appendTelemetryCatalogSection(sb, model.journeys(), j -> j.name());
 
         String filename = model.namespace().replace('.', '-') + "-prd.md";
         return GeneratorOutput.of(filename, sb.toString());
@@ -78,6 +135,93 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
     private static void appendTitle(StringBuilder sb, IrModel model) {
         sb.append("# ").append(model.namespace()).append(" — Product Requirements\n");
+    }
+
+    // ── Executive Summary ─────────────────────────────────────────────────────
+
+    private static void appendExecutiveSummary(StringBuilder sb, IrModel model) {
+        int nJourneys  = model.journeys().size();
+        int nEntities  = model.entities().size();
+        int nShapes    = model.shapeStructs().size();
+        int nEnums     = model.enums().size();
+        int nActors    = model.actors().size();
+        int nPolicies  = model.policies().size();
+        int nErrors    = model.errors().size();
+        int nSms       = model.stateMachines().size();
+
+        sb.append("\n## Executive Summary\n\n");
+        sb.append("This PRD covers ")
+          .append(nJourneys).append(nJourneys == 1 ? " journey" : " journeys").append(", ")
+          .append(nEntities).append(nEntities == 1 ? " entity" : " entities").append(", ")
+          .append(nShapes).append(nShapes == 1 ? " value object" : " value objects").append(", ")
+          .append(nEnums).append(nEnums == 1 ? " enumeration" : " enumerations").append(", ")
+          .append(nActors).append(nActors == 1 ? " actor" : " actors").append(", ")
+          .append(nPolicies).append(nPolicies == 1 ? " policy" : " policies").append(", ")
+          .append(nErrors).append(nErrors == 1 ? " error type" : " error types").append(", and ")
+          .append(nSms).append(nSms == 1 ? " state machine" : " state machines")
+          .append(" across 1 namespace.\n\n");
+
+        appendExecJourneyList(sb, model.journeys(), j -> j.name());
+        appendExecComplianceList(sb, model.journeys(), model.policies(), model.denies());
+    }
+
+    private static void appendExecJourneyList(
+            StringBuilder sb,
+            List<JourneyDef> journeys,
+            Function<JourneyDef, String> labelFn) {
+        if (journeys.isEmpty()) return;
+        sb.append("**Journeys:**\n\n");
+        for (var j : journeys) {
+            sb.append("- **").append(labelFn.apply(j)).append("**");
+            extractKpi(j).ifPresent(kpi -> sb.append(" — ").append(kpi));
+            sb.append("\n");
+        }
+        sb.append("\n");
+    }
+
+    private static void appendExecComplianceList(
+            StringBuilder sb,
+            List<JourneyDef> journeys,
+            List<PolicyDef> policies,
+            List<DenyDef> denies) {
+        Set<String> frameworks = new TreeSet<>();
+        journeys.forEach(j -> j.traits().stream()
+                .filter(t -> "compliance".equals(t.name()))
+                .flatMap(t -> t.firstPositionalValue().stream())
+                .filter(v -> v instanceof TraitValue.StringValue)
+                .map(v -> ((TraitValue.StringValue) v).value())
+                .forEach(frameworks::add));
+        policies.forEach(p -> p.complianceFramework().ifPresent(frameworks::add));
+        denies.forEach(d -> d.traits().stream()
+                .filter(t -> "compliance".equals(t.name()))
+                .flatMap(t -> t.firstPositionalValue().stream())
+                .filter(v -> v instanceof TraitValue.StringValue)
+                .map(v -> ((TraitValue.StringValue) v).value())
+                .forEach(frameworks::add));
+
+        if (!frameworks.isEmpty()) {
+            sb.append("**Compliance Frameworks:**\n\n");
+            frameworks.forEach(f -> sb.append("- ").append(f).append("\n"));
+            sb.append("\n");
+        }
+    }
+
+    private static Optional<String> extractKpi(JourneyDef journey) {
+        return journey.traits().stream()
+                .filter(t -> "kpi".equals(t.name()))
+                .findFirst()
+                .map(kpi -> {
+                    String metric = kpi.namedValue("metric")
+                            .filter(v -> v instanceof TraitValue.StringValue)
+                            .map(v -> ((TraitValue.StringValue) v).value())
+                            .orElse(null);
+                    String target = kpi.namedValue("target")
+                            .filter(v -> v instanceof TraitValue.StringValue)
+                            .map(v -> ((TraitValue.StringValue) v).value())
+                            .orElse(null);
+                    if (metric == null) return null;
+                    return metric + (target != null ? " → " + target : "");
+                });
     }
 
     // ── Table of Contents ─────────────────────────────────────────────────────
@@ -114,6 +258,8 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             sb.append("- [Global Invariants](#global-invariants)\n");
         if (!model.relationships().isEmpty())
             sb.append("- [Relationships](#relationships)\n");
+        if (!model.stateMachines().isEmpty())
+            sb.append("- [State Machines](#state-machines)\n");
         if (!model.actors().isEmpty())
             sb.append("- [Actors](#actors)\n");
         if (!model.policies().isEmpty())
@@ -122,49 +268,52 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             sb.append("- [Prohibitions](#prohibitions)\n");
         if (!model.errors().isEmpty())
             sb.append("- [Error Catalog](#error-catalog)\n");
+        if (hasTelemetry(model.journeys()))
+            sb.append("- [Telemetry Catalog](#telemetry-catalog)\n");
     }
 
     // ── Journeys ──────────────────────────────────────────────────────────────
 
-    private static void appendJourneysSection(StringBuilder sb, IrModel model) {
+    private static void appendJourneysSection(StringBuilder sb, IrModel model,
+                                               Map<String, String> symbolAnchors,
+                                               Map<String, String> enumMemberAnchors) {
         if (model.journeys().isEmpty()) return;
         sb.append(DIVIDER).append("\n## Journeys\n");
         for (var journey : model.journeys()) {
-            appendJourney(sb, journey);
+            appendJourney(sb, journey, symbolAnchors, enumMemberAnchors);
         }
     }
 
-    private static void appendJourney(StringBuilder sb, JourneyDef journey) {
+    private static void appendJourney(StringBuilder sb, JourneyDef journey,
+                                       Map<String, String> symbolAnchors,
+                                       Map<String, String> enumMemberAnchors) {
         sb.append("\n### ").append(journey.name()).append("\n\n");
-        appendJourneyContent(sb, journey);
+        var ctx = new RenderCtx(journey.name(), symbolAnchors, enumMemberAnchors);
+        appendJourneyContent(sb, journey, ctx);
     }
 
-    private static void appendJourneyContent(StringBuilder sb, JourneyDef journey) {
+    static void appendJourneyContent(StringBuilder sb, JourneyDef journey, RenderCtx ctx) {
         // Doc comments as blockquote
         for (var doc : journey.docComments()) {
             sb.append("> ").append(doc).append("\n");
         }
         if (!journey.docComments().isEmpty()) sb.append(">\n");
 
-        // Metadata: actor | KPI | compliance
+        // Metadata: actor | owner | KPI | compliance
         var meta = new StringJoiner(" | ");
         journey.actorName().ifPresent(a -> meta.add("**Actor:** " + a));
         journey.traits().stream()
+                .filter(t -> "owner".equals(t.name()))
+                .findFirst()
+                .flatMap(t -> t.firstPositionalValue())
+                .filter(v -> v instanceof TraitValue.StringValue)
+                .map(v -> ((TraitValue.StringValue) v).value())
+                .ifPresent(owner -> meta.add("**Owner:** " + owner));
+        journey.traits().stream()
                 .filter(t -> "kpi".equals(t.name()))
                 .findFirst()
-                .ifPresent(kpi -> {
-                    String metric = kpi.namedValue("metric")
-                            .filter(v -> v instanceof TraitValue.StringValue)
-                            .map(v -> ((TraitValue.StringValue) v).value())
-                            .orElse(null);
-                    String target = kpi.namedValue("target")
-                            .filter(v -> v instanceof TraitValue.StringValue)
-                            .map(v -> ((TraitValue.StringValue) v).value())
-                            .orElse(null);
-                    if (metric != null) {
-                        meta.add("**KPI:** " + metric + (target != null ? " → " + target : ""));
-                    }
-                });
+                .ifPresent(kpi -> extractKpi(journey)
+                        .ifPresent(k -> meta.add("**KPI:** " + k)));
         journey.traits().stream()
                 .filter(t -> "compliance".equals(t.name()))
                 .flatMap(t -> t.firstPositionalValue().stream())
@@ -188,7 +337,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         // Happy-path steps
         if (!journey.steps().isEmpty()) {
             sb.append("**Happy Path**\n\n");
-            appendStepTable(sb, journey.steps());
+            appendStepTable(sb, journey.steps(), ctx);
             sb.append("\n");
         }
 
@@ -196,7 +345,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         if (!journey.variants().isEmpty()) {
             sb.append("**Variants**\n");
             for (var entry : journey.variants().entrySet()) {
-                appendVariant(sb, entry.getKey(), entry.getValue());
+                appendVariant(sb, entry.getKey(), entry.getValue(), ctx);
             }
             sb.append("\n");
         }
@@ -210,37 +359,45 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         });
     }
 
-    private static void appendStepTable(StringBuilder sb, List<Step> steps) {
-        sb.append("| Step | Action | Expectation | Outcome | Telemetry | Risk |\n");
-        sb.append("|------|--------|-------------|---------|-----------|------|\n");
+    private static void appendStepTable(StringBuilder sb, List<Step> steps, RenderCtx ctx) {
+        sb.append("| Step | Action | Expectation | Outcome | SLO | Telemetry | Risk |\n");
+        sb.append("|------|--------|-------------|---------|-----|-----------|------|\n");
         for (var step : steps) {
             String telemetry = step.telemetryEvents().isEmpty()
                     ? DASH
                     : String.join(", ", step.telemetryEvents());
-            sb.append("| ").append(step.name())
+            String slo = stepSlo(step).orElse(DASH);
+            // Embed an HTML anchor in the step cell for ReturnToStep cross-references
+            String stepId = ctx.fqJourneyId().isEmpty()
+                    ? step.name()
+                    : "<a id=\"" + ctx.stepAnchor(step.name()) + "\"></a>" + step.name();
+            sb.append("| ").append(stepId)
               .append(" | ").append(step.action().orElse(DASH))
               .append(" | ").append(step.expectation().orElse(DASH))
-              .append(" | ").append(step.outcome().map(MarkdownPrdGenerator::renderOutcomeExpr).orElse(DASH))
+              .append(" | ").append(step.outcome().map(o -> renderOutcomeExpr(o, ctx)).orElse(DASH))
+              .append(" | ").append(slo)
               .append(" | ").append(telemetry)
               .append(" | ").append(step.risk().orElse(DASH))
               .append(" |\n");
         }
     }
 
-    private static void appendVariant(StringBuilder sb, String name, Variant variant) {
+    private static void appendVariant(StringBuilder sb, String name, Variant variant, RenderCtx ctx) {
         sb.append("\n#### ").append(name).append("\n\n");
-        sb.append("- **Trigger:** ").append(variant.triggerName()).append("\n");
+        sb.append("**Trigger:** ").append(ctx.linkName(variant.triggerName())).append("\n");
         if (!variant.steps().isEmpty()) {
             sb.append("\n");
-            appendStepTable(sb, variant.steps());
+            appendStepTable(sb, variant.steps(), ctx);
         }
         variant.outcome().ifPresent(o ->
-                sb.append("- **Outcome:** ").append(renderOutcomeExpr(o)).append("\n"));
+                sb.append("\n**Outcome:** ").append(renderOutcomeExpr(o, ctx)).append("\n"));
     }
 
     // ── Data Model ────────────────────────────────────────────────────────────
 
-    private static void appendDataModelSection(StringBuilder sb, IrModel model, IrInheritanceResolver resolver) {
+    private static void appendDataModelSection(StringBuilder sb, IrModel model,
+                                                IrInheritanceResolver resolver,
+                                                Map<String, String> symbolAnchors) {
         boolean hasDataModel = !model.entities().isEmpty()
                 || !model.shapeStructs().isEmpty()
                 || !model.enums().isEmpty()
@@ -250,8 +407,13 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
         sb.append(DIVIDER).append("\n## Data Model\n");
 
-        appendFieldedShapes(sb, model.entities(), "Entities", resolver);
-        appendFieldedShapes(sb, model.shapeStructs(), "Value Objects", resolver);
+        // ER diagram at the top of the data model section
+        if (!model.relationships().isEmpty()) {
+            appendErDiagram(sb, model.relationships());
+        }
+
+        appendFieldedShapes(sb, model.entities(), "Entities", resolver, symbolAnchors);
+        appendFieldedShapes(sb, model.shapeStructs(), "Value Objects", resolver, symbolAnchors);
         appendEnumsSubsection(sb, model.enums());
         appendCollectionsSubsection(sb, model.lists(), model.maps());
     }
@@ -259,7 +421,8 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
     private static void appendFieldedShapes(StringBuilder sb,
                                              List<? extends IrShape> shapes,
                                              String heading,
-                                             IrInheritanceResolver resolver) {
+                                             IrInheritanceResolver resolver,
+                                             Map<String, String> symbolAnchors) {
         if (shapes.isEmpty()) return;
         sb.append("\n### ").append(heading).append("\n");
         for (var shape : shapes) {
@@ -267,7 +430,6 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             List<FieldDef> fields;
             if (shape instanceof EntityDef e) {
                 docs   = e.docComments();
-                // Use IrInheritanceResolver to get all fields including inherited ones
                 fields = resolver.resolveAllFields(e);
             } else if (shape instanceof ShapeStructDef s) {
                 docs   = s.docComments();
@@ -279,25 +441,20 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
             // Show parent type if entity has one
             if (shape instanceof EntityDef e && IrInheritanceResolver.parentName(e).isPresent()) {
-                sb.append("*Extends: ").append(IrInheritanceResolver.parentName(e).get()).append("*\n\n");
+                String parentName = IrInheritanceResolver.parentName(e).get();
+                String parentAnchor = symbolAnchors.getOrDefault(parentName, anchor(parentName));
+                sb.append("*Extends: [").append(parentName).append("](#").append(parentAnchor).append(")*\n\n");
             }
 
             for (var doc : docs) {
                 sb.append("> ").append(doc).append("\n");
             }
             if (!docs.isEmpty()) sb.append("\n");
+
             if (!fields.isEmpty()) {
-                sb.append("| Field | Type | Required |\n");
-                sb.append("|-------|------|----------|\n");
-                for (var field : fields) {
-                    sb.append("| ").append(field.name())
-                      .append(" | ").append(renderTypeRef(field.type()))
-                      .append(" | ").append(field.isRequired() ? "\u2713" : "")
-                      .append(" |\n");
-                }
+                appendFieldTable(sb, fields);
             }
 
-            // Add invariants section for entities
             if (shape instanceof EntityDef e && !e.invariants().isEmpty()) {
                 sb.append("\n**Invariants:**\n\n");
                 for (var inv : e.invariants()) {
@@ -349,6 +506,25 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         });
     }
 
+    // ── ER Diagram ────────────────────────────────────────────────────────────
+
+    private static void appendErDiagram(StringBuilder sb, List<RelationshipDef> relationships) {
+        sb.append("\n```mermaid\n");
+        sb.append("erDiagram\n");
+        for (var rel : relationships) {
+            String connector = switch (rel.cardinality()) {
+                case ONE_TO_ONE   -> "||--||";
+                case ONE_TO_MANY  -> "||--o{";
+                case MANY_TO_MANY -> "}o--o{";
+            };
+            sb.append("    ").append(symRefName(rel.fromEntityRef()))
+              .append(" ").append(connector).append(" ")
+              .append(symRefName(rel.toEntityRef()))
+              .append(" : ").append(rel.name()).append("\n");
+        }
+        sb.append("```\n");
+    }
+
     // ── Global Invariants ─────────────────────────────────────────────────────
 
     private static void appendGlobalInvariantsSection(StringBuilder sb, IrModel model) {
@@ -358,25 +534,13 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
         for (var inv : model.invariants()) {
             sb.append("### ").append(inv.name()).append("\n\n");
-
-            // Doc comments
             for (var doc : inv.docComments()) {
                 sb.append("> ").append(doc).append("\n");
             }
             if (!inv.docComments().isEmpty()) sb.append("\n");
-
-            // Scope
-            sb.append("**Scope:** ");
-            sb.append(String.join(", ", inv.scope()));
-            sb.append("\n\n");
-
-            // Expression
+            sb.append("**Scope:** ").append(String.join(", ", inv.scope())).append("\n\n");
             sb.append("**Expression:** `").append(inv.expression()).append("`\n\n");
-
-            // Severity
             sb.append("**Severity:** ").append(inv.severity()).append("\n\n");
-
-            // Message (if present)
             if (inv.message().isPresent()) {
                 sb.append("**Message:** ").append(inv.message().get()).append("\n\n");
             }
@@ -385,14 +549,18 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
     // ── Relationships ─────────────────────────────────────────────────────────
 
-    private static void appendRelationshipsSection(StringBuilder sb, IrModel model) {
+    private static void appendRelationshipsSection(StringBuilder sb, IrModel model,
+                                                    Map<String, String> symbolAnchors) {
         if (model.relationships().isEmpty()) return;
         sb.append(DIVIDER).append("\n## Relationships\n");
         model.relationships().stream().sorted(Comparator.comparing(RelationshipDef::name)).forEach(rel -> {
             sb.append("\n#### ").append(rel.name()).append("\n\n");
             renderDocComments(sb, rel.docComments());
-            sb.append("**From:** ").append(symRefName(rel.fromEntityRef()))
-              .append(" **→** ").append(symRefName(rel.toEntityRef()))
+            rel.description().ifPresent(d -> sb.append("**Description:** ").append(d).append("\n"));
+            String fromName = symRefName(rel.fromEntityRef());
+            String toName   = symRefName(rel.toEntityRef());
+            sb.append("**From:** ").append(linkName(fromName, symbolAnchors))
+              .append(" **→** ").append(linkName(toName, symbolAnchors))
               .append(" (").append(rel.cardinality().chronosName()).append(")\n");
             sb.append("**Semantics:** ").append(rel.effectiveSemantics().chronosName()).append("\n");
             rel.inverseField().ifPresent(f ->
@@ -400,15 +568,71 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         });
     }
 
+    // ── State Machines ────────────────────────────────────────────────────────
+
+    private static void appendStateMachinesSection(StringBuilder sb, IrModel model) {
+        if (model.stateMachines().isEmpty()) return;
+        sb.append(DIVIDER).append("\n## State Machines\n");
+        model.stateMachines().stream()
+                .sorted(Comparator.comparing(StateMachineDef::name))
+                .forEach(sm -> appendStateMachine(sb, sm));
+    }
+
+    private static void appendStateMachine(StringBuilder sb, StateMachineDef sm) {
+        sb.append("\n### ").append(sm.name()).append("\n\n");
+        renderDocComments(sb, sm.docComments());
+
+        // Metadata line
+        StringBuilder meta = new StringBuilder();
+        meta.append("**Entity:** ").append(sm.entityName())
+            .append(" | **Field:** ").append(sm.fieldName())
+            .append(" | **Initial:** ").append(sm.initialState());
+        if (!sm.terminalStates().isEmpty()) {
+            meta.append(" | **Terminal:** ").append(String.join(", ", sm.terminalStates()));
+        }
+        sb.append(meta).append("\n\n");
+
+        // Transition table
+        sb.append("| From | To | Guard | Action |\n");
+        sb.append("|------|----|-------|--------|\n");
+        for (var t : sm.transitions()) {
+            sb.append("| ").append(t.fromState())
+              .append(" | ").append(t.toState())
+              .append(" | ").append(t.guard().map(g -> "`" + g + "`").orElse(DASH))
+              .append(" | ").append(t.action().orElse(DASH))
+              .append(" |\n");
+        }
+        sb.append("\n");
+
+        // Mermaid state diagram
+        sb.append("```mermaid\n");
+        sb.append("stateDiagram-v2\n");
+        sb.append("    [*] --> ").append(sm.initialState()).append("\n");
+        for (var t : sm.transitions()) {
+            sb.append("    ").append(t.fromState()).append(" --> ").append(t.toState()).append("\n");
+        }
+        for (var terminal : sm.terminalStates()) {
+            sb.append("    ").append(terminal).append(" --> [*]\n");
+        }
+        sb.append("```\n");
+    }
+
     // ── Actors ────────────────────────────────────────────────────────────────
 
-    private static void appendActorsSection(StringBuilder sb, IrModel model) {
+    private static void appendActorsSection(StringBuilder sb, IrModel model,
+                                             Map<String, String> symbolAnchors) {
         if (model.actors().isEmpty()) return;
         sb.append(DIVIDER).append("\n## Actors\n");
         model.actors().stream().sorted(Comparator.comparing(ActorDef::name)).forEach(actor -> {
             sb.append("\n#### ").append(actor.name()).append("\n\n");
             renderDocComments(sb, actor.docComments());
             sb.append("**Description:** ").append(actor.description().orElse(DASH)).append("\n");
+            actor.parentRef().ifPresent(ref -> {
+                String parentName   = symRefName(ref);
+                String parentAnchor = symbolAnchors.getOrDefault(parentName, anchor(parentName));
+                sb.append("**Extends:** [").append(parentName).append("](#")
+                  .append(parentAnchor).append(")\n");
+            });
         });
     }
 
@@ -470,6 +694,60 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         });
     }
 
+    // ── Telemetry Catalog ─────────────────────────────────────────────────────
+
+    private static <T extends JourneyDef> boolean hasTelemetry(List<T> journeys) {
+        return journeys.stream().anyMatch(j ->
+                j.steps().stream().anyMatch(s -> !s.telemetryEvents().isEmpty())
+                || j.variants().values().stream().anyMatch(v ->
+                        v.steps().stream().anyMatch(s -> !s.telemetryEvents().isEmpty())));
+    }
+
+    private static void appendTelemetryCatalogSection(
+            StringBuilder sb,
+            List<JourneyDef> journeys,
+            Function<JourneyDef, String> labelFn) {
+        var rows = collectTelemetry(journeys, labelFn);
+        if (rows.isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Telemetry Catalog\n\n");
+        sb.append("| Event | Journey | Step | Path |\n");
+        sb.append("|-------|---------|------|------|\n");
+        for (var row : rows) {
+            sb.append("| ").append(row.event())
+              .append(" | ").append(row.journey())
+              .append(" | ").append(row.step())
+              .append(" | ").append(row.path())
+              .append(" |\n");
+        }
+    }
+
+    private static List<TelemetryEntry> collectTelemetry(
+            List<JourneyDef> journeys,
+            Function<JourneyDef, String> labelFn) {
+        var rows = new ArrayList<TelemetryEntry>();
+        for (var j : journeys) {
+            String journeyLabel = labelFn.apply(j);
+            for (var step : j.steps()) {
+                for (var event : step.telemetryEvents()) {
+                    rows.add(new TelemetryEntry(event, journeyLabel, step.name(), "Happy"));
+                }
+            }
+            for (var varEntry : j.variants().entrySet()) {
+                String varLabel = "Variant: " + varEntry.getKey();
+                for (var step : varEntry.getValue().steps()) {
+                    for (var event : step.telemetryEvents()) {
+                        rows.add(new TelemetryEntry(event, journeyLabel, step.name(), varLabel));
+                    }
+                }
+            }
+        }
+        return rows.stream()
+                .distinct()
+                .sorted(Comparator.comparing(TelemetryEntry::event)
+                        .thenComparing(TelemetryEntry::journey))
+                .toList();
+    }
+
     // ── Combined multi-file PRD ───────────────────────────────────────────────
 
     /**
@@ -496,14 +774,25 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         var maps          = nsSort(models, IrModel::maps);
         var invariants    = nsSort(models, IrModel::invariants);
         var relationships = nsSort(models, IrModel::relationships);
+        var stateMachines = nsSort(models, IrModel::stateMachines);
         var actors        = nsSort(models, IrModel::actors);
         var policies      = nsSort(models, IrModel::policies);
         var denies        = nsSort(models, IrModel::denies);
         var errors        = nsSort(models, IrModel::errors);
 
-        // One IrInheritanceResolver per namespace for entity field resolution
-        Map<String, IrInheritanceResolver> resolvers = models.stream()
-                .collect(Collectors.toMap(IrModel::namespace, IrInheritanceResolver::new));
+        // Symbol anchor maps for cross-references
+        var symbolAnchors     = buildCombinedSymbolAnchors(models);
+        var enumMemberAnchors = buildCombinedEnumMemberAnchors(models);
+
+        // One IrInheritanceResolver per namespace for entity field resolution.
+        var shapesByNs = new LinkedHashMap<String, List<IrShape>>();
+        for (IrModel m : models) {
+            shapesByNs.computeIfAbsent(m.namespace(), k -> new ArrayList<>()).addAll(m.shapes());
+        }
+        Map<String, IrInheritanceResolver> resolvers = shapesByNs.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        e -> new IrInheritanceResolver(new IrModel(e.getKey(), List.of(), e.getValue()))));
 
         // Title
         sb.append("# Chronos Product Requirements Document\n");
@@ -513,16 +802,20 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         sb.append("\n## Namespaces\n\n");
         namespaces.forEach(ns -> sb.append("- `").append(ns).append("`\n"));
 
+        appendCombinedExecutiveSummary(sb, models, journeys, policies, denies);
         appendCombinedToc(sb, journeys, entities, structs, enums, lists, maps,
-                invariants, relationships, actors, policies, denies, errors);
-        appendCombinedJourneysSection(sb, journeys);
-        appendCombinedDataModelSection(sb, entities, structs, enums, lists, maps, resolvers);
+                invariants, relationships, stateMachines, actors, policies, denies, errors);
+        appendCombinedJourneysSection(sb, journeys, symbolAnchors, enumMemberAnchors);
+        appendCombinedDataModelSection(sb, entities, structs, enums, lists, maps, resolvers,
+                relationships, symbolAnchors);
         appendCombinedGlobalInvariantsSection(sb, invariants);
-        appendCombinedRelationshipsSection(sb, relationships);
-        appendCombinedActorsSection(sb, actors);
+        appendCombinedRelationshipsSection(sb, relationships, symbolAnchors);
+        appendCombinedStateMachinesSection(sb, stateMachines);
+        appendCombinedActorsSection(sb, actors, symbolAnchors);
         appendCombinedPoliciesSection(sb, policies);
         appendCombinedProhibitionsSection(sb, denies);
         appendCombinedErrorCatalogSection(sb, errors);
+        appendCombinedTelemetryCatalogSection(sb, journeys);
 
         String filename = (docName == null ? "chronos-prd" : docName) + ".md";
         return GeneratorOutput.of(filename, sb.toString());
@@ -538,6 +831,75 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
                 .toList();
     }
 
+    // ── Combined Executive Summary ────────────────────────────────────────────
+
+    private static void appendCombinedExecutiveSummary(
+            StringBuilder sb,
+            List<IrModel> models,
+            List<Map.Entry<String, JourneyDef>> journeys,
+            List<Map.Entry<String, PolicyDef>> policies,
+            List<Map.Entry<String, DenyDef>> denies) {
+
+        int nJourneys  = journeys.size();
+        int nEntities  = (int) models.stream().flatMap(m -> m.entities().stream()).count();
+        int nShapes    = (int) models.stream().flatMap(m -> m.shapeStructs().stream()).count();
+        int nEnums     = (int) models.stream().flatMap(m -> m.enums().stream()).count();
+        int nActors    = (int) models.stream().flatMap(m -> m.actors().stream()).count();
+        int nPolicies  = (int) models.stream().flatMap(m -> m.policies().stream()).count();
+        int nErrors    = (int) models.stream().flatMap(m -> m.errors().stream()).count();
+        int nSms       = (int) models.stream().flatMap(m -> m.stateMachines().stream()).count();
+        int nNamespaces = (int) models.stream().map(IrModel::namespace).distinct().count();
+
+        sb.append("\n## Executive Summary\n\n");
+        sb.append("This PRD covers ")
+          .append(nJourneys).append(nJourneys == 1 ? " journey" : " journeys").append(", ")
+          .append(nEntities).append(nEntities == 1 ? " entity" : " entities").append(", ")
+          .append(nShapes).append(nShapes == 1 ? " value object" : " value objects").append(", ")
+          .append(nEnums).append(nEnums == 1 ? " enumeration" : " enumerations").append(", ")
+          .append(nActors).append(nActors == 1 ? " actor" : " actors").append(", ")
+          .append(nPolicies).append(nPolicies == 1 ? " policy" : " policies").append(", ")
+          .append(nErrors).append(nErrors == 1 ? " error type" : " error types").append(", and ")
+          .append(nSms).append(nSms == 1 ? " state machine" : " state machines")
+          .append(" across ")
+          .append(nNamespaces).append(nNamespaces == 1 ? " namespace" : " namespaces")
+          .append(".\n\n");
+
+        // Journey list with KPIs using FQ labels
+        if (!journeys.isEmpty()) {
+            sb.append("**Journeys:**\n\n");
+            for (var e : journeys) {
+                String fqLabel = e.getKey() + "." + e.getValue().name();
+                sb.append("- **").append(fqLabel).append("**");
+                extractKpi(e.getValue()).ifPresent(kpi -> sb.append(" — ").append(kpi));
+                sb.append("\n");
+            }
+            sb.append("\n");
+        }
+
+        // Compliance frameworks
+        Set<String> frameworks = new TreeSet<>();
+        journeys.forEach(e -> e.getValue().traits().stream()
+                .filter(t -> "compliance".equals(t.name()))
+                .flatMap(t -> t.firstPositionalValue().stream())
+                .filter(v -> v instanceof TraitValue.StringValue)
+                .map(v -> ((TraitValue.StringValue) v).value())
+                .forEach(frameworks::add));
+        policies.forEach(e -> e.getValue().complianceFramework().ifPresent(frameworks::add));
+        denies.forEach(e -> e.getValue().traits().stream()
+                .filter(t -> "compliance".equals(t.name()))
+                .flatMap(t -> t.firstPositionalValue().stream())
+                .filter(v -> v instanceof TraitValue.StringValue)
+                .map(v -> ((TraitValue.StringValue) v).value())
+                .forEach(frameworks::add));
+        if (!frameworks.isEmpty()) {
+            sb.append("**Compliance Frameworks:**\n\n");
+            frameworks.forEach(f -> sb.append("- ").append(f).append("\n"));
+            sb.append("\n");
+        }
+    }
+
+    // ── Combined TOC ──────────────────────────────────────────────────────────
+
     private static void appendCombinedToc(
             StringBuilder sb,
             List<Map.Entry<String, JourneyDef>> journeys,
@@ -548,6 +910,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             List<Map.Entry<String, MapDef>> maps,
             List<Map.Entry<String, InvariantDef>> invariants,
             List<Map.Entry<String, RelationshipDef>> relationships,
+            List<Map.Entry<String, StateMachineDef>> stateMachines,
             List<Map.Entry<String, ActorDef>> actors,
             List<Map.Entry<String, PolicyDef>> policies,
             List<Map.Entry<String, DenyDef>> denies,
@@ -574,22 +937,34 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         }
         if (!invariants.isEmpty())    sb.append("- [Global Invariants](#global-invariants)\n");
         if (!relationships.isEmpty()) sb.append("- [Relationships](#relationships)\n");
+        if (!stateMachines.isEmpty()) sb.append("- [State Machines](#state-machines)\n");
         if (!actors.isEmpty())        sb.append("- [Actors](#actors)\n");
         if (!policies.isEmpty())      sb.append("- [Policies](#policies)\n");
         if (!denies.isEmpty())        sb.append("- [Prohibitions](#prohibitions)\n");
         if (!errors.isEmpty())        sb.append("- [Error Catalog](#error-catalog)\n");
+
+        boolean hasTelemetry = journeys.stream().anyMatch(e -> hasTelemetry(List.of(e.getValue())));
+        if (hasTelemetry) sb.append("- [Telemetry Catalog](#telemetry-catalog)\n");
     }
+
+    // ── Combined Journeys ─────────────────────────────────────────────────────
 
     private static void appendCombinedJourneysSection(
             StringBuilder sb,
-            List<Map.Entry<String, JourneyDef>> journeys) {
+            List<Map.Entry<String, JourneyDef>> journeys,
+            Map<String, String> symbolAnchors,
+            Map<String, String> enumMemberAnchors) {
         if (journeys.isEmpty()) return;
         sb.append(DIVIDER).append("\n## Journeys\n");
         for (var e : journeys) {
-            sb.append("\n### ").append(e.getKey()).append(".").append(e.getValue().name()).append("\n\n");
-            appendJourneyContent(sb, e.getValue());
+            String fqId = e.getKey() + "." + e.getValue().name();
+            sb.append("\n### ").append(fqId).append("\n\n");
+            var ctx = new RenderCtx(fqId, symbolAnchors, enumMemberAnchors);
+            appendJourneyContent(sb, e.getValue(), ctx);
         }
     }
+
+    // ── Combined Data Model ───────────────────────────────────────────────────
 
     private static void appendCombinedDataModelSection(
             StringBuilder sb,
@@ -598,12 +973,19 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             List<Map.Entry<String, EnumDef>> enums,
             List<Map.Entry<String, ListDef>> lists,
             List<Map.Entry<String, MapDef>> maps,
-            Map<String, IrInheritanceResolver> resolvers) {
+            Map<String, IrInheritanceResolver> resolvers,
+            List<Map.Entry<String, RelationshipDef>> relationships,
+            Map<String, String> symbolAnchors) {
 
         boolean hasDataModel = !entities.isEmpty() || !structs.isEmpty()
                 || !enums.isEmpty() || !lists.isEmpty() || !maps.isEmpty();
         if (!hasDataModel) return;
         sb.append(DIVIDER).append("\n## Data Model\n");
+
+        // ER diagram at the top
+        if (!relationships.isEmpty()) {
+            appendErDiagram(sb, relationships.stream().map(Map.Entry::getValue).toList());
+        }
 
         if (!entities.isEmpty()) {
             sb.append("\n### Entities\n");
@@ -612,21 +994,17 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
                 EntityDef entity = e.getValue();
                 sb.append("\n#### ").append(ns).append(".").append(entity.name()).append("\n\n");
                 if (IrInheritanceResolver.parentName(entity).isPresent()) {
-                    sb.append("*Extends: ").append(IrInheritanceResolver.parentName(entity).get()).append("*\n\n");
+                    String parentName = IrInheritanceResolver.parentName(entity).get();
+                    String parentAnchor = symbolAnchors.getOrDefault(parentName, anchor(parentName));
+                    sb.append("*Extends: [").append(parentName).append("](#")
+                      .append(parentAnchor).append(")*\n\n");
                 }
                 renderDocComments(sb, entity.docComments());
                 IrInheritanceResolver resolver = resolvers.get(ns);
                 List<FieldDef> fields = resolver != null
                         ? resolver.resolveAllFields(entity) : entity.fields();
                 if (!fields.isEmpty()) {
-                    sb.append("| Field | Type | Required |\n");
-                    sb.append("|-------|------|----------|\n");
-                    for (var field : fields) {
-                        sb.append("| ").append(field.name())
-                          .append(" | ").append(renderTypeRef(field.type()))
-                          .append(" | ").append(field.isRequired() ? "\u2713" : "")
-                          .append(" |\n");
-                    }
+                    appendFieldTable(sb, fields);
                 }
                 if (!entity.invariants().isEmpty()) {
                     sb.append("\n**Invariants:**\n\n");
@@ -649,14 +1027,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
                 sb.append("\n#### ").append(e.getKey()).append(".").append(s.name()).append("\n\n");
                 renderDocComments(sb, s.docComments());
                 if (!s.fields().isEmpty()) {
-                    sb.append("| Field | Type | Required |\n");
-                    sb.append("|-------|------|----------|\n");
-                    for (var field : s.fields()) {
-                        sb.append("| ").append(field.name())
-                          .append(" | ").append(renderTypeRef(field.type()))
-                          .append(" | ").append(field.isRequired() ? "\u2713" : "")
-                          .append(" |\n");
-                    }
+                    appendFieldTable(sb, s.fields());
                 }
             }
         }
@@ -697,6 +1068,8 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         }
     }
 
+    // ── Combined Global Invariants ────────────────────────────────────────────
+
     private static void appendCombinedGlobalInvariantsSection(
             StringBuilder sb,
             List<Map.Entry<String, InvariantDef>> invariants) {
@@ -716,17 +1089,23 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         }
     }
 
+    // ── Combined Relationships ────────────────────────────────────────────────
+
     private static void appendCombinedRelationshipsSection(
             StringBuilder sb,
-            List<Map.Entry<String, RelationshipDef>> relationships) {
+            List<Map.Entry<String, RelationshipDef>> relationships,
+            Map<String, String> symbolAnchors) {
         if (relationships.isEmpty()) return;
         sb.append(DIVIDER).append("\n## Relationships\n");
         for (var e : relationships) {
             RelationshipDef rel = e.getValue();
             sb.append("\n#### ").append(e.getKey()).append(".").append(rel.name()).append("\n\n");
             renderDocComments(sb, rel.docComments());
-            sb.append("**From:** ").append(symRefName(rel.fromEntityRef()))
-              .append(" **→** ").append(symRefName(rel.toEntityRef()))
+            rel.description().ifPresent(d -> sb.append("**Description:** ").append(d).append("\n"));
+            String fromName = symRefName(rel.fromEntityRef());
+            String toName   = symRefName(rel.toEntityRef());
+            sb.append("**From:** ").append(linkName(fromName, symbolAnchors))
+              .append(" **→** ").append(linkName(toName, symbolAnchors))
               .append(" (").append(rel.cardinality().chronosName()).append(")\n");
             sb.append("**Semantics:** ").append(rel.effectiveSemantics().chronosName()).append("\n");
             rel.inverseField().ifPresent(f ->
@@ -734,9 +1113,57 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         }
     }
 
+    // ── Combined State Machines ───────────────────────────────────────────────
+
+    private static void appendCombinedStateMachinesSection(
+            StringBuilder sb,
+            List<Map.Entry<String, StateMachineDef>> stateMachines) {
+        if (stateMachines.isEmpty()) return;
+        sb.append(DIVIDER).append("\n## State Machines\n");
+        for (var e : stateMachines) {
+            StateMachineDef sm = e.getValue();
+            sb.append("\n### ").append(e.getKey()).append(".").append(sm.name()).append("\n\n");
+            renderDocComments(sb, sm.docComments());
+
+            StringBuilder meta = new StringBuilder();
+            meta.append("**Entity:** ").append(sm.entityName())
+                .append(" | **Field:** ").append(sm.fieldName())
+                .append(" | **Initial:** ").append(sm.initialState());
+            if (!sm.terminalStates().isEmpty()) {
+                meta.append(" | **Terminal:** ").append(String.join(", ", sm.terminalStates()));
+            }
+            sb.append(meta).append("\n\n");
+
+            sb.append("| From | To | Guard | Action |\n");
+            sb.append("|------|----|-------|--------|\n");
+            for (var t : sm.transitions()) {
+                sb.append("| ").append(t.fromState())
+                  .append(" | ").append(t.toState())
+                  .append(" | ").append(t.guard().map(g -> "`" + g + "`").orElse(DASH))
+                  .append(" | ").append(t.action().orElse(DASH))
+                  .append(" |\n");
+            }
+            sb.append("\n");
+
+            sb.append("```mermaid\n");
+            sb.append("stateDiagram-v2\n");
+            sb.append("    [*] --> ").append(sm.initialState()).append("\n");
+            for (var t : sm.transitions()) {
+                sb.append("    ").append(t.fromState()).append(" --> ").append(t.toState()).append("\n");
+            }
+            for (var terminal : sm.terminalStates()) {
+                sb.append("    ").append(terminal).append(" --> [*]\n");
+            }
+            sb.append("```\n");
+        }
+    }
+
+    // ── Combined Actors ───────────────────────────────────────────────────────
+
     private static void appendCombinedActorsSection(
             StringBuilder sb,
-            List<Map.Entry<String, ActorDef>> actors) {
+            List<Map.Entry<String, ActorDef>> actors,
+            Map<String, String> symbolAnchors) {
         if (actors.isEmpty()) return;
         sb.append(DIVIDER).append("\n## Actors\n");
         for (var e : actors) {
@@ -744,8 +1171,16 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             sb.append("\n#### ").append(e.getKey()).append(".").append(actor.name()).append("\n\n");
             renderDocComments(sb, actor.docComments());
             sb.append("**Description:** ").append(actor.description().orElse(DASH)).append("\n");
+            actor.parentRef().ifPresent(ref -> {
+                String parentName   = symRefName(ref);
+                String parentAnchor = symbolAnchors.getOrDefault(parentName, anchor(parentName));
+                sb.append("**Extends:** [").append(parentName).append("](#")
+                  .append(parentAnchor).append(")\n");
+            });
         }
     }
+
+    // ── Combined Policies ─────────────────────────────────────────────────────
 
     private static void appendCombinedPoliciesSection(
             StringBuilder sb,
@@ -761,6 +1196,8 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
                     sb.append("**Compliance:** ").append(c).append("\n"));
         }
     }
+
+    // ── Combined Prohibitions ─────────────────────────────────────────────────
 
     private static void appendCombinedProhibitionsSection(
             StringBuilder sb,
@@ -783,6 +1220,8 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
                     .ifPresent(c -> sb.append("**Compliance:** ").append(c).append("\n"));
         }
     }
+
+    // ── Combined Error Catalog ────────────────────────────────────────────────
 
     private static void appendCombinedErrorCatalogSection(
             StringBuilder sb,
@@ -808,7 +1247,99 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         }
     }
 
+    // ── Combined Telemetry Catalog ────────────────────────────────────────────
+
+    private static void appendCombinedTelemetryCatalogSection(
+            StringBuilder sb,
+            List<Map.Entry<String, JourneyDef>> journeys) {
+        var jList = journeys.stream().map(Map.Entry::getValue).toList();
+        var rows = collectTelemetry(
+                jList,
+                j -> journeys.stream()
+                        .filter(e -> e.getValue() == j)
+                        .findFirst()
+                        .map(e -> e.getKey() + "." + j.name())
+                        .orElse(j.name()));
+        if (rows.isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Telemetry Catalog\n\n");
+        sb.append("| Event | Journey | Step | Path |\n");
+        sb.append("|-------|---------|------|------|\n");
+        for (var row : rows) {
+            sb.append("| ").append(row.event())
+              .append(" | ").append(row.journey())
+              .append(" | ").append(row.step())
+              .append(" | ").append(row.path())
+              .append(" |\n");
+        }
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /** Builds a simple-name → anchor map for shapes in a single-namespace model. */
+    private static Map<String, String> buildSymbolAnchors(IrModel model) {
+        var map = new HashMap<String, String>();
+        model.shapes().forEach(s -> map.put(s.name(), anchor(s.name())));
+        return map;
+    }
+
+    /** Builds a combined name → anchor map for all shapes across multiple models.
+     *  Both simple names and FQ names are stored; simple names map to the FQ anchor. */
+    private static Map<String, String> buildCombinedSymbolAnchors(List<IrModel> models) {
+        var map = new HashMap<String, String>();
+        for (var m : models) {
+            for (var s : m.shapes()) {
+                String fq = m.namespace() + "." + s.name();
+                map.put(s.name(), anchor(fq));
+                map.put(fq, anchor(fq));
+            }
+        }
+        return map;
+    }
+
+    /** Builds an enum member name → enum heading anchor map for cross-referencing state IDs. */
+    private static Map<String, String> buildEnumMemberAnchors(IrModel model) {
+        var map = new HashMap<String, String>();
+        for (var e : model.enums()) {
+            String enumAnchor = anchor(e.name());
+            for (var m : e.members()) map.put(m.name(), enumAnchor);
+        }
+        return map;
+    }
+
+    /** Combined variant: maps enum member → FQ enum anchor across all models. */
+    private static Map<String, String> buildCombinedEnumMemberAnchors(List<IrModel> models) {
+        var map = new HashMap<String, String>();
+        for (var m : models) {
+            for (var e : m.enums()) {
+                String enumAnchor = anchor(m.namespace() + "." + e.name());
+                for (var member : e.members()) map.put(member.name(), enumAnchor);
+            }
+        }
+        return map;
+    }
+
+    /** Appends field table rows, omitting the Required column when no fields are required. */
+    private static void appendFieldTable(StringBuilder sb, List<FieldDef> fields) {
+        boolean hasRequired = fields.stream().anyMatch(FieldDef::isRequired);
+        if (hasRequired) {
+            sb.append("| Field | Type | Required |\n");
+            sb.append("|-------|------|----------|\n");
+            for (var field : fields) {
+                sb.append("| ").append(field.name())
+                  .append(" | ").append(renderTypeRef(field.type()))
+                  .append(" | ").append(field.isRequired() ? "\u2713" : "")
+                  .append(" |\n");
+            }
+        } else {
+            sb.append("| Field | Type |\n");
+            sb.append("|-------|------|\n");
+            for (var field : fields) {
+                sb.append("| ").append(field.name())
+                  .append(" | ").append(renderTypeRef(field.type()))
+                  .append(" |\n");
+            }
+        }
+    }
 
     private static void renderDocComments(StringBuilder sb, List<String> docs) {
         if (docs == null || docs.isEmpty()) return;
@@ -818,10 +1349,16 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         sb.append("\n");
     }
 
-    private static String renderOutcomeExpr(OutcomeExpr expr) {
+    private static String renderOutcomeExpr(OutcomeExpr expr, RenderCtx ctx) {
         return switch (expr) {
-            case OutcomeExpr.TransitionTo t -> "TransitionTo(" + t.stateId() + ")";
-            case OutcomeExpr.ReturnToStep r -> "ReturnToStep(" + r.stepId() + ")";
+            case OutcomeExpr.TransitionTo t -> "TransitionTo(" + ctx.linkEnumMember(t.stateId()) + ")";
+            case OutcomeExpr.ReturnToStep r -> {
+                String stepAnchor = ctx.stepAnchor(r.stepId());
+                String linked = stepAnchor.isEmpty()
+                        ? r.stepId()
+                        : "[" + r.stepId() + "](#" + stepAnchor + ")";
+                yield "ReturnToStep(" + linked + ")";
+            }
         };
     }
 
@@ -840,7 +1377,23 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         return ref.isResolved() ? ref.id().name() : ref.name().name();
     }
 
-    /** Generates a GitHub-flavoured Markdown heading anchor from a PascalCase name. */
+    /** Returns a Markdown link if the name is in the anchor map, otherwise plain text. */
+    private static String linkName(String name, Map<String, String> symbolAnchors) {
+        String a = symbolAnchors.get(name);
+        return a != null ? "[" + name + "](#" + a + ")" : name;
+    }
+
+    /** Extracts the SLO value from a {@code @slo(ms: N)} trait on a step, if present. */
+    private static Optional<String> stepSlo(Step step) {
+        return step.traits().stream()
+                .filter(t -> "slo".equals(t.name()))
+                .findFirst()
+                .flatMap(t -> t.namedValue("ms"))
+                .filter(v -> v instanceof TraitValue.NumberValue)
+                .map(v -> "\u2264 " + (long) ((TraitValue.NumberValue) v).value() + " ms");
+    }
+
+    /** Generates a GitHub-flavoured Markdown heading anchor from a name. */
     private static String anchor(String text) {
         return text.toLowerCase().replaceAll("[^a-z0-9\\-]", "");
     }

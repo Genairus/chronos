@@ -1,0 +1,87 @@
+namespace dogfood.payments
+
+use dogfood.common#Money
+use dogfood.common#Customer
+use dogfood.common#MetadataMap
+
+/// Payment methods accepted at checkout.
+/// The method determines which authorisation flow the payment service invokes.
+/// APPLEPAY and PAYPAL use redirect-based flows; CARD uses a direct gateway submission.
+enum PaymentMethod {
+    CARD = 1
+    PAYPAL = 2
+    APPLEPAY = 3
+}
+
+/// A tokenised payment instrument stored on behalf of a registered customer.
+/// Raw card numbers are never persisted — only the masked PAN and a gateway-issued token
+/// are stored. Instruments are soft-deleted when the customer exercises their right to erasure;
+/// hard deletion is deferred until all open orders referencing the instrument are settled.
+entity PaymentInstrument {
+    id: String
+    customerId: String
+    method: PaymentMethod
+    maskedPan: String
+    billingAddress: dogfood.common.Address
+}
+
+/// The result returned by the payment gateway after an authorisation attempt.
+/// A result with approved=false must be surfaced to the actor with a human-readable reason.
+/// The authCode is only populated on approval and must be stored for chargeback defence.
+shape PaymentAuthResult {
+    approved: Boolean
+    authCode: String
+    declineReason: String
+}
+
+/// The issuing bank declined the transaction.
+/// This is the most common payment failure scenario. The actor should be shown
+/// the human-readable decline reason and offered the option to retry with a
+/// different payment method. The gatewayCode is logged for support investigations.
+error PaymentDeclinedError {
+    code: "PAY-001"
+    severity: high
+    recoverable: true
+    message: "Payment was declined by the gateway"
+    payload: {
+        gatewayCode: String
+        retryable: Boolean
+    }
+}
+
+/// The payment gateway did not respond within the configured timeout window.
+/// This failure is treated as indeterminate: the charge may or may not have been applied.
+/// The system must query gateway status using the correlationId before offering a retry,
+/// to prevent the actor from being double-charged.
+error PaymentGatewayTimeoutError {
+    code: "PAY-002"
+    severity: high
+    recoverable: true
+    message: "Payment gateway did not respond in time"
+    payload: {
+        timeoutMs: Integer
+        correlationId: String
+    }
+}
+
+/// The card presented by the actor has passed its expiry date.
+/// This is detected during tokenisation, before authorisation is attempted.
+/// The actor must supply a replacement payment method; this error cannot be retried
+/// with the same card under any circumstances.
+error CardExpiredError {
+    code: "PAY-003"
+    severity: high
+    recoverable: true
+    message: "The selected card has expired"
+    payload: {
+        expiryMonth: Integer
+        expiryYear: Integer
+    }
+}
+
+/// Negative requirement: do not store sensitive payment data in application systems.
+deny NoRawPaymentData {
+    description: "The system must never persist raw PAN, CVV, or full magnetic-stripe track data. All card data must be tokenised through the certified payment gateway before any application-layer persistence is invoked. Violation of this requirement triggers immediate PCI incident response."
+    scope: [PaymentInstrument]
+    severity: critical
+}

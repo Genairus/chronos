@@ -1,0 +1,157 @@
+namespace dogfood.checkout
+
+use dogfood.common#CustomerActor
+use dogfood.checkout#Cart
+use dogfood.checkout#Order
+use dogfood.checkout#OrderStatus
+use dogfood.payments#PaymentDeclinedError
+use dogfood.payments#PaymentGatewayTimeoutError
+use dogfood.payments#CardExpiredError
+
+/// Guest checkout flow that allows unauthenticated shoppers to purchase without an account.
+/// The actor supplies a shipping address and payment details inline during the flow.
+/// This path is optimised for first-time and low-friction conversions; every additional
+/// step is a potential drop-off point, so minimising form fields is a key design constraint.
+/// Conversion rate is the primary KPI; target is set at >75% of sessions that reach ReviewCart.
+@kpi(metric: "CheckoutConversion", target: ">75%")
+@owner("product-checkout-team")
+@compliance("GDPR")
+journey GuestCheckout {
+    actor: CustomerActor
+    preconditions: ["Cart is not empty", "Actor is not logged in"]
+    steps: [
+        @slo(ms: 500)
+        step ReviewCart {
+            action: "Review cart items and totals before proceeding"
+            expectation: "System displays cart contents, computed subtotal, estimated shipping cost, and applicable taxes in the customer's preferred currency"
+            telemetry: [CartViewed]
+        },
+        step EnterShipping {
+            action: "Enter a delivery address"
+            expectation: "System validates the address format, calculates a final shipping cost, and stores the address against the pending order"
+            telemetry: [ShippingAddressEntered]
+            risk: "Address validation depends on a third-party geocoding service; degraded mode must fall back to format-only validation"
+        },
+        step ChoosePayment {
+            action: "Select a payment method and enter card or wallet credentials"
+            expectation: "System tokenises payment details via the certified gateway; raw card data never reaches application servers"
+            telemetry: [PaymentMethodChosen]
+        },
+        @slo(ms: 3000)
+        step SubmitPayment {
+            action: "Submit the order for payment authorisation"
+            expectation: "System requests authorisation from the gateway, records the result, and transitions the order to PAID on approval; the actor sees a confirmation page with order number"
+            outcome: TransitionTo(PAID)
+            telemetry: [PaymentAuthorizationAttempted]
+            risk: "Gateway dependency; timeouts are indeterminate and must trigger a status-check flow before any retry is offered to prevent double-charging"
+        }
+    ]
+    variants: {
+        PaymentDeclined: {
+            trigger: PaymentDeclinedError
+            steps: [
+                step ShowDeclineMessage {
+                    action: "Read the decline reason surfaced by the system"
+                    expectation: "System displays a clear, jargon-free explanation of the decline and prominently offers the option to try a different payment method without losing cart contents"
+                    telemetry: [PaymentDeclinedShown]
+                }
+            ]
+            outcome: ReturnToStep(ChoosePayment)
+        },
+        CardExpired: {
+            trigger: CardExpiredError
+            steps: [
+                step PromptNewCard {
+                    action: "Enter a replacement payment method after seeing the expiry notice"
+                    expectation: "System detects the expiry before authorisation, displays a targeted message explaining the issue, and allows the actor to enter a new card without losing cart contents or re-entering shipping details"
+                    telemetry: [CardExpiredHandled]
+                }
+            ]
+            outcome: ReturnToStep(ChoosePayment)
+        },
+        GatewayTimeout: {
+            trigger: PaymentGatewayTimeoutError
+            steps: [
+                step RetryOrChangeMethod {
+                    action: "Wait for the system to determine payment status, then retry or choose another method"
+                    expectation: "System performs an idempotent status check using the correlationId and presents a clear retry path only once it has confirmed no charge was applied"
+                    telemetry: [PaymentRetryOffered]
+                    risk: "Status check must be idempotent; offering retry before status is confirmed risks double-charging the customer"
+                }
+            ]
+            outcome: ReturnToStep(ChoosePayment)
+        }
+    }
+    outcomes: {
+        success: "Order exists with status PAID; inventory is reserved; confirmation email is queued within 60 seconds",
+        failure: "Order remains in PENDING status and the actor can retry payment or abandon the cart"
+    }
+}
+
+/// Registered-member checkout that pre-populates saved addresses and payment instruments.
+/// Returning customers complete checkout in fewer steps than the guest flow because the
+/// system fetches their default shipping address and preferred payment method automatically.
+/// The actor only needs to confirm pre-filled details rather than entering them from scratch.
+/// Higher conversion target reflects the reduced friction for known customers.
+@kpi(metric: "RegisteredCheckoutConversion", target: ">85%")
+@owner("product-checkout-team")
+@compliance("GDPR")
+journey AuthenticatedCheckout {
+    actor: CustomerActor
+    preconditions: ["Cart is not empty", "Actor is logged in with a verified email address"]
+    steps: [
+        @slo(ms: 500)
+        step ReviewCart {
+            action: "Review cart items alongside the pre-filled shipping address and payment method"
+            expectation: "System displays cart contents, the customer's default shipping address, and their preferred payment instrument (masked PAN); a summary of total cost including shipping is shown"
+            telemetry: [CartViewed]
+        },
+        step ConfirmShipping {
+            action: "Confirm the pre-filled shipping address or select an alternative saved address"
+            expectation: "System stores the confirmed address against the order and updates the shipping cost estimate; the actor can add a new address without leaving the flow"
+            telemetry: [ShippingConfirmed]
+        },
+        step ConfirmPayment {
+            action: "Confirm the pre-filled payment method or choose a different saved instrument"
+            expectation: "System records the chosen instrument; full PAN is never displayed — only the last four digits and card type are shown"
+            telemetry: [PaymentMethodConfirmed]
+        },
+        @slo(ms: 3000)
+        step SubmitPayment {
+            action: "Confirm and submit the order for payment with a single tap or click"
+            expectation: "System authorises payment and transitions the order to PAID; the actor lands on a confirmation page showing order number and estimated delivery window"
+            outcome: TransitionTo(PAID)
+            telemetry: [PaymentAuthorizationAttempted]
+            risk: "Gateway dependency"
+        }
+    ]
+    variants: {
+        PaymentDeclined: {
+            trigger: PaymentDeclinedError
+            steps: [
+                step ShowDeclineMessage {
+                    action: "Read the decline reason and select a different saved payment method"
+                    expectation: "System presents all saved instruments for re-selection alongside the decline reason; the actor can also add a new card inline"
+                    telemetry: [PaymentDeclinedShown]
+                }
+            ]
+            outcome: ReturnToStep(ConfirmPayment)
+        },
+        GatewayTimeout: {
+            trigger: PaymentGatewayTimeoutError
+            steps: [
+                step RetryOrChangeMethod {
+                    action: "Wait for status confirmation, then retry or choose another saved method"
+                    expectation: "System performs an idempotent status check and presents a clear retry option only after confirming the prior charge did not apply"
+                    telemetry: [PaymentRetryOffered]
+                    risk: "Status check must be idempotent to prevent double-charging"
+                }
+            ]
+            outcome: ReturnToStep(ConfirmPayment)
+        }
+    }
+    outcomes: {
+        success: "Order exists with status PAID; loyalty points are credited within 5 minutes; confirmation email is queued",
+        failure: "Order remains in PENDING status; the actor is shown a clear error message with actionable retry options"
+    }
+}

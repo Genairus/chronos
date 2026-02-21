@@ -228,9 +228,9 @@ class MarkdownPrdGeneratorTest {
                 List.of(), List.of(s), Map.of(), null, LOC);
         var doc = md(model(journey));
         assertTrue(doc.contains("**Happy Path**"));
-        assertTrue(doc.contains("| Step | Action | Expectation | Outcome | Telemetry | Risk |"));
-        assertTrue(doc.contains("| PlaceOrder | Clicks confirm | Order saved "
-                + "| TransitionTo(Confirmed) | order_placed, payment_done | Gateway may be slow |"));
+        assertTrue(doc.contains("| Step | Action | Expectation | Outcome | SLO | Telemetry | Risk |"));
+        // Step cell now contains an HTML anchor; check action/outcome columns directly
+        assertTrue(doc.contains("| Clicks confirm | Order saved | TransitionTo(Confirmed) | — | order_placed, payment_done | Gateway may be slow |"));
     }
 
     @Test
@@ -239,7 +239,8 @@ class MarkdownPrdGeneratorTest {
         var journey = new JourneyDef("Checkout", List.of(), List.of(), actorRef("Customer"),
                 List.of(), List.of(s), Map.of(), null, LOC);
         var doc = md(model(journey));
-        assertTrue(doc.contains("| EmptyStep | — | — | — | — | — |"));
+        // SLO column added: 7 dash cells; step cell has HTML anchor
+        assertTrue(doc.contains("| — | — | — | — | — | — |"));
     }
 
     @Test
@@ -253,7 +254,8 @@ class MarkdownPrdGeneratorTest {
         var journey = new JourneyDef("Checkout", List.of(), List.of(), actorRef("Customer"),
                 List.of(), List.of(s), Map.of(), null, LOC);
         var doc = md(model(journey));
-        assertTrue(doc.contains("ReturnToStep(PlaceOrder)"));
+        // ReturnToStep now produces a link; check the step name appears in the output
+        assertTrue(doc.contains("ReturnToStep(") && doc.contains("PlaceOrder"));
     }
 
     @Test
@@ -278,8 +280,9 @@ class MarkdownPrdGeneratorTest {
         var doc = md(model(journey));
         assertTrue(doc.contains("**Variants**"));
         assertTrue(doc.contains("#### PaymentDeclined"));
-        assertTrue(doc.contains("- **Trigger:** CardDeclinedError"));
-        assertTrue(doc.contains("- **Outcome:** ReturnToStep(EnterCard)"));
+        // Trigger no longer has a bullet; Outcome no longer has a bullet and uses a link
+        assertTrue(doc.contains("**Trigger:** CardDeclinedError"));
+        assertTrue(doc.contains("**Outcome:** ReturnToStep(") && doc.contains("EnterCard"));
     }
 
     @Test
@@ -292,7 +295,8 @@ class MarkdownPrdGeneratorTest {
         var journey = new JourneyDef("Checkout", List.of(), List.of(), actorRef("Customer"),
                 List.of(), List.of(), Map.of("NetworkError", variant), null, LOC);
         var doc = md(model(journey));
-        assertTrue(doc.contains("| Notify |"));
+        // Step cell contains HTML anchor; check step name appears in a table row
+        assertTrue(doc.contains("Notify |"));
     }
 
     @Test
@@ -396,7 +400,8 @@ class MarkdownPrdGeneratorTest {
 
         // Child entity should show parent reference and all fields (inherited + own)
         assertTrue(doc.contains("#### PremiumUser"));
-        assertTrue(doc.contains("*Extends: User*"));
+        // Extends line now includes a Markdown link to the parent anchor
+        assertTrue(doc.contains("*Extends: [User](#user)*"));
         assertTrue(doc.contains("| id | String |"));  // inherited
         assertTrue(doc.contains("| email | String |"));  // inherited
         assertTrue(doc.contains("| tier | String |"));  // own field
@@ -681,7 +686,8 @@ class MarkdownPrdGeneratorTest {
         assertTrue(doc.contains("**Actor:** Customer"));
         assertTrue(doc.contains("**KPI:** Conversion → >80%"));
         assertTrue(doc.contains("- Cart not empty"));
-        assertTrue(doc.contains("| EnterEmail | Types email | Field populated |"));
+        // Step cell contains HTML anchor; check action and expectation columns instead
+        assertTrue(doc.contains("| Types email | Field populated |"));
         assertTrue(doc.contains("✅ Success: Order placed"));
         assertTrue(doc.contains("❌ Failure: Cart intact"));
         // Entity

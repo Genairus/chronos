@@ -5,6 +5,7 @@ import com.genairus.chronos.core.refs.SymbolRef;
 import com.genairus.chronos.ir.model.IrModel;
 import com.genairus.chronos.ir.types.ActorDef;
 import com.genairus.chronos.ir.types.Cardinality;
+import com.genairus.chronos.ir.types.DataField;
 import com.genairus.chronos.ir.types.DenyDef;
 import com.genairus.chronos.ir.types.EntityDef;
 import com.genairus.chronos.ir.types.EntityInvariant;
@@ -667,7 +668,33 @@ public final class IrModelSerializer {
                 w.strField("text", r.text());
                 w.endObj();
             }
+            case StepField.Input i -> {
+                // kind, fields, span  (f < s)
+                w.beginObj();
+                w.strField("kind", "input");
+                writeListField(w, "fields", i.fields(), IrModelSerializer::writeDataField);
+                writeSpanField(w, "span", i.span());
+                w.endObj();
+            }
+            case StepField.Output o -> {
+                // kind, fields, span  (f < s)
+                w.beginObj();
+                w.strField("kind", "output");
+                writeListField(w, "fields", o.fields(), IrModelSerializer::writeDataField);
+                writeSpanField(w, "span", o.span());
+                w.endObj();
+            }
         }
+    }
+
+    // DataField: name, span, type  (alphabetical)
+    private static void writeDataField(JWriter w, DataField df) {
+        w.beginObj();
+        w.strField("name", df.name());
+        writeSpanField(w, "span", df.span());
+        w.key("type");
+        writeTypeRef(w, df.type());
+        w.endObj();
     }
 
     // Variant: name, outcomeOrNull, span, steps, triggerName  (alphabetical)

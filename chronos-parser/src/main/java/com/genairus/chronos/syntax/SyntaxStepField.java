@@ -7,8 +7,9 @@ import java.util.List;
 /**
  * Sealed type for a field inside a step body (grammar rule: {@code stepField}).
  *
- * <p>Five alternatives mirror the grammar productions:
- * {@code action}, {@code expectation}, {@code outcome}, {@code telemetry}, and {@code risk}.
+ * <p>Seven alternatives mirror the grammar productions:
+ * {@code action}, {@code expectation}, {@code outcome}, {@code telemetry}, {@code risk},
+ * {@code input}, and {@code output}.
  */
 public sealed interface SyntaxStepField {
 
@@ -26,4 +27,10 @@ public sealed interface SyntaxStepField {
 
     /** {@code risk: "..."} — free-text risk annotation. */
     record Risk(String text, Span span) implements SyntaxStepField {}
+
+    /** {@code input: [name: Type, ...]} — typed data fields consumed by this step. */
+    record Input(List<SyntaxDataField> fields, Span span) implements SyntaxStepField {}
+
+    /** {@code output: [name: Type, ...]} — typed data fields produced by this step. */
+    record Output(List<SyntaxDataField> fields, Span span) implements SyntaxStepField {}
 }

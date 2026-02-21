@@ -58,4 +58,20 @@ public record Step(
                 .map(f -> ((StepField.Risk) f).text())
                 .findFirst();
     }
+
+    /** Returns all typed input fields declared in this step (in declaration order). */
+    public List<DataField> inputFields() {
+        return fields.stream()
+                .filter(f -> f instanceof StepField.Input)
+                .flatMap(f -> ((StepField.Input) f).fields().stream())
+                .toList();
+    }
+
+    /** Returns all typed output fields declared in this step (in declaration order). */
+    public List<DataField> outputFields() {
+        return fields.stream()
+                .filter(f -> f instanceof StepField.Output)
+                .flatMap(f -> ((StepField.Output) f).fields().stream())
+                .toList();
+    }
 }

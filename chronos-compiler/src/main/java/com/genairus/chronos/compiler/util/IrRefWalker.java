@@ -3,6 +3,7 @@ package com.genairus.chronos.compiler.util;
 import com.genairus.chronos.core.refs.SymbolRef;
 import com.genairus.chronos.ir.model.IrModel;
 import com.genairus.chronos.ir.types.ActorDef;
+import com.genairus.chronos.ir.types.DataField;
 import com.genairus.chronos.ir.types.DenyDef;
 import com.genairus.chronos.ir.types.EntityDef;
 import com.genairus.chronos.ir.types.EnumDef;
@@ -159,6 +160,18 @@ public final class IrRefWalker {
         if (obj instanceof StepField.Outcome o) {
             // OutcomeExpr (ReturnToStep / TransitionTo) contains only String ids — no SymbolRefs
             walk(o.expr(), visited, result);
+            return;
+        }
+        if (obj instanceof StepField.Input i) {
+            walk(i.fields(), visited, result);
+            return;
+        }
+        if (obj instanceof StepField.Output o) {
+            walk(o.fields(), visited, result);
+            return;
+        }
+        if (obj instanceof DataField df) {
+            walk(df.type(), visited, result);
             return;
         }
         // TypeRef variants

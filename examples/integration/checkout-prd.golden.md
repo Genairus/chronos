@@ -45,11 +45,11 @@ This PRD covers 1 journey, 2 entities, 1 value object, 3 enumerations, 1 actor, 
 
 **Happy Path**
 
-| Step | Action | Expectation | Outcome | SLO | Telemetry | Risk |
-|------|--------|-------------|---------|-----|-----------|------|
-| <a id="checkoutjourney-reviewcart"></a>ReviewCart | Customer reviews cart contents | Cart summary is displayed with correct totals | — | — | CartReviewed, PageViewed | Stale price data may cause discrepancy |
-| <a id="checkoutjourney-enterpaymentdetails"></a>EnterPaymentDetails | Customer enters payment card details | Payment form validates and tokenises card | — | — | PaymentFormOpened | PCI scope expansion if card data is logged |
-| <a id="checkoutjourney-confirmorder"></a>ConfirmOrder | Customer submits the order | Order record is persisted with status PENDING | TransitionTo([OrderConfirmed](#orderstatus)) | — | OrderSubmitted | — |
+| Step | Action | Expectation | Outcome | SLO | Telemetry | Risk | Input | Output |
+|------|--------|-------------|---------|-----|-----------|------|-------|--------|
+| <a id="checkoutjourney-reviewcart"></a>ReviewCart | Customer reviews cart contents | Cart summary is displayed with correct totals | — | — | CartReviewed, PageViewed | Stale price data may cause discrepancy | — | — |
+| <a id="checkoutjourney-enterpaymentdetails"></a>EnterPaymentDetails | Customer enters payment card details | Payment form validates and tokenises card | — | — | PaymentFormOpened | PCI scope expansion if card data is logged | — | — |
+| <a id="checkoutjourney-confirmorder"></a>ConfirmOrder | Customer submits the order | Order record is persisted with status PENDING | TransitionTo([OrderConfirmed](#orderstatus)) | — | OrderSubmitted | — | — | — |
 
 **Variants**
 
@@ -57,9 +57,9 @@ This PRD covers 1 journey, 2 entities, 1 value object, 3 enumerations, 1 actor, 
 
 **Trigger:** [PaymentDeclinedError](#paymentdeclinederror)
 
-| Step | Action | Expectation | Outcome | SLO | Telemetry | Risk |
-|------|--------|-------------|---------|-----|-----------|------|
-| <a id="checkoutjourney-notifydeclined"></a>NotifyDeclined | System notifies customer of the decline | Error message is displayed with retry option | ReturnToStep([EnterPaymentDetails](#checkoutjourney-enterpaymentdetails)) | — | — | — |
+| Step | Action | Expectation | Outcome | SLO | Telemetry | Risk | Input | Output |
+|------|--------|-------------|---------|-----|-----------|------|-------|--------|
+| <a id="checkoutjourney-notifydeclined"></a>NotifyDeclined | System notifies customer of the decline | Error message is displayed with retry option | ReturnToStep([EnterPaymentDetails](#checkoutjourney-enterpaymentdetails)) | — | — | — | — | — |
 
 **Outcome:** ReturnToStep([EnterPaymentDetails](#checkoutjourney-enterpaymentdetails))
 

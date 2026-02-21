@@ -264,7 +264,15 @@ public final class BuildIrSkeletonPhase implements ResolverPhase<SyntaxModel, Ir
                 case SyntaxStepField.Outcome     f -> new StepField.Outcome(convertOutcomeExpr(f.expr()), f.span());
                 case SyntaxStepField.Telemetry   f -> new StepField.Telemetry(f.ids(), f.span());
                 case SyntaxStepField.Risk        f -> new StepField.Risk(f.text(), f.span());
+                case SyntaxStepField.Input       f -> new StepField.Input(
+                        f.fields().stream().map(this::convertDataField).toList(), f.span());
+                case SyntaxStepField.Output      f -> new StepField.Output(
+                        f.fields().stream().map(this::convertDataField).toList(), f.span());
             };
+        }
+
+        private DataField convertDataField(SyntaxDataField df) {
+            return new DataField(df.name(), convertTypeRef(df.type()), df.span());
         }
 
         private OutcomeExpr convertOutcomeExpr(SyntaxOutcomeExpr expr) {

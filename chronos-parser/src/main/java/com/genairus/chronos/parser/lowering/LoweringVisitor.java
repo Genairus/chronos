@@ -522,6 +522,15 @@ public class LoweringVisitor extends ChronosBaseVisitor<Object> {
         };
     }
 
+    // ── dataField ─────────────────────────────────────────────────────────────
+
+    @Override
+    public Object visitDataField(ChronosParser.DataFieldContext ctx) {
+        String         name = ctx.ID().getText();
+        SyntaxTypeRef  type = (SyntaxTypeRef) visit(ctx.typeRef());
+        return new SyntaxDataField(name, type, span(ctx));
+    }
+
     // ── stepField ─────────────────────────────────────────────────────────────
 
     @Override
@@ -539,6 +548,14 @@ public class LoweringVisitor extends ChronosBaseVisitor<Object> {
                     ctx.ID().stream().map(TerminalNode::getText).toList(), span);
             case "risk"        -> new SyntaxStepField.Risk(
                     unquote(ctx.STRING().getText()), span);
+            case "input"       -> new SyntaxStepField.Input(
+                    ctx.dataField().stream()
+                            .map(df -> (SyntaxDataField) visitDataField(df))
+                            .toList(), span);
+            case "output"      -> new SyntaxStepField.Output(
+                    ctx.dataField().stream()
+                            .map(df -> (SyntaxDataField) visitDataField(df))
+                            .toList(), span);
             default -> throw new IllegalStateException("Unknown step field: " + keyword);
         };
     }

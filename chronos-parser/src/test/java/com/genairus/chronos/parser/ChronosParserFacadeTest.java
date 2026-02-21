@@ -244,6 +244,54 @@ class ChronosParserFacadeTest {
         assertNull(journey.outcomesOrNull());
     }
 
+    @Test
+    void stepInputOutputFieldsAreLowered() {
+        var model = parse("""
+                namespace com.example
+                journey Checkout {
+                    steps: [
+                        step CollectPayment {
+                            action: "User submits payment"
+                            expectation: "Payment is processed"
+                            output: [amount: Float, currency: String]
+                        },
+                        step SendConfirmation {
+                            action: "System sends receipt"
+                            expectation: "Email delivered"
+                            input: [amount: Float, currency: String]
+                        }
+                    ]
+                }
+                """);
+        var journey = assertInstanceOf(SyntaxJourneyDecl.class, model.declarations().get(0));
+        assertEquals(2, journey.steps().size());
+
+        // Step 1: CollectPayment has output block
+        var step1 = journey.steps().get(0);
+        assertEquals("CollectPayment", step1.name());
+        var outputField = assertInstanceOf(SyntaxStepField.Output.class,
+                step1.fields().stream()
+                     .filter(f -> f instanceof SyntaxStepField.Output)
+                     .findFirst().orElseThrow());
+        assertEquals(2, outputField.fields().size());
+        assertEquals("amount", outputField.fields().get(0).name());
+        assertInstanceOf(SyntaxTypeRef.Primitive.class, outputField.fields().get(0).type());
+        assertEquals("currency", outputField.fields().get(1).name());
+        assertFalse(outputField.span().isUnknown());
+
+        // Step 2: SendConfirmation has input block
+        var step2 = journey.steps().get(1);
+        assertEquals("SendConfirmation", step2.name());
+        var inputField = assertInstanceOf(SyntaxStepField.Input.class,
+                step2.fields().stream()
+                     .filter(f -> f instanceof SyntaxStepField.Input)
+                     .findFirst().orElseThrow());
+        assertEquals(2, inputField.fields().size());
+        assertEquals("amount",   inputField.fields().get(0).name());
+        assertEquals("currency", inputField.fields().get(1).name());
+        assertFalse(inputField.span().isUnknown());
+    }
+
     // ── other shape types ─────────────────────────────────────────────────────
 
     @Test

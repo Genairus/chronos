@@ -55,6 +55,8 @@ import static org.junit.jupiter.api.Assertions.*;
  *   CHR-032   ChronosValidator        Terminal states must not have outbound transitions
  *   CHR-033   ChronosValidator        Referenced entity and field must be defined
  *   CHR-034   ChronosValidator        TransitionTo() must reference a declared statemachine state
+ *   CHR-035   ChronosValidator        Output field names must be unique across all steps in journey scope
+ *   CHR-036   ChronosValidator        Step input field must be produced by a preceding step's output
  *   CHR-W001  ChronosValidator        Invariant references optional field without null guard (WARNING)
  * </pre>
  */
@@ -72,6 +74,7 @@ class DiagnosticCodeRegistryTest {
             "CHR-021", "CHR-022", "CHR-023", "CHR-024", "CHR-025",
             "CHR-026", "CHR-027", "CHR-028", "CHR-029", "CHR-030",
             "CHR-031", "CHR-032", "CHR-033", "CHR-034",
+            "CHR-035", "CHR-036",
             "CHR-W001"
     );
 

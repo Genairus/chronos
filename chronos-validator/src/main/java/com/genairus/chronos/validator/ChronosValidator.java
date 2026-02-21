@@ -11,7 +11,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Validates an {@link IrModel} against semantic rules CHR-001 through CHR-034 and CHR-W001.
+ * Validates an {@link IrModel} against semantic rules CHR-001 through CHR-036 and CHR-W001.
  *
  * <p>Grammar-enforced syntax rules (e.g. "namespace must be present") are not
  * re-checked here; the validator covers semantic constraints that the parser
@@ -52,6 +52,8 @@ import java.util.stream.Collectors;
  *   CHR-032 ERROR   Terminal states must not have outbound transitions
  *   CHR-033 ERROR   The referenced entity and field must be defined; field type should be an enum
  *   CHR-034 ERROR   TransitionTo() in journey steps must reference a state declared in a statemachine
+ *   CHR-035 ERROR   Output field names must be unique across all steps in a journey scope
+ *   CHR-036 ERROR   Step input field must be produced as output by a preceding step in the journey
  *   CHR-W001 WARNING Invariant references optional field without null guard
  * </pre>
  */
@@ -97,6 +99,8 @@ public class ChronosValidator {
         checkChr032(model, issues);
         checkChr033(model, issues);
         checkChr034(model, issues);
+        checkChr035(model, issues);
+        checkChr036(model, issues);
         checkChrW001(model, issues);
 
         return new ValidationResult(Collections.unmodifiableList(issues));
@@ -975,6 +979,90 @@ public class ChronosValidator {
                 }
             }
         });
+    }
+
+    // ── CHR-035 ────────────────────────────────────────────────────────────────
+
+    /**
+     * Output field names must be unique across all steps in a journey scope.
+     *
+     * <p>If two steps in the same journey (or variant) declare output fields with
+     * the same name the downstream consumer cannot determine which value is intended.
+     */
+    private void checkChr035(IrModel model, List<Diagnostic> issues) {
+        for (JourneyDef journey : model.journeys()) {
+            checkOutputDuplicatesChr035(journey.name(), journey.steps(), issues);
+            for (Variant variant : journey.variants().values()) {
+                checkOutputDuplicatesChr035(
+                        journey.name() + "/" + variant.name(), variant.steps(), issues);
+            }
+        }
+    }
+
+    private void checkOutputDuplicatesChr035(String context, List<Step> steps,
+                                              List<Diagnostic> issues) {
+        var seen     = new LinkedHashMap<String, Span>();
+        var reported = new HashSet<String>();
+        for (Step step : steps) {
+            for (DataField field : step.outputFields()) {
+                String name = field.name();
+                if (seen.containsKey(name)) {
+                    if (reported.add(name)) {
+                        issues.add(error("CHR-035",
+                                "Duplicate output field name '" + name
+                                + "' in journey '" + context + "'",
+                                seen.get(name)));
+                    }
+                    issues.add(error("CHR-035",
+                            "Duplicate output field name '" + name
+                            + "' in journey '" + context + "'",
+                            field.span()));
+                } else {
+                    seen.put(name, field.span());
+                }
+            }
+        }
+    }
+
+    // ── CHR-036 ────────────────────────────────────────────────────────────────
+
+    /**
+     * A step's input field must be produced as output by a preceding step in the
+     * same journey (or variant) sequence.
+     *
+     * <p>Each step can only consume data that earlier steps have explicitly exposed
+     * via an {@code output} block. The check is purely positional: the accumulating
+     * set of available field names grows as steps are visited in order.
+     */
+    private void checkChr036(IrModel model, List<Diagnostic> issues) {
+        for (JourneyDef journey : model.journeys()) {
+            checkInputAvailabilityChr036(journey.name(), journey.steps(), issues);
+            for (Variant variant : journey.variants().values()) {
+                checkInputAvailabilityChr036(
+                        journey.name() + "/" + variant.name(), variant.steps(), issues);
+            }
+        }
+    }
+
+    private void checkInputAvailabilityChr036(String context, List<Step> steps,
+                                               List<Diagnostic> issues) {
+        var available = new HashSet<String>();
+        for (Step step : steps) {
+            for (DataField inputField : step.inputFields()) {
+                if (!available.contains(inputField.name())) {
+                    issues.add(error("CHR-036",
+                            "Step '" + step.name() + "' in '" + context
+                            + "' declares input field '" + inputField.name()
+                            + "' which is not produced by any upstream step",
+                            inputField.span()));
+                }
+            }
+            // Accumulate outputs after checking inputs so a step cannot consume
+            // its own outputs in the same step.
+            for (DataField outputField : step.outputFields()) {
+                available.add(outputField.name());
+            }
+        }
     }
 
     // ── CHR-W001 ───────────────────────────────────────────────────────────────

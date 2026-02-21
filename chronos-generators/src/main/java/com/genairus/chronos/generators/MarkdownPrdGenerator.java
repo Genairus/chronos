@@ -4,6 +4,7 @@ import com.genairus.chronos.core.refs.SymbolRef;
 import com.genairus.chronos.ir.model.IrInheritanceResolver;
 import com.genairus.chronos.ir.model.IrModel;
 import com.genairus.chronos.ir.types.ActorDef;
+import com.genairus.chronos.ir.types.DataField;
 import com.genairus.chronos.ir.types.DenyDef;
 import com.genairus.chronos.ir.types.EntityDef;
 import com.genairus.chronos.ir.types.EnumDef;
@@ -360,8 +361,8 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
     }
 
     private static void appendStepTable(StringBuilder sb, List<Step> steps, RenderCtx ctx) {
-        sb.append("| Step | Action | Expectation | Outcome | SLO | Telemetry | Risk |\n");
-        sb.append("|------|--------|-------------|---------|-----|-----------|------|\n");
+        sb.append("| Step | Action | Expectation | Outcome | SLO | Telemetry | Risk | Input | Output |\n");
+        sb.append("|------|--------|-------------|---------|-----|-----------|------|-------|--------|\n");
         for (var step : steps) {
             String telemetry = step.telemetryEvents().isEmpty()
                     ? DASH
@@ -371,6 +372,8 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             String stepId = ctx.fqJourneyId().isEmpty()
                     ? step.name()
                     : "<a id=\"" + ctx.stepAnchor(step.name()) + "\"></a>" + step.name();
+            String input  = renderDataFields(step.inputFields());
+            String output = renderDataFields(step.outputFields());
             sb.append("| ").append(stepId)
               .append(" | ").append(step.action().orElse(DASH))
               .append(" | ").append(step.expectation().orElse(DASH))
@@ -378,8 +381,22 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
               .append(" | ").append(slo)
               .append(" | ").append(telemetry)
               .append(" | ").append(step.risk().orElse(DASH))
+              .append(" | ").append(input)
+              .append(" | ").append(output)
               .append(" |\n");
         }
+    }
+
+    /** Renders a list of {@link DataField}s as {@code name: Type, …} or {@code —} if empty. */
+    private static String renderDataFields(List<DataField> fields) {
+        if (fields.isEmpty()) return DASH;
+        var sb = new StringBuilder();
+        for (int i = 0; i < fields.size(); i++) {
+            if (i > 0) sb.append(", ");
+            DataField f = fields.get(i);
+            sb.append(f.name()).append(": ").append(renderTypeRef(f.type()));
+        }
+        return sb.toString();
     }
 
     private static void appendVariant(StringBuilder sb, String name, Variant variant, RenderCtx ctx) {

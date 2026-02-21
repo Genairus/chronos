@@ -35,9 +35,9 @@ This PRD covers 1 journey, 1 entity, 0 value objects, 2 enumerations, 1 actor, 0
 
 **Happy Path**
 
-| Step | Action | Expectation | Outcome | SLO | Telemetry | Risk |
-|------|--------|-------------|---------|-----|-----------|------|
-| <a id="shopjourneysbrowsecatalog-viewlisting"></a>viewListing | Customer views product listing | Product grid is displayed | — | — | — | — |
+| Step | Action | Expectation | Outcome | SLO | Telemetry | Risk | Input | Output |
+|------|--------|-------------|---------|-----|-----------|------|-------|--------|
+| <a id="shopjourneysbrowsecatalog-viewlisting"></a>viewListing | Customer views product listing | Product grid is displayed | — | — | — | — | — | — |
 
 **Outcomes**
 

@@ -71,6 +71,8 @@ traitId
     | 'outcome'
     | 'telemetry'
     | 'risk'
+    | 'input'
+    | 'output'
     | 'steps'
     | 'step'
     | 'actor'
@@ -305,11 +307,18 @@ step
 // 1.12  All step fields are optional at parse time; CHR-003 enforces action +
 //       expectation at validation time.
 stepField
-    : 'action'      ':' STRING           // what the actor does
-    | 'expectation' ':' STRING           // what the system must do
-    | 'outcome'     ':' outcomeExpr      // state transition
-    | 'telemetry'   ':' '[' ID (',' ID)* ']'  // events emitted
-    | 'risk'        ':' STRING           // free-text risk annotation
+    : 'action'      ':' STRING                            // what the actor does
+    | 'expectation' ':' STRING                            // what the system must do
+    | 'outcome'     ':' outcomeExpr                       // state transition
+    | 'telemetry'   ':' '[' ID (',' ID)* ']'              // events emitted
+    | 'risk'        ':' STRING                            // free-text risk annotation
+    | 'input'       ':' '[' dataField (',' dataField)* ']'  // typed inputs consumed
+    | 'output'      ':' '[' dataField (',' dataField)* ']'  // typed outputs produced
+    ;
+
+// A named, typed data field used in step input/output blocks.
+dataField
+    : ID ':' typeRef
     ;
 
 // 1.12  State transition expressions used in step outcome and variant outcome.

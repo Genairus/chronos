@@ -541,7 +541,7 @@ Variants:
 **Validations:**
 - CHR-008: `fromName`, `toName`, or `inverseName` not found.
 - CHR-016 (planned): `inverseName` does not resolve to a `relationship`.
-- CHR-017 (planned): `from`/`to` do not resolve to an `entity`.
+- (planned, new code TBD): `from`/`to` do not resolve to an `entity`.
 
 ---
 
@@ -679,7 +679,7 @@ Same `invariantField` grammar as global `invariantDef` but:
 - `IrState` is an inner record `{String name}` scoped to this SM; `TransitionTo` expressions in journey steps reference these.
 
 **Validations:**
-- CHR-008 / CHR-017 (planned): `entityName` not found or not an `entity`.
+- CHR-008 (planned): `entityName` not found or not an `entity`.
 - CHR-030 (planned): duplicate state name.
 - CHR-031 (planned): `initialState` not in `states`.
 - CHR-032 (planned): `terminalState` not in `states`.

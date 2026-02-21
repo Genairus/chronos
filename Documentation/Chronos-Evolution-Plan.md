@@ -123,9 +123,8 @@ actor AdminUser extends AuthenticatedUser
 
 **Validation Rules:**
 
-* CHR-015: Circular inheritance chains are a validation error  
-* CHR-016: A child entity may not redefine a parent field with an incompatible type  
-* CHR-017: Traits on parent entities propagate to children unless explicitly overridden  
+* CHR-015: Circular inheritance chains are a validation error
+* CHR-016: A child entity may not redefine a parent field with an incompatible type
 * CHR-018: Multiple inheritance is not supported; use shape composition instead
 
 **Implementation Tasks:**
@@ -1358,7 +1357,7 @@ All new validation rules introduced across the six phases, for quick reference:
 | CHR-014 | Entity Relationships and Cardinality | Inverse field name (if specified) must exist on the target entity |
 | CHR-015 | Inheritance and Generalization | Circular inheritance chains are a validation error |
 | CHR-016 | Inheritance and Generalization | A child entity may not redefine a parent field with an incompatible type |
-| CHR-017 | Inheritance and Generalization | Traits on parent entities propagate to children unless explicitly overridden |
+| CHR-017 | Import Resolution | Ambiguous import: same simple name bound to different targets (compiler / `ImportResolver`) |
 | CHR-018 | Inheritance and Generalization | Multiple inheritance is not supported; use shape composition instead |
 | CHR-019 | Cross-Entity Invariants | Invariant expressions must reference only fields visible in scope |
 | CHR-020 | Cross-Entity Invariants | Severity must be one of: error, warning, info |

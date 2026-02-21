@@ -128,6 +128,25 @@ class ChronosCompilerTest {
     }
 
     @Test
+    void unresolvedTypeReference_chr008_pointsToSourceLocation() {
+        // UNRESOLVED_TYPE line 4: "    item: UnknownType"
+        var result = new ChronosCompiler().compile(UNRESOLVED_TYPE, "<test>");
+
+        var chr008 = result.diagnostics().stream()
+                .filter(d -> "CHR-008".equals(d.code()))
+                .findFirst();
+        assertTrue(chr008.isPresent(), "expected CHR-008; got: " + result.diagnostics());
+
+        var span = chr008.get().span();
+        assertFalse(span.isUnknown(),
+                "CHR-008 must carry a real source location, not <unknown>. Got: " + span);
+        assertEquals("<test>", span.sourceName(),
+                "CHR-008 span must reference the compiled source name");
+        assertEquals(4, span.startLine(),
+                "UnknownType is on line 4 of the fixture");
+    }
+
+    @Test
     void invalidJourney_reportsDiagnosticsWithoutCrash() {
         var result = new ChronosCompiler().compile(INVALID_JOURNEY, "<test>");
         assertTrue(result.parsed(), "should parse");

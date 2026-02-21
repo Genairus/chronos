@@ -1,5 +1,6 @@
 package com.genairus.chronos.cli;
 
+import com.genairus.chronos.artifacts.IrArtifactEmitter;
 import com.genairus.chronos.compiler.ChronosCompiler;
 import com.genairus.chronos.compiler.SourceUnit;
 import com.genairus.chronos.core.diagnostics.Diagnostic;
@@ -56,10 +57,10 @@ public class PrdCommand implements Callable<Integer> {
 
     @Option(
         names = {"-o", "--out"},
-        description = "Output directory (default: current directory)",
+        description = "Output root directory. PRD is written here; IR artifacts (if --emit-ir) go under <outDir>/ir/. Default: <input>/build/chronos",
         paramLabel = "<outDir>"
     )
-    private Path outDir = Path.of(".");
+    private Path outDir;
 
     @Option(
         names = {"-n", "--name"},
@@ -67,6 +68,13 @@ public class PrdCommand implements Callable<Integer> {
         paramLabel = "<name>"
     )
     private String docName = "chronos-prd";
+
+    @Option(
+        names = "--emit-ir",
+        negatable = true,
+        description = "Write per-file IR JSON artifacts to <out>/ir/ alongside the PRD (default: false)"
+    )
+    private boolean emitIr = false;
 
     @Override
     public Integer call() {
@@ -134,20 +142,26 @@ public class PrdCommand implements Callable<Integer> {
             return 1;
         }
 
-        // ── Generate combined PRD ──────────────────────────────────────────────
-        var output = new MarkdownPrdGenerator()
-                .generateCombined(result.unitOrNull().models(), docName);
+        // ── Compute output root ────────────────────────────────────────────────
+        Path inputAbs = input.toAbsolutePath().normalize();
+        Path inputDir = Files.isRegularFile(inputAbs) ? inputAbs.getParent() : inputAbs;
+        Path outputRoot = outDir != null
+                ? outDir.toAbsolutePath()
+                : inputDir.resolve("build").resolve("chronos");
 
-        // ── Write output ───────────────────────────────────────────────────────
         try {
-            Files.createDirectories(outDir);
+            Files.createDirectories(outputRoot);
         } catch (IOException e) {
             console.error("Cannot create output directory: " + e.getMessage());
             return 1;
         }
 
+        // ── Generate combined PRD ──────────────────────────────────────────────
+        var output = new MarkdownPrdGenerator()
+                .generateCombined(result.unitOrNull().models(), docName);
+
         String filename = docName + ".md";
-        Path dest = outDir.resolve(filename);
+        Path dest = outputRoot.resolve(filename);
         try {
             Files.writeString(dest, output.content());
         } catch (IOException e) {
@@ -157,6 +171,22 @@ public class PrdCommand implements Callable<Integer> {
 
         int n = sources.size();
         console.success("Generated " + filename + " from " + n + (n == 1 ? " file." : " files."));
+
+        // ── Optionally emit IR JSON artifacts ──────────────────────────────────
+        if (emitIr) {
+            Path irDir = outputRoot.resolve("ir");
+            var emitOptions = new IrArtifactEmitter.EmitOptions(inputDir, irDir, true);
+            try {
+                var emitted = IrArtifactEmitter.emit(result.unitOrNull(), sources, emitOptions);
+                console.success("Emitted " + emitted.irFiles().size()
+                        + (emitted.irFiles().size() == 1 ? " IR file" : " IR files")
+                        + " to " + irDir + ".");
+            } catch (IOException e) {
+                console.error("Error writing IR artifacts: " + e.getMessage());
+                return 1;
+            }
+        }
+
         return 0;
     }
 

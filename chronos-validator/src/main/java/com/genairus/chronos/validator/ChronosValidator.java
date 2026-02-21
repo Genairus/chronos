@@ -35,7 +35,6 @@ import java.util.stream.Collectors;
  *   CHR-014 ERROR   Inverse field name (if specified) must exist on the target entity
  *   CHR-015 ERROR   Circular inheritance chains are a validation error
  *   CHR-016 ERROR   A child entity may not redefine a parent field with an incompatible type
- *   CHR-017 ERROR   Traits on parent entities propagate to children unless explicitly overridden
  *   CHR-018 ERROR   Multiple inheritance is not supported
  *   CHR-019 ERROR   Invariant expressions must reference only fields visible in scope
  *   CHR-020 ERROR   Severity must be one of: error, warning, info
@@ -276,7 +275,7 @@ public class ChronosValidator {
                 if (!resolved) {
                     issues.add(error("CHR-008",
                             "Unresolved type reference '" + name + "' in '" + context + "'",
-                            Span.UNKNOWN));
+                            r.ref().span()));
                 }
             }
             case TypeRef.ListType l -> checkTypeRefChr008(l.elementType(), context, model, importedNames, issues);

@@ -9,7 +9,6 @@ import com.genairus.chronos.core.diagnostics.DiagnosticCollector;
 import com.genairus.chronos.core.diagnostics.DiagnosticSeverity;
 import com.genairus.chronos.core.refs.NamespaceId;
 import com.genairus.chronos.core.refs.QualifiedName;
-import com.genairus.chronos.core.refs.Span;
 import com.genairus.chronos.core.refs.SymbolRef;
 import com.genairus.chronos.ir.model.IrModel;
 import com.genairus.chronos.syntax.SyntaxModel;
@@ -167,8 +166,7 @@ public final class ChronosCompiler {
                 .sorted(Comparator.comparing(SourceUnitIndex::path))
                 .toList();
 
-        List<IrModel> compiledModels = new ArrayList<>();
-        List<String>  compiledPaths  = new ArrayList<>();
+        List<IrCompilationUnit.CompiledSource> compiledSources = new ArrayList<>();
 
         // ── Global pipeline: Phases 3–6 per file ─────────────────────────────
         // FinalizeIrPhase is NOT run per-file; a unit-level finalize replaces it.
@@ -206,16 +204,15 @@ public final class ChronosCompiler {
             new ValidationPhase().execute(model, ctx);
 
             allDiagnostics.addAll(fileCollector.all());
-            compiledModels.add(model);
-            compiledPaths.add(idx.path());
+            compiledSources.add(new IrCompilationUnit.CompiledSource(idx.path(), model));
         }
 
         // ── Unit-level finalize: CHR-012 for all remaining unresolved refs ────
         // Files are already in path-sorted order; within each file sort by
         // kind → name → span.startLine for deterministic diagnostic output.
-        for (int i = 0; i < compiledModels.size(); i++) {
-            IrModel model      = compiledModels.get(i);
-            String  sourcePath = compiledPaths.get(i);
+        for (var cs : compiledSources) {
+            IrModel model      = cs.model();
+            String  sourcePath = cs.path();
 
             List<SymbolRef> unresolved = IrRefWalker.findUnresolvedRefs(model).stream()
                     .sorted(Comparator
@@ -240,7 +237,7 @@ public final class ChronosCompiler {
         boolean allFinalized = allDiagnostics.stream()
                 .noneMatch(d -> d.severity() == DiagnosticSeverity.ERROR);
 
-        IrCompilationUnit unit = new IrCompilationUnit(List.copyOf(compiledModels));
+        IrCompilationUnit unit = new IrCompilationUnit(List.copyOf(compiledSources));
         return new CompileAllResult(
                 unit,
                 List.copyOf(allDiagnostics),

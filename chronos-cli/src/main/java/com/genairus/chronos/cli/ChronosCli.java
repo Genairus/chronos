@@ -11,17 +11,14 @@ import java.io.PrintWriter;
 @Command(
     name = "chronos",
     mixinStandardHelpOptions = true,
-    version = "0.1.0",
+    version = {"chronos " + ChronosVersion.VERSION},
     description = "Chronos requirements language compiler - define journeys, generate artifacts",
     subcommands = {
-        GenerateCommand.class,
-        ValidateCommand.class,
-        InitCommand.class,
-        SelectCommand.class,
-        DiffCommand.class,
-        CleanCommand.class,
+        PrdCommand.class,
         BuildCommand.class,
-        PrdCommand.class
+        ValidateCommand.class,
+        GenerateCommand.class
+        // init, select, diff, clean are not shipped in v0.1 — see roadmap.
     }
 )
 public class ChronosCli implements Runnable {

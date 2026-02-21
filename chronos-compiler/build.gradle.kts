@@ -4,7 +4,7 @@ plugins {
 
 dependencies {
     implementation(project(":chronos-core"))
-    implementation(project(":chronos-model"))
+    implementation(project(":chronos-ir"))
     implementation(project(":chronos-parser"))
     implementation(project(":chronos-validator"))
 }

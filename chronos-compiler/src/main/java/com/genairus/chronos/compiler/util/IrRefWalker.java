@@ -2,11 +2,30 @@ package com.genairus.chronos.compiler.util;
 
 import com.genairus.chronos.core.refs.SymbolRef;
 import com.genairus.chronos.ir.model.IrModel;
+import com.genairus.chronos.ir.types.ActorDef;
+import com.genairus.chronos.ir.types.DenyDef;
+import com.genairus.chronos.ir.types.EntityDef;
+import com.genairus.chronos.ir.types.EnumDef;
+import com.genairus.chronos.ir.types.ErrorDef;
+import com.genairus.chronos.ir.types.FieldDef;
+import com.genairus.chronos.ir.types.InvariantDef;
+import com.genairus.chronos.ir.types.IrShape;
+import com.genairus.chronos.ir.types.JourneyDef;
+import com.genairus.chronos.ir.types.ListDef;
+import com.genairus.chronos.ir.types.MapDef;
+import com.genairus.chronos.ir.types.PolicyDef;
+import com.genairus.chronos.ir.types.RelationshipDef;
+import com.genairus.chronos.ir.types.ShapeStructDef;
+import com.genairus.chronos.ir.types.StateMachineDef;
+import com.genairus.chronos.ir.types.Step;
+import com.genairus.chronos.ir.types.StepField;
+import com.genairus.chronos.ir.types.TypeRef;
+import com.genairus.chronos.ir.types.Variant;
 
 import java.util.*;
 
 /**
- * Reflective walker that exhaustively finds every {@link SymbolRef} reachable
+ * Structural walker that exhaustively finds every {@link SymbolRef} reachable
  * from any root object in the Chronos IR object graph.
  *
  * <h2>Traversal rules</h2>
@@ -17,8 +36,8 @@ import java.util.*;
  *   <li><b>Iterable / Map</b> — contents are walked; map <em>values</em> only
  *       (keys are always strings in the IR).</li>
  *   <li><b>Optional</b> — unwrapped and walked if present.</li>
- *   <li><b>Chronos IR records</b> ({@code com.genairus.chronos.ir.*}) — every
- *       record component is walked via reflection.</li>
+ *   <li><b>Chronos IR records</b> — walked via explicit field access (see {@link #walkShape}
+ *       and the structural dispatch in {@link #walk}).</li>
  *   <li><b>Everything else</b> ({@link String}, enums, {@link Number},
  *       {@link Boolean}, {@link com.genairus.chronos.core.refs.Span}, …) — skipped.</li>
  * </ol>
@@ -28,10 +47,13 @@ import java.util.*;
  * preventing both infinite recursion and duplicate collection of the same
  * {@link SymbolRef} instance.
  *
- * <h2>Future-proofing</h2>
- * Because traversal is reflection-driven, any new {@link SymbolRef} field added
- * to any IR record in {@code com.genairus.chronos.ir.*} is automatically discovered
- * without modifying this class.
+ * <h2>Maintenance note</h2>
+ * Traversal is <em>explicit</em> (not reflection-driven) so it works in GraalVM
+ * native image without any reflection configuration. When a new {@link SymbolRef}
+ * or {@link TypeRef} field is added to an existing IR record, the relevant arm of
+ * {@link #walkShape} or the dispatch block in {@link #walk} must be updated.
+ * Adding a new {@link IrShape} permit will cause a compile error in the exhaustive
+ * {@code switch} in {@link #walkShape}, making omissions impossible to miss.
  */
 public final class IrRefWalker {
 
@@ -109,16 +131,104 @@ public final class IrRefWalker {
             return;
         }
 
-        // ── Recurse into Chronos IR records ───────────────────────────────────
-        Class<?> cls = obj.getClass();
-        if (!cls.getPackageName().startsWith("com.genairus.chronos.ir.")) return;
-        if (!cls.isRecord()) return;
+        // ── Recurse into Chronos IR records (explicit structural dispatch) ─────
+        // IrModel
+        if (obj instanceof IrModel m) {
+            walk(m.imports(), visited, result);
+            walk(m.shapes(), visited, result);
+            return;
+        }
+        // IrShape subtypes — exhaustive sealed switch; compiler enforces completeness
+        if (obj instanceof IrShape shape) {
+            walkShape(shape, visited, result);
+            return;
+        }
+        // Other IR record types reachable from IrShape fields
+        if (obj instanceof FieldDef f) {
+            walk(f.type(), visited, result);
+            return;
+        }
+        if (obj instanceof Step s) {
+            walk(s.fields(), visited, result);
+            return;
+        }
+        if (obj instanceof Variant v) {
+            walk(v.steps(), visited, result);
+            return;
+        }
+        if (obj instanceof StepField.Outcome o) {
+            // OutcomeExpr (ReturnToStep / TransitionTo) contains only String ids — no SymbolRefs
+            walk(o.expr(), visited, result);
+            return;
+        }
+        // TypeRef variants
+        if (obj instanceof TypeRef.NamedTypeRef n) {
+            walk(n.ref(), visited, result);
+            return;
+        }
+        if (obj instanceof TypeRef.ListType l) {
+            walk(l.elementType(), visited, result);
+            return;
+        }
+        if (obj instanceof TypeRef.MapType m) {
+            walk(m.keyType(), visited, result);
+            walk(m.valueType(), visited, result);
+            return;
+        }
+        // Everything else (UseDecl, EnumMember, Transition, TraitApplication,
+        // TraitArg, TraitValue.*, StepField.Action/Expectation/Telemetry/Risk,
+        // OutcomeExpr.*, JourneyOutcomes, EntityInvariant, Span, core refs, …)
+        // has no SymbolRef fields — silently skipped.
+    }
 
-        for (var component : cls.getRecordComponents()) {
-            try {
-                walk(component.getAccessor().invoke(obj), visited, result);
-            } catch (Exception ignored) {
-                // Defensive: skip any inaccessible component.
+    /**
+     * Exhaustive switch over all {@link IrShape} sealed subtypes.
+     *
+     * <p>If a new subtype is added to the {@link IrShape} sealed interface, this
+     * method will fail to compile until the new case is handled, preventing
+     * accidental omissions.
+     */
+    private static void walkShape(IrShape shape, Set<Object> visited, List<SymbolRef> result) {
+        switch (shape) {
+            case EntityDef e -> {
+                walk(e.parentRef(), visited, result);
+                walk(e.fields(), visited, result);
+            }
+            case ActorDef a ->
+                walk(a.parentRef(), visited, result);
+            case JourneyDef j -> {
+                walk(j.actorRef(), visited, result);
+                walk(j.steps(), visited, result);
+                walk(j.variants(), visited, result);
+            }
+            case ShapeStructDef s ->
+                walk(s.fields(), visited, result);
+            case EnumDef ignored -> {
+                // EnumDef has no TypeRef or SymbolRef fields
+            }
+            case ListDef l ->
+                walk(l.memberType(), visited, result);
+            case MapDef m -> {
+                walk(m.keyType(), visited, result);
+                walk(m.valueType(), visited, result);
+            }
+            case PolicyDef ignored -> {
+                // PolicyDef has no TypeRef or SymbolRef fields
+            }
+            case RelationshipDef r -> {
+                walk(r.fromEntityRef(), visited, result);
+                walk(r.toEntityRef(), visited, result);
+            }
+            case InvariantDef ignored -> {
+                // InvariantDef scope is List<String>, no SymbolRef fields
+            }
+            case DenyDef ignored -> {
+                // DenyDef scope is List<String>, no SymbolRef fields
+            }
+            case ErrorDef e ->
+                walk(e.payload(), visited, result);
+            case StateMachineDef ignored -> {
+                // StateMachineDef has no TypeRef or SymbolRef fields
             }
         }
     }

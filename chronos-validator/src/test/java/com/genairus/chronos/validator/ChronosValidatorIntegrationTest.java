@@ -193,7 +193,7 @@ class ChronosValidatorIntegrationTest {
 
     @Test
     void chr008_unresolvedTypeRef_isError() {
-        // Ghost is never declared; TypeRef carries no source location → Span.UNKNOWN
+        // Ghost is never declared → CHR-008; span points to "Ghost" token on line 4
         var model = compile("""
                 namespace test
 
@@ -205,8 +205,11 @@ class ChronosValidatorIntegrationTest {
                 .filter(i -> "CHR-008".equals(i.code())).toList();
         assertEquals(1, issues.size());
         assertEquals(DiagnosticSeverity.ERROR, issues.get(0).severity());
-        assertEquals("<unknown>", issues.get(0).span().sourceName());
-        assertEquals(0, issues.get(0).span().startLine());
+        assertFalse(issues.get(0).span().isUnknown(),
+                "CHR-008 must carry a real source location, not <unknown>");
+        assertEquals("<test>", issues.get(0).span().sourceName());
+        assertEquals(4, issues.get(0).span().startLine(),
+                "'Ghost' is on line 4 of the fixture");
     }
 
     // ── CHR-009 ───────────────────────────────────────────────────────────────

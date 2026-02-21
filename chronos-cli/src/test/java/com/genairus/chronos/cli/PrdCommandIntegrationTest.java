@@ -125,6 +125,49 @@ class PrdCommandIntegrationTest {
                 "Expected 'not found' in stderr but got: " + result.err());
     }
 
+    // ── --emit-ir output directory ────────────────────────────────────────────
+
+    @Test
+    void emitIr_withExplicitOut_writesIrUnderOutSlashIr(@TempDir Path dir) throws Exception {
+        writeChronos(dir, VALID_MODEL);
+        Path outDir = dir.resolve("out");
+
+        var result = run("prd", "--out", outDir.toString(), "--emit-ir", dir.toString());
+
+        assertEquals(0, result.exit(), "Expected exit 0. stderr: " + result.err());
+        // PRD must be directly in outDir
+        assertTrue(Files.exists(outDir.resolve("chronos-prd.md")),
+                "Expected chronos-prd.md under --out dir");
+        // IR must be under outDir/ir/
+        Path irDir = outDir.resolve("ir");
+        assertTrue(Files.isDirectory(irDir), "Expected ir/ subdir under --out dir");
+        assertTrue(Files.exists(irDir.resolve("manifest.json")),
+                "Expected manifest.json under --out/ir/");
+        long irFiles = Files.list(irDir)
+                .filter(p -> p.toString().endsWith(".ir.json"))
+                .count();
+        assertTrue(irFiles > 0, "Expected at least one .ir.json file under --out/ir/");
+    }
+
+    @Test
+    void emitIr_withoutOut_writesIrUnderInputBuildChronos(@TempDir Path dir) throws Exception {
+        writeChronos(dir, VALID_MODEL);
+
+        var result = run("prd", "--emit-ir", dir.toString());
+
+        assertEquals(0, result.exit(), "Expected exit 0. stderr: " + result.err());
+        // Default outputRoot = <inputDir>/build/chronos
+        Path buildChronos = dir.resolve("build").resolve("chronos");
+        // PRD must be directly in build/chronos
+        assertTrue(Files.exists(buildChronos.resolve("chronos-prd.md")),
+                "Expected chronos-prd.md under <input>/build/chronos/");
+        // IR must be under build/chronos/ir/
+        Path irDir = buildChronos.resolve("ir");
+        assertTrue(Files.isDirectory(irDir), "Expected ir/ under <input>/build/chronos/");
+        assertTrue(Files.exists(irDir.resolve("manifest.json")),
+                "Expected manifest.json under <input>/build/chronos/ir/");
+    }
+
     // ── Diagnostic format ──────────────────────────────────────────────────────
 
     @Test

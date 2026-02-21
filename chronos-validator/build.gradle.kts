@@ -1,5 +1,5 @@
 dependencies {
     implementation(project(":chronos-core"))
-    implementation(project(":chronos-model"))
+    implementation(project(":chronos-ir"))
     testImplementation(project(":chronos-compiler"))
 }

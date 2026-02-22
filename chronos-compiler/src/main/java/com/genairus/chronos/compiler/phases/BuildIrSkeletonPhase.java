@@ -355,10 +355,11 @@ public final class BuildIrSkeletonPhase implements ResolverPhase<SyntaxModel, Ir
 
         private TraitValue convertTraitValue(SyntaxTraitValue v) {
             return switch (v) {
-                case SyntaxTraitValue.StringVal sv -> new TraitValue.StringValue(sv.value());
-                case SyntaxTraitValue.NumberVal nv -> new TraitValue.NumberValue(nv.value());
-                case SyntaxTraitValue.BoolVal   bv -> new TraitValue.BoolValue(bv.value());
-                case SyntaxTraitValue.RefVal    rv -> new TraitValue.ReferenceValue(rv.ref());
+                case SyntaxTraitValue.StringVal   sv -> new TraitValue.StringValue(sv.value());
+                case SyntaxTraitValue.NumberVal   nv -> new TraitValue.NumberValue(nv.value());
+                case SyntaxTraitValue.BoolVal     bv -> new TraitValue.BoolValue(bv.value());
+                case SyntaxTraitValue.DurationVal dv -> new TraitValue.StringValue(dv.text());
+                case SyntaxTraitValue.RefVal      rv -> new TraitValue.ReferenceValue(rv.ref());
             };
         }
 

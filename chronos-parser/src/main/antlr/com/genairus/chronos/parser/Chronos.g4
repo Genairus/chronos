@@ -120,11 +120,12 @@ traitArg
     | traitValue
     ;
 
-// Trait values: string literal, number, boolean, or a shape reference.
+// Trait values: string literal, number, boolean, duration literal, or a shape reference.
 traitValue
     : STRING
     | NUMBER
     | BOOL
+    | DURATION       // unquoted duration literal e.g. 5m, 30s, 2h
     | qualifiedId
     ;
 
@@ -547,6 +548,10 @@ qualifiedId
 // 1.3 / 1.4  Boolean and numeric literals used in trait values and enum ordinals.
 BOOL        : 'true' | 'false' ;
 NUMBER      : [0-9]+ ('.' [0-9]+)? ;
+
+// Duration literal: integer followed by a time unit suffix.
+// Must be placed BEFORE ID so that longest-match wins (e.g. "5m" → DURATION not NUMBER+ID).
+DURATION    : [0-9]+ ('ms' | 's' | 'm' | 'h' | 'd' | 'w') ;
 
 // String literal: double-quoted, supports backslash escape sequences.
 STRING      : '"' (~["\r\n\\] | '\\' .)* '"' ;

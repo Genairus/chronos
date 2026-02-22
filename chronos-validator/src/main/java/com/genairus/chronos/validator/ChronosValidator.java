@@ -69,6 +69,10 @@ import java.util.stream.Collectors;
  *   CHR-045 WARNING Bound enum member not covered by any statemachine state (WARNING)
  *   CHR-046 ERROR   TransitionTo() target state is ambiguous (declared in multiple statemachines)
  *   CHR-047 WARNING TransitionTo() target state has no declared incoming transitions
+ *   CHR-050 ERROR   @timeout/@ttl duration argument is not a valid duration literal
+ *   CHR-051 ERROR   @timeout onExpiry references an undeclared variant in the journey
+ *   CHR-052 ERROR   @ttl action must be one of: delete, archive, notify
+ *   CHR-053 ERROR   @schedule cron is not a valid 5-field cron expression
  *   CHR-W001 WARNING Invariant references optional field without null guard
  * </pre>
  */
@@ -122,6 +126,10 @@ public class ChronosValidator {
         checkChr039(model, issues);
         checkChr040(model, issues);
         checkChr041(model, issues);
+        checkChr050(model, issues);
+        checkChr051(model, issues);
+        checkChr052(model, issues);
+        checkChr053(model, issues);
         checkChrW001(model, issues);
 
         return new ValidationResult(Collections.unmodifiableList(issues));
@@ -1407,6 +1415,123 @@ public class ChronosValidator {
                             step.span()));
                 }
             }
+        }
+    }
+
+    // ── CHR-050 / CHR-051 / CHR-052 / CHR-053 ─────────────────────────────────
+
+    private static final java.util.regex.Pattern DURATION_PATTERN =
+            java.util.regex.Pattern.compile("^\\d+(ms|s|m|h|d|w)$");
+    private static final java.util.regex.Pattern CRON_PATTERN =
+            java.util.regex.Pattern.compile(
+                    "^[\\d,\\-*/]+\\s+[\\d,\\-*/]+\\s+[\\d,\\-*/]+\\s+[\\d,\\-*/]+\\s+[\\d,\\-*/]+$");
+    private static final Set<String> TTL_ACTIONS = Set.of("delete", "archive", "notify");
+
+    /** @timeout/@ttl duration argument must be a valid duration literal (e.g. 5m, 500ms, 2h). */
+    private void checkChr050(IrModel model, List<Diagnostic> issues) {
+        for (JourneyDef journey : model.journeys()) {
+            checkDurationTrait(journey.traits(), journey.name(), issues);
+            for (Step step : journey.steps()) {
+                checkDurationTrait(step.traits(), step.name(), issues);
+            }
+            for (Variant v : journey.variants().values()) {
+                for (Step step : v.steps()) {
+                    checkDurationTrait(step.traits(), step.name(), issues);
+                }
+            }
+        }
+        for (EntityDef entity : model.entities()) {
+            checkDurationTrait(entity.traits(), entity.name(), issues);
+        }
+    }
+
+    private void checkDurationTrait(List<TraitApplication> traits, String owner, List<Diagnostic> issues) {
+        for (TraitApplication t : traits) {
+            if (!"timeout".equals(t.name()) && !"ttl".equals(t.name())) continue;
+            Optional<TraitValue> durOpt = t.namedValue("duration").or(t::firstPositionalValue);
+            if (durOpt.isEmpty()) {
+                issues.add(error("CHR-050",
+                        "@" + t.name() + " on '" + owner + "' is missing a duration argument",
+                        t.span()));
+                continue;
+            }
+            String raw = durOpt.get() instanceof TraitValue.StringValue sv ? sv.value() : null;
+            if (raw == null || !DURATION_PATTERN.matcher(raw).matches()) {
+                issues.add(error("CHR-050",
+                        "@" + t.name() + " on '" + owner + "': '"
+                                + (raw != null ? raw : durOpt.get())
+                                + "' is not a valid duration literal (e.g. 500ms, 30s, 5m, 2h, 7d)",
+                        t.span()));
+            }
+        }
+    }
+
+    /** @timeout onExpiry must reference a variant declared in the journey. */
+    private void checkChr051(IrModel model, List<Diagnostic> issues) {
+        for (JourneyDef journey : model.journeys()) {
+            journey.traits().stream()
+                    .filter(t -> "timeout".equals(t.name()))
+                    .forEach(t -> t.namedValue("onExpiry")
+                            .filter(v -> v instanceof TraitValue.ReferenceValue)
+                            .map(v -> ((TraitValue.ReferenceValue) v).ref())
+                            .ifPresent(ref -> {
+                                if (!journey.variants().containsKey(ref)) {
+                                    issues.add(error("CHR-051",
+                                            "@timeout onExpiry '" + ref + "' on journey '" + journey.name()
+                                                    + "' does not match any declared variant",
+                                            t.span()));
+                                }
+                            }));
+        }
+    }
+
+    /** @ttl action must be one of: delete, archive, notify. */
+    private void checkChr052(IrModel model, List<Diagnostic> issues) {
+        for (EntityDef entity : model.entities()) {
+            entity.traits().stream()
+                    .filter(t -> "ttl".equals(t.name()))
+                    .forEach(t -> {
+                        Optional<TraitValue> actionOpt = t.namedValue("action")
+                                .or(() -> t.args().stream()
+                                        .filter(a -> a.keyOrNull() == null)
+                                        .skip(1)
+                                        .map(TraitArg::value)
+                                        .findFirst());
+                        actionOpt.filter(v -> v instanceof TraitValue.StringValue)
+                                .map(v -> ((TraitValue.StringValue) v).value())
+                                .ifPresent(action -> {
+                                    if (!TTL_ACTIONS.contains(action)) {
+                                        issues.add(error("CHR-052",
+                                                "@ttl action '" + action + "' on entity '" + entity.name()
+                                                        + "' must be one of: delete, archive, notify",
+                                                t.span()));
+                                    }
+                                });
+                    });
+        }
+    }
+
+    /** @schedule cron must be a valid 5-field cron expression. */
+    private void checkChr053(IrModel model, List<Diagnostic> issues) {
+        for (JourneyDef journey : model.journeys()) {
+            journey.traits().stream()
+                    .filter(t -> "schedule".equals(t.name()))
+                    .forEach(t -> {
+                        Optional<String> cronOpt = t.namedValue("cron").or(t::firstPositionalValue)
+                                .filter(v -> v instanceof TraitValue.StringValue)
+                                .map(v -> ((TraitValue.StringValue) v).value());
+                        if (cronOpt.isEmpty()) {
+                            issues.add(error("CHR-053",
+                                    "@schedule on journey '" + journey.name()
+                                            + "' is missing a cron argument",
+                                    t.span()));
+                        } else if (!CRON_PATTERN.matcher(cronOpt.get().trim()).matches()) {
+                            issues.add(error("CHR-053",
+                                    "@schedule cron '" + cronOpt.get() + "' on journey '" + journey.name()
+                                            + "' is not a valid 5-field cron expression (e.g. \"0 0 * * *\")",
+                                    t.span()));
+                        }
+                    });
         }
     }
 

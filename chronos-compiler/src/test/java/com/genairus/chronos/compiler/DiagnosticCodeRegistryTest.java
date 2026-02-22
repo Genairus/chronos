@@ -71,6 +71,10 @@ import static org.junit.jupiter.api.Assertions.*;
  *   CHR-047   ChronosValidator        TransitionTo() target state has no declared incoming transitions (WARNING)
  *   CHR-048   ChronosValidator        Composition target cannot be referenced by multiple composing entities
  *   CHR-049   ChronosValidator        Child entity redefines parent field with incompatible type
+ *   CHR-050   ChronosValidator        @timeout/@ttl duration argument is not a valid duration literal
+ *   CHR-051   ChronosValidator        @timeout onExpiry references an undeclared variant in the journey
+ *   CHR-052   ChronosValidator        @ttl action must be one of: delete, archive, notify
+ *   CHR-053   ChronosValidator        @schedule cron is not a valid 5-field cron expression
  *   CHR-W001  ChronosValidator        Invariant references optional field without null guard (WARNING)
  * </pre>
  */
@@ -95,6 +99,7 @@ class DiagnosticCodeRegistryTest {
             "CHR-044", "CHR-045",
             "CHR-046", "CHR-047",
             "CHR-048", "CHR-049",
+            "CHR-050", "CHR-051", "CHR-052", "CHR-053",
             "CHR-W001"
     );
 

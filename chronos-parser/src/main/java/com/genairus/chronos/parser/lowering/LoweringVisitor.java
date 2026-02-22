@@ -186,6 +186,7 @@ public class LoweringVisitor extends ChronosBaseVisitor<Object> {
         if (ctx.STRING()   != null) return new SyntaxTraitValue.StringVal(unquote(ctx.STRING().getText()));
         if (ctx.NUMBER()   != null) return new SyntaxTraitValue.NumberVal(Double.parseDouble(ctx.NUMBER().getText()));
         if (ctx.BOOL()     != null) return new SyntaxTraitValue.BoolVal(Boolean.parseBoolean(ctx.BOOL().getText()));
+        if (ctx.DURATION() != null) return new SyntaxTraitValue.DurationVal(ctx.DURATION().getText());
         return new SyntaxTraitValue.RefVal((String) visitQualifiedId(ctx.qualifiedId()));
     }
 

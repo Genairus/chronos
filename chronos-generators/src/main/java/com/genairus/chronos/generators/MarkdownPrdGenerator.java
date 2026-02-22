@@ -330,6 +330,24 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
                 .filter(v -> v instanceof TraitValue.StringValue)
                 .map(v -> ((TraitValue.StringValue) v).value())
                 .forEach(c -> meta.add("**Compliance:** " + c));
+        journey.traits().stream()
+                .filter(t -> "timeout".equals(t.name()))
+                .findFirst()
+                .ifPresent(t -> {
+                    String dur = extractDurationStr(t).orElse("?");
+                    String onExpiry = t.namedValue("onExpiry")
+                            .filter(v -> v instanceof TraitValue.ReferenceValue)
+                            .map(v -> ((TraitValue.ReferenceValue) v).ref())
+                            .orElse(null);
+                    meta.add("**Timeout:** " + dur + (onExpiry != null ? " \u2192 " + onExpiry : ""));
+                });
+        journey.traits().stream()
+                .filter(t -> "schedule".equals(t.name()))
+                .findFirst()
+                .ifPresent(t -> t.namedValue("cron").or(t::firstPositionalValue)
+                        .filter(v -> v instanceof TraitValue.StringValue)
+                        .map(v -> ((TraitValue.StringValue) v).value())
+                        .ifPresent(cron -> meta.add("**Schedule:** `" + cron + "`")));
         String metaStr = meta.toString();
         if (!metaStr.isEmpty()) {
             sb.append("> ").append(metaStr).append("\n\n");
@@ -491,6 +509,9 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
                         sb.append("  - Message: ").append(inv.message().get()).append("\n");
                     }
                 }
+            }
+            if (shape instanceof EntityDef e) {
+                entityTtl(e).ifPresent(ttl -> sb.append("\n_").append(ttl).append("_\n"));
             }
         }
     }
@@ -1551,14 +1572,42 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         return a != null ? "[" + name + "](#" + a + ")" : name;
     }
 
-    /** Extracts the SLO value from a {@code @slo(ms: N)} trait on a step, if present. */
+    /** Extracts the SLO value from a {@code @slo(ms: N)} or {@code @timeout(duration)} trait on a step. */
     private static Optional<String> stepSlo(Step step) {
-        return step.traits().stream()
+        Optional<String> slo = step.traits().stream()
                 .filter(t -> "slo".equals(t.name()))
                 .findFirst()
                 .flatMap(t -> t.namedValue("ms"))
                 .filter(v -> v instanceof TraitValue.NumberValue)
                 .map(v -> "\u2264 " + (long) ((TraitValue.NumberValue) v).value() + " ms");
+        Optional<String> timeout = step.traits().stream()
+                .filter(t -> "timeout".equals(t.name()))
+                .findFirst()
+                .flatMap(MarkdownPrdGenerator::extractDurationStr)
+                .map(d -> "\u23f1 " + d);
+        return slo.or(() -> timeout);
+    }
+
+    /** Extracts the duration string from a {@code @timeout} or {@code @ttl} trait, if present. */
+    private static Optional<String> extractDurationStr(TraitApplication t) {
+        return t.namedValue("duration").or(t::firstPositionalValue)
+                .filter(v -> v instanceof TraitValue.StringValue)
+                .map(v -> ((TraitValue.StringValue) v).value());
+    }
+
+    /** Extracts the TTL annotation for an entity, if a {@code @ttl} trait is present. */
+    private static Optional<String> entityTtl(EntityDef entity) {
+        return entity.traits().stream()
+                .filter(t -> "ttl".equals(t.name()))
+                .findFirst()
+                .map(t -> {
+                    String dur = extractDurationStr(t).orElse("?");
+                    String action = t.namedValue("action")
+                            .filter(v -> v instanceof TraitValue.StringValue)
+                            .map(v -> ((TraitValue.StringValue) v).value())
+                            .orElse("delete");
+                    return "TTL: " + dur + " \u2192 " + action;
+                });
     }
 
     /** Generates a GitHub-flavoured Markdown heading anchor from a name. */

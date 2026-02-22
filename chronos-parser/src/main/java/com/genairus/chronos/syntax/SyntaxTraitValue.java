@@ -3,8 +3,8 @@ package com.genairus.chronos.syntax;
 /**
  * Sealed type for the value part of a trait argument (grammar rule: {@code traitValue}).
  *
- * <p>Four forms correspond to the four grammar alternatives:
- * string literal, number literal, boolean literal, and a qualified-id reference.
+ * <p>Five forms correspond to the five grammar alternatives:
+ * string literal, number literal, boolean literal, duration literal, and a qualified-id reference.
  */
 public sealed interface SyntaxTraitValue {
 
@@ -16,6 +16,9 @@ public sealed interface SyntaxTraitValue {
 
     /** A boolean literal ({@code true} or {@code false}). */
     record BoolVal(boolean value) implements SyntaxTraitValue {}
+
+    /** An unquoted duration literal (e.g. {@code 5m}, {@code 500ms}, {@code 2h}). */
+    record DurationVal(String text) implements SyntaxTraitValue {}
 
     /**
      * A qualified-id reference (e.g. {@code SomeShape} or {@code com.example.Shape}).

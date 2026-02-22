@@ -23,6 +23,7 @@ import com.genairus.chronos.core.refs.Span;
  *       case DenyDef          d -> ...
  *       case ErrorDef         e -> ...
  *       case StateMachineDef  s -> ...
+ *       case RoleDef          r -> ...
  *   }
  * </pre>
  */
@@ -38,6 +39,7 @@ public sealed interface IrShape
                 MapDef,
                 PolicyDef,
                 RelationshipDef,
+                RoleDef,
                 ShapeStructDef,
                 StateMachineDef {
 

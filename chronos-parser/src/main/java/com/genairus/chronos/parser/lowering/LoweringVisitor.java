@@ -177,7 +177,7 @@ public class LoweringVisitor extends ChronosBaseVisitor<Object> {
     @Override
     public Object visitTraitArg(ChronosParser.TraitArgContext ctx) {
         SyntaxTraitValue value = (SyntaxTraitValue) visit(ctx.traitValue());
-        String key = ctx.ID() != null ? ctx.ID().getText() : null;
+        String key = ctx.traitId() != null ? ctx.traitId().getText() : null;
         return new SyntaxTraitArg(key, value, span(ctx));
     }
 
@@ -489,6 +489,33 @@ public class LoweringVisitor extends ChronosBaseVisitor<Object> {
 
         return new SyntaxStateMachineDecl(name, docComments, entityName, fieldName,
                 states, initialState, terminalStates, transitions, traits, span(ctx));
+    }
+
+    // ── roleDef ───────────────────────────────────────────────────────────────
+
+    @Override
+    public Object visitRoleDef(ChronosParser.RoleDefContext ctx) {
+        List<String>      docComments = consumePendingDocComments();
+        List<SyntaxTrait> traits      = consumePendingTraits();
+        String name = ctx.ID().getText();
+
+        List<String> allowedPermissions = List.of();
+        List<String> deniedPermissions  = List.of();
+
+        for (ChronosParser.RoleBodyFieldContext field : ctx.roleBody().roleBodyField()) {
+            String keyword = field.getChild(0).getText();
+            List<String> permissions = field.ID().stream()
+                    .map(TerminalNode::getText)
+                    .toList();
+            if ("allow".equals(keyword)) {
+                allowedPermissions = permissions;
+            } else if ("deny".equals(keyword)) {
+                deniedPermissions = permissions;
+            }
+        }
+
+        return new SyntaxRoleDecl(name, docComments, allowedPermissions, deniedPermissions,
+                traits, span(ctx));
     }
 
     @Override

@@ -124,6 +124,14 @@ public record IrModel(
                 .toList();
     }
 
+    /** Returns all role definitions. */
+    public List<RoleDef> roles() {
+        return shapes.stream()
+                .filter(s -> s instanceof RoleDef)
+                .map(s -> (RoleDef) s)
+                .toList();
+    }
+
     /** Finds the first shape with the given name, regardless of type. */
     public java.util.Optional<IrShape> findShape(String name) {
         return shapes.stream()

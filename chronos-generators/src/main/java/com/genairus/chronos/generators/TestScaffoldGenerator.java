@@ -5,6 +5,7 @@ import com.genairus.chronos.ir.types.DenyDef;
 import com.genairus.chronos.ir.types.EntityDef;
 import com.genairus.chronos.ir.types.EntityInvariant;
 import com.genairus.chronos.ir.types.InvariantDef;
+import com.genairus.chronos.ir.types.RoleDef;
 
 /**
  * Generates test scaffolding with assertion stubs for invariants and deny blocks.
@@ -61,6 +62,14 @@ public final class TestScaffoldGenerator implements ChronosGenerator {
             sb.append("    // ── Global Invariants ──────────────────────────────────────────\n\n");
             for (var inv : model.invariants()) {
                 generateGlobalInvariantTest(sb, inv);
+            }
+        }
+
+        // Generate tests for role authorization
+        if (!model.roles().isEmpty()) {
+            sb.append("    // ── Role Authorization ──────────────────────────────────────────\n\n");
+            for (var role : model.roles()) {
+                generateRoleTests(sb, role);
             }
         }
 
@@ -150,6 +159,31 @@ public final class TestScaffoldGenerator implements ChronosGenerator {
         sb.append("        \n");
         sb.append("        fail(\"Test not yet implemented\");\n");
         sb.append("    }\n\n");
+    }
+
+    private void generateRoleTests(StringBuilder sb, RoleDef role) {
+        for (String perm : role.allowedPermissions()) {
+            String testName = "testRole_" + role.name() + "_Allows_" + perm;
+            sb.append("    @Test\n");
+            sb.append("    void ").append(testName).append("() {\n");
+            sb.append("        // TODO: Verify that role '").append(role.name())
+              .append("' allows permission '").append(perm).append("'\n");
+            sb.append("        // assertTrue(authService.isPermitted(new ").append(role.name())
+              .append("(), \"").append(perm).append("\"));\n");
+            sb.append("        fail(\"Test not yet implemented\");\n");
+            sb.append("    }\n\n");
+        }
+        for (String perm : role.deniedPermissions()) {
+            String testName = "testRole_" + role.name() + "_Denies_" + perm;
+            sb.append("    @Test\n");
+            sb.append("    void ").append(testName).append("() {\n");
+            sb.append("        // TODO: Verify that role '").append(role.name())
+              .append("' denies permission '").append(perm).append("'\n");
+            sb.append("        // assertFalse(authService.isPermitted(new ").append(role.name())
+              .append("(), \"").append(perm).append("\"));\n");
+            sb.append("        fail(\"Test not yet implemented\");\n");
+            sb.append("    }\n\n");
+        }
     }
 
     private String toClassName(String namespace) {

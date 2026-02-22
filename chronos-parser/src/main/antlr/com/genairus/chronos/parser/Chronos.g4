@@ -42,6 +42,7 @@ shapeDef
     | denyDef
     | errorDef
     | statemachineDef
+    | roleDef
     ;
 
 // ─── Trait System ─────────────────────────────────────────────────────────────
@@ -101,6 +102,9 @@ traitId
     | 'terminal'
     | 'transitions'
     | 'guard'
+    | 'role'
+    | 'allow'
+    | 'permission'
     ;
 
 traitArgList
@@ -108,8 +112,9 @@ traitArgList
     ;
 
 // Named arg (key: value) takes priority via ordering; positional falls through.
+// Key uses traitId so that contextual keywords (e.g. 'role') can appear as argument names.
 traitArg
-    : ID ':' traitValue
+    : traitId ':' traitValue
     | traitValue
     ;
 
@@ -486,6 +491,27 @@ transitionBody
 transitionField
     : 'guard' ':' STRING
     | 'action' ':' STRING
+    ;
+
+// ─── Role ─────────────────────────────────────────────────────────────────────
+// 3.1  role declarations define named permission sets.
+//
+//   role AdminRole {
+//       allow: [create, read, update, delete]
+//       deny:  [admin_delete]
+//   }
+
+roleDef
+    : 'role' ID roleBody
+    ;
+
+roleBody
+    : '{' roleBodyField* '}'
+    ;
+
+roleBodyField
+    : 'allow' ':' '[' ID (',' ID)* ']'
+    | 'deny'  ':' '[' ID (',' ID)* ']'
     ;
 
 // ─── Shared ───────────────────────────────────────────────────────────────────

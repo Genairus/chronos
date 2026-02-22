@@ -57,6 +57,10 @@ import static org.junit.jupiter.api.Assertions.*;
  *   CHR-034   ChronosValidator        TransitionTo() must reference a declared statemachine state
  *   CHR-035   ChronosValidator        Output field names must be unique across all steps in journey scope
  *   CHR-036   ChronosValidator        Step input field must be produced by a preceding step's output
+ *   CHR-037   ChronosValidator        @authorize role name must reference a declared role
+ *   CHR-038   ChronosValidator        @authorize permission must be listed in the role's allow list
+ *   CHR-039   ChronosValidator        Journey actor must carry @authorize(role: X) matching the journey's required role
+ *   CHR-040   ChronosValidator        @authorize permission must not be in the role's deny list
  *   CHR-W001  ChronosValidator        Invariant references optional field without null guard (WARNING)
  * </pre>
  */
@@ -75,6 +79,7 @@ class DiagnosticCodeRegistryTest {
             "CHR-026", "CHR-027", "CHR-028", "CHR-029", "CHR-030",
             "CHR-031", "CHR-032", "CHR-033", "CHR-034",
             "CHR-035", "CHR-036",
+            "CHR-037", "CHR-038", "CHR-039", "CHR-040",
             "CHR-W001"
     );
 

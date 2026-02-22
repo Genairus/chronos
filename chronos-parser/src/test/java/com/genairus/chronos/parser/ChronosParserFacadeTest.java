@@ -407,6 +407,58 @@ class ChronosParserFacadeTest {
                 "SyntaxDecl impl must be in the syntax package");
     }
 
+    // ── role declaration ──────────────────────────────────────────────────────
+
+    @Test
+    void roleDeclarationStructure() {
+        var model = parse("""
+                namespace com.example
+                role AdminRole {
+                    allow: [create, read, update, delete]
+                    deny:  [admin_delete]
+                }
+                """);
+        assertEquals(1, model.declarations().size());
+        var decl = assertInstanceOf(SyntaxRoleDecl.class, model.declarations().get(0));
+        assertEquals("AdminRole", decl.name());
+        assertEquals(List.of("create", "read", "update", "delete"), decl.allowedPermissions());
+        assertEquals(List.of("admin_delete"), decl.deniedPermissions());
+        assertFalse(decl.span().isUnknown());
+    }
+
+    @Test
+    void roleDeclarationNoDeny() {
+        var model = parse("""
+                namespace com.example
+                role ReadOnlyRole {
+                    allow: [read]
+                }
+                """);
+        var decl = assertInstanceOf(SyntaxRoleDecl.class, model.declarations().get(0));
+        assertEquals("ReadOnlyRole", decl.name());
+        assertEquals(List.of("read"), decl.allowedPermissions());
+        assertTrue(decl.deniedPermissions().isEmpty());
+    }
+
+    @Test
+    void authorizeTraitWithRoleKeyword() {
+        // Verifies that 'role' used as a named trait argument key parses correctly.
+        var model = parse("""
+                namespace com.example
+                @authorize(role: AdminRole, permission: create)
+                actor SystemAdmin
+                """);
+        assertEquals(1, model.declarations().size());
+        var decl = assertInstanceOf(SyntaxActorDecl.class, model.declarations().get(0));
+        assertEquals("SystemAdmin", decl.name());
+        assertEquals(1, decl.traits().size());
+        var trait = decl.traits().get(0);
+        assertEquals("authorize", trait.name());
+        assertEquals(2, trait.args().size());
+        assertEquals("role", trait.args().get(0).keyOrNull());
+        assertEquals("permission", trait.args().get(1).keyOrNull());
+    }
+
     // ── syntax error handling ─────────────────────────────────────────────────
 
     @Test

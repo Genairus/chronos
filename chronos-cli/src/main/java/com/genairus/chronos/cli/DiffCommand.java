@@ -122,6 +122,7 @@ public class DiffCommand implements Callable<Integer> {
             case DenyDef          d  -> "deny";
             case ErrorDef         er -> "error";
             case StateMachineDef  sm -> "statemachine";
+            case RoleDef          ro -> "role";
         };
     }
 }

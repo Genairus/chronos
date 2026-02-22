@@ -2,6 +2,7 @@ package com.genairus.chronos.cli;
 
 import com.genairus.chronos.ir.model.IrModel;
 import com.genairus.chronos.ir.types.*;
+import com.genairus.chronos.ir.types.RoleDef;
 
 import java.util.List;
 
@@ -85,6 +86,7 @@ public final class ModelProjection {
             case DenyDef          d  -> "deny";
             case ErrorDef         er -> "error";
             case StateMachineDef  sm -> "statemachine";
+            case RoleDef          ro -> "role";
         };
     }
 }

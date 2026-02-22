@@ -18,6 +18,8 @@ import com.genairus.chronos.ir.types.MapDef;
 import com.genairus.chronos.ir.types.OutcomeExpr;
 import com.genairus.chronos.ir.types.PolicyDef;
 import com.genairus.chronos.ir.types.RelationshipDef;
+import com.genairus.chronos.ir.types.RoleDef;
+import com.genairus.chronos.ir.types.TraitApplication;
 import com.genairus.chronos.ir.types.ShapeStructDef;
 import com.genairus.chronos.ir.types.StateMachineDef;
 import com.genairus.chronos.ir.types.Step;
@@ -123,6 +125,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         appendRelationshipsSection(sb, model, symbolAnchors);
         appendStateMachinesSection(sb, model);
         appendActorsSection(sb, model, symbolAnchors);
+        appendAuthorizationSection(sb, model);
         appendPoliciesSection(sb, model);
         appendProhibitionsSection(sb, model);
         appendErrorCatalogSection(sb, model);
@@ -263,6 +266,8 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             sb.append("- [State Machines](#state-machines)\n");
         if (!model.actors().isEmpty())
             sb.append("- [Actors](#actors)\n");
+        if (!model.roles().isEmpty())
+            sb.append("- [Authorization](#authorization)\n");
         if (!model.policies().isEmpty())
             sb.append("- [Policies](#policies)\n");
         if (!model.denies().isEmpty())
@@ -793,6 +798,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         var relationships = nsSort(models, IrModel::relationships);
         var stateMachines = nsSort(models, IrModel::stateMachines);
         var actors        = nsSort(models, IrModel::actors);
+        var roles         = nsSort(models, IrModel::roles);
         var policies      = nsSort(models, IrModel::policies);
         var denies        = nsSort(models, IrModel::denies);
         var errors        = nsSort(models, IrModel::errors);
@@ -821,7 +827,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
         appendCombinedExecutiveSummary(sb, models, journeys, policies, denies);
         appendCombinedToc(sb, journeys, entities, structs, enums, lists, maps,
-                invariants, relationships, stateMachines, actors, policies, denies, errors);
+                invariants, relationships, stateMachines, actors, roles, policies, denies, errors);
         appendCombinedJourneysSection(sb, journeys, symbolAnchors, enumMemberAnchors);
         appendCombinedDataModelSection(sb, entities, structs, enums, lists, maps, resolvers,
                 relationships, symbolAnchors);
@@ -829,6 +835,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         appendCombinedRelationshipsSection(sb, relationships, symbolAnchors);
         appendCombinedStateMachinesSection(sb, stateMachines);
         appendCombinedActorsSection(sb, actors, symbolAnchors);
+        appendCombinedAuthorizationSection(sb, roles, journeys);
         appendCombinedPoliciesSection(sb, policies);
         appendCombinedProhibitionsSection(sb, denies);
         appendCombinedErrorCatalogSection(sb, errors);
@@ -929,6 +936,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             List<Map.Entry<String, RelationshipDef>> relationships,
             List<Map.Entry<String, StateMachineDef>> stateMachines,
             List<Map.Entry<String, ActorDef>> actors,
+            List<Map.Entry<String, RoleDef>> roles,
             List<Map.Entry<String, PolicyDef>> policies,
             List<Map.Entry<String, DenyDef>> denies,
             List<Map.Entry<String, ErrorDef>> errors) {
@@ -956,6 +964,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         if (!relationships.isEmpty()) sb.append("- [Relationships](#relationships)\n");
         if (!stateMachines.isEmpty()) sb.append("- [State Machines](#state-machines)\n");
         if (!actors.isEmpty())        sb.append("- [Actors](#actors)\n");
+        if (!roles.isEmpty())         sb.append("- [Authorization](#authorization)\n");
         if (!policies.isEmpty())      sb.append("- [Policies](#policies)\n");
         if (!denies.isEmpty())        sb.append("- [Prohibitions](#prohibitions)\n");
         if (!errors.isEmpty())        sb.append("- [Error Catalog](#error-catalog)\n");
@@ -1195,6 +1204,105 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
                   .append(parentAnchor).append(")\n");
             });
         }
+    }
+
+    // ── Authorization (single-file) ───────────────────────────────────────────
+
+    private static void appendAuthorizationSection(StringBuilder sb, IrModel model) {
+        if (model.roles().isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Authorization\n\n");
+
+        sb.append("### Roles\n\n");
+        sb.append("| Role | Allow | Deny |\n");
+        sb.append("|------|-------|------|\n");
+        for (var role : model.roles()) {
+            String allow = role.allowedPermissions().isEmpty()
+                    ? DASH : String.join(", ", role.allowedPermissions());
+            String deny  = role.deniedPermissions().isEmpty()
+                    ? DASH : String.join(", ", role.deniedPermissions());
+            sb.append("| ").append(role.name())
+              .append(" | ").append(allow)
+              .append(" | ").append(deny)
+              .append(" |\n");
+        }
+        sb.append("\n");
+
+        boolean hasJourneyAuth = model.journeys().stream()
+                .anyMatch(j -> j.traits().stream().anyMatch(t -> "authorize".equals(t.name())));
+        if (hasJourneyAuth) {
+            sb.append("### Journey Authorization Matrix\n\n");
+            sb.append("| Journey | Actor | Role | Permission |\n");
+            sb.append("|---------|-------|------|------------|\n");
+            for (var journey : model.journeys()) {
+                for (var t : journey.traits()) {
+                    if (!"authorize".equals(t.name())) continue;
+                    String role  = authTraitRef(t, "role");
+                    String perm  = authTraitRef(t, "permission");
+                    String actor = journey.actorName().orElse(DASH);
+                    sb.append("| ").append(journey.name())
+                      .append(" | ").append(actor)
+                      .append(" | ").append(role != null ? role : DASH)
+                      .append(" | ").append(perm != null ? perm : DASH)
+                      .append(" |\n");
+                }
+            }
+        }
+    }
+
+    // ── Combined Authorization ────────────────────────────────────────────────
+
+    private static void appendCombinedAuthorizationSection(
+            StringBuilder sb,
+            List<Map.Entry<String, RoleDef>> roles,
+            List<Map.Entry<String, JourneyDef>> journeys) {
+        if (roles.isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Authorization\n\n");
+
+        sb.append("### Roles\n\n");
+        sb.append("| Role | Allow | Deny |\n");
+        sb.append("|------|-------|------|\n");
+        for (var e : roles) {
+            RoleDef role = e.getValue();
+            String allow = role.allowedPermissions().isEmpty()
+                    ? DASH : String.join(", ", role.allowedPermissions());
+            String deny  = role.deniedPermissions().isEmpty()
+                    ? DASH : String.join(", ", role.deniedPermissions());
+            sb.append("| ").append(e.getKey()).append(".").append(role.name())
+              .append(" | ").append(allow)
+              .append(" | ").append(deny)
+              .append(" |\n");
+        }
+        sb.append("\n");
+
+        boolean hasJourneyAuth = journeys.stream()
+                .anyMatch(e -> e.getValue().traits().stream().anyMatch(t -> "authorize".equals(t.name())));
+        if (hasJourneyAuth) {
+            sb.append("### Journey Authorization Matrix\n\n");
+            sb.append("| Journey | Actor | Role | Permission |\n");
+            sb.append("|---------|-------|------|------------|\n");
+            for (var e : journeys) {
+                JourneyDef journey = e.getValue();
+                for (var t : journey.traits()) {
+                    if (!"authorize".equals(t.name())) continue;
+                    String role  = authTraitRef(t, "role");
+                    String perm  = authTraitRef(t, "permission");
+                    String actor = journey.actorName().orElse(DASH);
+                    sb.append("| ").append(e.getKey()).append(".").append(journey.name())
+                      .append(" | ").append(actor)
+                      .append(" | ").append(role != null ? role : DASH)
+                      .append(" | ").append(perm != null ? perm : DASH)
+                      .append(" |\n");
+                }
+            }
+        }
+    }
+
+    /** Extracts a named ReferenceValue argument from a trait (e.g. role or permission). */
+    private static String authTraitRef(TraitApplication t, String key) {
+        return t.namedValue(key)
+                .filter(v -> v instanceof TraitValue.ReferenceValue)
+                .map(v -> ((TraitValue.ReferenceValue) v).ref())
+                .orElse(null);
     }
 
     // ── Combined Policies ─────────────────────────────────────────────────────

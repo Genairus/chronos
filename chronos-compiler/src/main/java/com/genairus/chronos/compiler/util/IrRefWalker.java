@@ -16,6 +16,7 @@ import com.genairus.chronos.ir.types.ListDef;
 import com.genairus.chronos.ir.types.MapDef;
 import com.genairus.chronos.ir.types.PolicyDef;
 import com.genairus.chronos.ir.types.RelationshipDef;
+import com.genairus.chronos.ir.types.RoleDef;
 import com.genairus.chronos.ir.types.ShapeStructDef;
 import com.genairus.chronos.ir.types.StateMachineDef;
 import com.genairus.chronos.ir.types.Step;
@@ -242,6 +243,9 @@ public final class IrRefWalker {
                 walk(e.payload(), visited, result);
             case StateMachineDef ignored -> {
                 // StateMachineDef has no TypeRef or SymbolRef fields
+            }
+            case RoleDef ignored -> {
+                // RoleDef has no TypeRef or SymbolRef fields
             }
         }
     }

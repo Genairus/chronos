@@ -71,6 +71,7 @@ public final class BuildIrSkeletonPhase implements ResolverPhase<SyntaxModel, Ir
                 case SyntaxDenyDecl         d -> convertDeny(d);
                 case SyntaxErrorDecl        d -> convertError(d);
                 case SyntaxStateMachineDecl d -> convertStateMachine(d);
+                case SyntaxRoleDecl         d -> convertRole(d);
             };
         }
 
@@ -202,6 +203,16 @@ public final class BuildIrSkeletonPhase implements ResolverPhase<SyntaxModel, Ir
                     d.recoverable(),
                     d.message(),
                     d.payload().stream().map(this::convertField).toList(),
+                    d.span());
+        }
+
+        private RoleDef convertRole(SyntaxRoleDecl d) {
+            return new RoleDef(
+                    d.name(),
+                    convertTraits(d.traits()),
+                    d.docComments(),
+                    d.allowedPermissions(),
+                    d.deniedPermissions(),
                     d.span());
         }
 

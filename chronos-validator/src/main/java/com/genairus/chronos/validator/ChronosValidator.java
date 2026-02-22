@@ -11,7 +11,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Validates an {@link IrModel} against semantic rules CHR-001 through CHR-036 and CHR-W001.
+ * Validates an {@link IrModel} against semantic rules CHR-001 through CHR-040 and CHR-W001.
  *
  * <p>Grammar-enforced syntax rules (e.g. "namespace must be present") are not
  * re-checked here; the validator covers semantic constraints that the parser
@@ -54,6 +54,10 @@ import java.util.stream.Collectors;
  *   CHR-034 ERROR   TransitionTo() in journey steps must reference a state declared in a statemachine
  *   CHR-035 ERROR   Output field names must be unique across all steps in a journey scope
  *   CHR-036 ERROR   Step input field must be produced as output by a preceding step in the journey
+ *   CHR-037 ERROR   @authorize role name must reference a declared role in the model
+ *   CHR-038 ERROR   @authorize permission must be listed in the role's allow list
+ *   CHR-039 ERROR   Journey actor must carry @authorize(role: X) matching the journey's required role
+ *   CHR-040 ERROR   @authorize permission must not be in the role's deny list
  *   CHR-W001 WARNING Invariant references optional field without null guard
  * </pre>
  */
@@ -101,6 +105,10 @@ public class ChronosValidator {
         checkChr034(model, issues);
         checkChr035(model, issues);
         checkChr036(model, issues);
+        checkChr037(model, issues);
+        checkChr038(model, issues);
+        checkChr039(model, issues);
+        checkChr040(model, issues);
         checkChrW001(model, issues);
 
         return new ValidationResult(Collections.unmodifiableList(issues));
@@ -1065,6 +1073,170 @@ public class ChronosValidator {
         }
     }
 
+    // ── CHR-037 ────────────────────────────────────────────────────────────────
+
+    /** @authorize role name must reference a declared role in the model. */
+    private void checkChr037(IrModel model, List<Diagnostic> issues) {
+        Set<String> roleNames = model.roles().stream()
+                .map(RoleDef::name)
+                .collect(Collectors.toSet());
+
+        for (JourneyDef journey : model.journeys()) {
+            for (TraitApplication t : authorizeTraits(journey.traits())) {
+                extractAuthorizeRole(t).ifPresent(role -> {
+                    if (!roleNames.contains(role))
+                        issues.add(error("CHR-037",
+                                "Journey '" + journey.name() + "' @authorize references undefined role '" + role + "'",
+                                journey.span()));
+                });
+            }
+            checkStepAuthRolesChr037("journey '" + journey.name() + "'", journey.steps(), roleNames, issues);
+            for (Variant v : journey.variants().values()) {
+                checkStepAuthRolesChr037("variant '" + v.name() + "'", v.steps(), roleNames, issues);
+            }
+        }
+        for (ActorDef actor : model.actors()) {
+            for (TraitApplication t : authorizeTraits(actor.traits())) {
+                extractAuthorizeRole(t).ifPresent(role -> {
+                    if (!roleNames.contains(role))
+                        issues.add(error("CHR-037",
+                                "Actor '" + actor.name() + "' @authorize references undefined role '" + role + "'",
+                                actor.span()));
+                });
+            }
+        }
+    }
+
+    private void checkStepAuthRolesChr037(String context, List<Step> steps,
+                                           Set<String> roleNames, List<Diagnostic> issues) {
+        for (Step step : steps) {
+            for (TraitApplication t : authorizeTraits(step.traits())) {
+                extractAuthorizeRole(t).ifPresent(role -> {
+                    if (!roleNames.contains(role))
+                        issues.add(error("CHR-037",
+                                "Step '" + step.name() + "' in " + context
+                                + " @authorize references undefined role '" + role + "'",
+                                step.span()));
+                });
+            }
+        }
+    }
+
+    // ── CHR-038 ────────────────────────────────────────────────────────────────
+
+    /** @authorize permission must be listed in the role's allow list. */
+    private void checkChr038(IrModel model, List<Diagnostic> issues) {
+        Map<String, RoleDef> rolesByName = model.roles().stream()
+                .collect(Collectors.toMap(RoleDef::name, r -> r, (a, b) -> a));
+
+        for (JourneyDef journey : model.journeys()) {
+            for (TraitApplication t : authorizeTraits(journey.traits())) {
+                checkAuthPermChr038(t, "Journey '" + journey.name() + "'", journey.span(), rolesByName, issues);
+            }
+            checkStepsAuthPermChr038("journey '" + journey.name() + "'", journey.steps(), rolesByName, issues);
+            for (Variant v : journey.variants().values()) {
+                checkStepsAuthPermChr038("variant '" + v.name() + "'", v.steps(), rolesByName, issues);
+            }
+        }
+    }
+
+    private void checkAuthPermChr038(TraitApplication t, String ctx, Span span,
+                                      Map<String, RoleDef> rolesByName, List<Diagnostic> issues) {
+        extractAuthorizeRole(t).ifPresent(role -> extractAuthorizePermission(t).ifPresent(perm -> {
+            RoleDef roleDef = rolesByName.get(role);
+            if (roleDef != null && !roleDef.allowedPermissions().contains(perm)) {
+                issues.add(error("CHR-038",
+                        ctx + " @authorize permission '" + perm
+                        + "' is not in the allow list of role '" + role + "'",
+                        span));
+            }
+        }));
+    }
+
+    private void checkStepsAuthPermChr038(String context, List<Step> steps,
+                                           Map<String, RoleDef> rolesByName, List<Diagnostic> issues) {
+        for (Step step : steps) {
+            for (TraitApplication t : authorizeTraits(step.traits())) {
+                checkAuthPermChr038(t, "Step '" + step.name() + "' in " + context, step.span(), rolesByName, issues);
+            }
+        }
+    }
+
+    // ── CHR-039 ────────────────────────────────────────────────────────────────
+
+    /** Journey actor must carry @authorize(role: X) matching the journey's required role. */
+    private void checkChr039(IrModel model, List<Diagnostic> issues) {
+        Map<String, ActorDef> actorsByName = model.actors().stream()
+                .collect(Collectors.toMap(ActorDef::name, a -> a, (a, b) -> a));
+
+        for (JourneyDef journey : model.journeys()) {
+            List<TraitApplication> journeyAuthTraits = authorizeTraits(journey.traits());
+            if (journeyAuthTraits.isEmpty()) continue;
+
+            Optional<String> actorNameOpt = journey.actorName();
+            if (actorNameOpt.isEmpty()) continue; // CHR-001 catches missing actor
+
+            ActorDef actor = actorsByName.get(actorNameOpt.get());
+            if (actor == null) continue; // not locally defined — skip
+
+            Set<String> actorRoles = authorizeTraits(actor.traits()).stream()
+                    .flatMap(t -> extractAuthorizeRole(t).stream())
+                    .collect(Collectors.toSet());
+
+            for (TraitApplication t : journeyAuthTraits) {
+                extractAuthorizeRole(t).ifPresent(requiredRole -> {
+                    if (!actorRoles.contains(requiredRole)) {
+                        issues.add(error("CHR-039",
+                                "Journey '" + journey.name() + "' requires role '" + requiredRole
+                                + "' but actor '" + actor.name()
+                                + "' does not carry @authorize(role: " + requiredRole + ")",
+                                journey.span()));
+                    }
+                });
+            }
+        }
+    }
+
+    // ── CHR-040 ────────────────────────────────────────────────────────────────
+
+    /** @authorize permission must not be in the role's deny list. */
+    private void checkChr040(IrModel model, List<Diagnostic> issues) {
+        Map<String, RoleDef> rolesByName = model.roles().stream()
+                .collect(Collectors.toMap(RoleDef::name, r -> r, (a, b) -> a));
+
+        for (JourneyDef journey : model.journeys()) {
+            for (TraitApplication t : authorizeTraits(journey.traits())) {
+                checkAuthDenyChr040(t, "Journey '" + journey.name() + "'", journey.span(), rolesByName, issues);
+            }
+            checkStepsAuthDenyChr040("journey '" + journey.name() + "'", journey.steps(), rolesByName, issues);
+            for (Variant v : journey.variants().values()) {
+                checkStepsAuthDenyChr040("variant '" + v.name() + "'", v.steps(), rolesByName, issues);
+            }
+        }
+    }
+
+    private void checkAuthDenyChr040(TraitApplication t, String ctx, Span span,
+                                      Map<String, RoleDef> rolesByName, List<Diagnostic> issues) {
+        extractAuthorizeRole(t).ifPresent(role -> extractAuthorizePermission(t).ifPresent(perm -> {
+            RoleDef roleDef = rolesByName.get(role);
+            if (roleDef != null && roleDef.deniedPermissions().contains(perm)) {
+                issues.add(error("CHR-040",
+                        ctx + " @authorize permission '" + perm
+                        + "' is explicitly denied by role '" + role + "'",
+                        span));
+            }
+        }));
+    }
+
+    private void checkStepsAuthDenyChr040(String context, List<Step> steps,
+                                           Map<String, RoleDef> rolesByName, List<Diagnostic> issues) {
+        for (Step step : steps) {
+            for (TraitApplication t : authorizeTraits(step.traits())) {
+                checkAuthDenyChr040(t, "Step '" + step.name() + "' in " + context, step.span(), rolesByName, issues);
+            }
+        }
+    }
+
     // ── CHR-W001 ───────────────────────────────────────────────────────────────
 
     /** Warn when invariants reference optional fields without null guards. */
@@ -1134,6 +1306,35 @@ public class ChronosValidator {
                 }
             }
         }
+    }
+
+    // ── Authorization helpers ──────────────────────────────────────────────────
+
+    /** Returns all {@code @authorize} traits from the given list. */
+    private static List<TraitApplication> authorizeTraits(List<TraitApplication> traits) {
+        return traits.stream()
+                .filter(t -> "authorize".equals(t.name()))
+                .toList();
+    }
+
+    /**
+     * Extracts the {@code role} argument value from an {@code @authorize} trait.
+     * Expects the value to be a {@link TraitValue.ReferenceValue} (unquoted identifier).
+     */
+    private static Optional<String> extractAuthorizeRole(TraitApplication t) {
+        return t.namedValue("role")
+                .filter(v -> v instanceof TraitValue.ReferenceValue)
+                .map(v -> ((TraitValue.ReferenceValue) v).ref());
+    }
+
+    /**
+     * Extracts the {@code permission} argument value from an {@code @authorize} trait.
+     * Expects the value to be a {@link TraitValue.ReferenceValue} (unquoted identifier).
+     */
+    private static Optional<String> extractAuthorizePermission(TraitApplication t) {
+        return t.namedValue("permission")
+                .filter(v -> v instanceof TraitValue.ReferenceValue)
+                .map(v -> ((TraitValue.ReferenceValue) v).ref());
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────

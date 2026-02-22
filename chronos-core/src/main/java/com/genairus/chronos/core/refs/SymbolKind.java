@@ -61,6 +61,9 @@ public enum SymbolKind {
     /** {@code statemachine} declaration — lifecycle of an entity's field. */
     STATEMACHINE,
 
+    /** {@code role} declaration — named permission set for authorization. */
+    ROLE,
+
     /**
      * Reserved for future {@code event} declarations.
      * Currently only referenced by {@code step telemetry: [ID, ...]} lists.

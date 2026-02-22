@@ -93,6 +93,7 @@ public class SelectCommand implements Callable<Integer> {
             case DenyDef          d  -> "deny";
             case ErrorDef         er -> "error";
             case StateMachineDef  sm -> "statemachine";
+            case RoleDef          ro -> "role";
         };
     }
 }

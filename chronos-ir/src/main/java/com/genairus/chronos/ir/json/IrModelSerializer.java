@@ -22,6 +22,7 @@ import com.genairus.chronos.ir.types.MapDef;
 import com.genairus.chronos.ir.types.OutcomeExpr;
 import com.genairus.chronos.ir.types.PolicyDef;
 import com.genairus.chronos.ir.types.RelationshipDef;
+import com.genairus.chronos.ir.types.RoleDef;
 import com.genairus.chronos.ir.types.ShapeStructDef;
 import com.genairus.chronos.ir.types.StateMachineDef;
 import com.genairus.chronos.ir.types.Step;
@@ -293,6 +294,7 @@ public final class IrModelSerializer {
             case DenyDef         s -> writeDeny(w, s);
             case ErrorDef        s -> writeError(w, s);
             case StateMachineDef s -> writeStateMachine(w, s);
+            case RoleDef         s -> writeRole(w, s);
         }
     }
 
@@ -514,6 +516,19 @@ public final class IrModelSerializer {
         writeListField(w, "terminalStates", sm.terminalStates(), JWriter::strVal);
         writeListField(w, "traits", sm.traits(), IrModelSerializer::writeTraitApplication);
         writeListField(w, "transitions", sm.transitions(), IrModelSerializer::writeTransition);
+        w.endObj();
+    }
+
+    // RoleDef: kind(first), allowedPermissions, deniedPermissions, docComments, name, span, traits
+    private static void writeRole(JWriter w, RoleDef r) {
+        w.beginObj();
+        w.strField("kind", "role");
+        writeListField(w, "allowedPermissions", r.allowedPermissions(), JWriter::strVal);
+        writeListField(w, "deniedPermissions", r.deniedPermissions(), JWriter::strVal);
+        writeListField(w, "docComments", r.docComments(), JWriter::strVal);
+        w.strField("name", r.name());
+        writeSpanField(w, "span", r.span());
+        writeListField(w, "traits", r.traits(), IrModelSerializer::writeTraitApplication);
         w.endObj();
     }
 

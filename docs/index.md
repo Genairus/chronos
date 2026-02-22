@@ -30,6 +30,37 @@ namespace health.triage
 actor Patient
 actor Doctor
 
+entity PatientData {
+    @required
+    patientId: String
+    symptoms: String
+    status: TriageStatus
+}
+
+enum TriageStatus {
+    INTAKE
+    UNDER_REVIEW
+    URGENT_REVIEW
+    RESOLVED
+}
+
+statemachine TriageLifecycle {
+    entity: PatientData
+    field: status
+    states: [INTAKE, UNDER_REVIEW, URGENT_REVIEW, RESOLVED]
+    initial: INTAKE
+    terminal: [RESOLVED]
+    transitions: [
+        INTAKE -> UNDER_REVIEW,
+        UNDER_REVIEW -> URGENT_REVIEW,
+        UNDER_REVIEW -> RESOLVED,
+        URGENT_REVIEW -> RESOLVED
+    ]
+}
+
+event SymptomCaptured {}
+event TriageRouted {}
+
 /// HIPAA-compliant policy for sensitive data
 @compliance("HIPAA")
 deny LeakPHI {
@@ -39,6 +70,7 @@ deny LeakPHI {
 }
 
 /// AI-Assisted Triage Journey
+@kpi(metric: "ai_triage_accuracy", target: "90%")
 journey PatientTriage {
     actor: Patient
     steps: [
@@ -48,12 +80,16 @@ journey PatientTriage {
             telemetry: [SymptomCaptured]
         },
         step AIAnalysis {
-            @confidence(target: "90%")
             action: "AI suggests urgency level"
             expectation: "System routes high-urgency cases to a human Doctor"
             outcome: TransitionTo(URGENT_REVIEW)
+            telemetry: [TriageRouted]
         }
     ]
+    outcomes: {
+        success: "Patient routed to appropriate care level",
+        failure: "Triage incomplete; patient advised to contact emergency services"
+    }
 }
 ```
 

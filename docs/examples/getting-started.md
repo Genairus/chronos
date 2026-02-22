@@ -91,6 +91,10 @@ policy DataQuality {
     description: "Product descriptions, prices, and category assignments must be reviewed before publication."
 }
 
+event ProductFormOpened { }
+event SupplierSelected { }
+event ProductPublished { }
+
 /// The complete flow for adding a new product to the catalog.
 @kpi(metric: "catalog_onboarding_time", target: "<2 business days")
 journey AddProduct {

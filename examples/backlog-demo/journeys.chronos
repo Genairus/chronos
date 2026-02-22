@@ -15,6 +15,29 @@ use acme.hiring#InterviewerConflictError
 use acme.hiring#OfferDeclinedError
 use acme.hiring#OfferExpiredError
 
+// ─── Telemetry Events ─────────────────────────────────────────────────────────
+
+event JobSearchPerformed { }
+event JobPostingViewed { }
+event ApplicationSubmitted { }
+event ConfirmationEmailQueued { }
+event ConfirmationViewed { }
+event CandidateSelectedForInterview { }
+event InterviewScheduled { }
+event CalendarInviteSent { }
+event PrepMaterialsSent { }
+event ScorecardSubmitted { }
+event CandidateDecisionRecorded { }
+event InterviewNoShowRecorded { }
+event InterviewRescheduled { }
+event OfferDrafted { }
+event OfferApprovalRequested { }
+event OfferExtended { }
+event OfferLetterEmailed { }
+event OfferResponseReceived { }
+event OfferDeclineReviewed { }
+event OfferExpiredHandled { }
+
 // ─── Epic 1: Candidate Application Pipeline ──────────────────────────────────
 
 /// Covers the end-to-end flow from a candidate discovering an open role

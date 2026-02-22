@@ -256,7 +256,7 @@ invariant ActiveOrderLimit {
 }
 ```
 
-`severity` values: `error`, `warning`, `info`, `critical`.
+`severity` values: `error`, `warning`, `info`. (For `deny` and `error` blocks, use `critical`, `high`, `medium`, or `low` instead.)
 
 ### 11. `deny` — a prohibition or compliance constraint
 
@@ -320,6 +320,8 @@ namespace com.example.checkout
 
 use com.example.shared#Money
 use com.example.shared#Currency
+
+// ... shape definitions follow ...
 ```
 
 - **Left of `#`** — the namespace that defines the symbol.

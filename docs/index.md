@@ -36,6 +36,7 @@ journey Checkout {
         },
         step Pay {
             action: "Customer submits payment"
+            expectation: "Payment is accepted and order is confirmed"
             outcome: TransitionTo(PAID)
         }
     ]

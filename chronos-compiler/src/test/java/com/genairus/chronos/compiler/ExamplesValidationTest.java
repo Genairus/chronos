@@ -42,6 +42,13 @@ class ExamplesValidationTest {
         assertNoErrors(compileDirectory("getting-started"), "getting-started/");
     }
 
+    // ── Backlog Demo ──────────────────────────────────────────────────────────
+
+    @Test
+    void backlogDemo_compilesWithoutErrors() throws IOException {
+        assertNoErrors(compileDirectory("backlog-demo"), "backlog-demo/");
+    }
+
     // ── E-Commerce ────────────────────────────────────────────────────────────
 
     @Test

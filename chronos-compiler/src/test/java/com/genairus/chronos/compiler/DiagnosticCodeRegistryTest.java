@@ -62,6 +62,8 @@ import static org.junit.jupiter.api.Assertions.*;
  *   CHR-039   ChronosValidator        Journey actor must carry @authorize(role: X) matching the journey's required role
  *   CHR-040   ChronosValidator        @authorize permission must not be in the role's deny list
  *   CHR-041   ChronosValidator        Step telemetry event must be a declared or imported event type
+ *   CHR-042   ChronosValidator        Invariant expression failed to parse
+ *   CHR-043   ChronosValidator        Type mismatch in invariant expression (WARNING)
  *   CHR-W001  ChronosValidator        Invariant references optional field without null guard (WARNING)
  * </pre>
  */
@@ -82,6 +84,7 @@ class DiagnosticCodeRegistryTest {
             "CHR-035", "CHR-036",
             "CHR-037", "CHR-038", "CHR-039", "CHR-040",
             "CHR-041",
+            "CHR-042", "CHR-043",
             "CHR-W001"
     );
 

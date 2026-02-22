@@ -6,6 +6,10 @@ import com.genairus.chronos.core.refs.SymbolRef;
 import com.genairus.chronos.ir.model.IrInheritanceResolver;
 import com.genairus.chronos.ir.model.IrModel;
 import com.genairus.chronos.ir.types.*;
+import com.genairus.chronos.validator.expr.ExprType;
+import com.genairus.chronos.validator.expr.ExprTypeChecker;
+import com.genairus.chronos.validator.expr.ExpressionParser;
+import com.genairus.chronos.validator.expr.InvariantExpr;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -58,6 +62,9 @@ import java.util.stream.Collectors;
  *   CHR-038 ERROR   @authorize permission must be listed in the role's allow list
  *   CHR-039 ERROR   Journey actor must carry @authorize(role: X) matching the journey's required role
  *   CHR-040 ERROR   @authorize permission must not be in the role's deny list
+ *   CHR-041 ERROR   Step telemetry event must be a declared or imported event type
+ *   CHR-042 ERROR   Invariant expression failed to parse
+ *   CHR-043 WARNING Type mismatch in invariant expression
  *   CHR-W001 WARNING Invariant references optional field without null guard
  * </pre>
  */
@@ -513,103 +520,134 @@ public class ChronosValidator {
         // clause. This check is a placeholder for future-proofing.
     }
 
-    // ── CHR-019 ────────────────────────────────────────────────────────────────
+    // ── CHR-019 / CHR-042 / CHR-043 ──────────────────────────────────────────
 
     /** Invariant expressions must reference only fields visible in scope. */
     private void checkChr019(IrModel model, List<Diagnostic> issues) {
+        var resolver = new IrInheritanceResolver(model);
+
         for (EntityDef entity : model.entities()) {
-            var resolver = new IrInheritanceResolver(model);
             var allFields = resolver.resolveAllFields(entity);
             var fieldNames = allFields.stream().map(FieldDef::name).toList();
+            var fieldTypeMap = buildFieldTypeMap(allFields);
 
             for (EntityInvariant inv : entity.invariants()) {
-                validateFieldReferences(inv.expression(), fieldNames,
-                    "Entity invariant '" + inv.name() + "' in entity '" + entity.name() + "'",
-                    inv.span(), issues);
+                String context = "Entity invariant '" + inv.name() + "' in entity '" + entity.name() + "'";
+                InvariantExpr ast = parseInvariantExpr(inv.expression(), context, inv.span(), issues);
+                checkFieldRefsChr019(ast, fieldNames, Set.of(), context, inv.span(), issues);
+                new ExprTypeChecker().check(ast, fieldTypeMap, Set.of(), inv.name(), inv.span(), issues);
             }
         }
 
         for (InvariantDef inv : model.invariants()) {
             var scopeFieldNames = new ArrayList<String>();
+            var scopeFieldTypeMap = new HashMap<String, ExprType>();
+
             for (String entityName : inv.scope()) {
                 var entity = model.entities().stream()
                     .filter(e -> e.name().equals(entityName))
                     .findFirst();
 
                 if (entity.isPresent()) {
-                    var resolver = new IrInheritanceResolver(model);
                     var allFields = resolver.resolveAllFields(entity.get());
                     for (FieldDef field : allFields) {
-                        scopeFieldNames.add(entityName + "." + field.name());
+                        String qualifiedName = entityName + "." + field.name();
+                        scopeFieldNames.add(qualifiedName);
+                        scopeFieldTypeMap.put(qualifiedName, toExprType(field.type()));
                     }
                 }
             }
 
-            validateFieldReferences(inv.expression(), scopeFieldNames,
-                "Global invariant '" + inv.name() + "'",
-                inv.span(), issues);
+            String context = "Global invariant '" + inv.name() + "'";
+            InvariantExpr ast = parseInvariantExpr(inv.expression(), context, inv.span(), issues);
+            checkFieldRefsChr019(ast, scopeFieldNames, Set.of(), context, inv.span(), issues);
+            new ExprTypeChecker().check(ast, scopeFieldTypeMap, Set.of(), inv.name(), inv.span(), issues);
         }
     }
 
     /**
-     * Validates that field references in an expression exist in the allowed field names.
-     * This is a simple lexical check that looks for identifiers in the expression.
+     * Parses the expression string into an AST. Emits CHR-042 if parsing fails.
+     * Always returns a non-null node — returns {@link InvariantExpr.ParseError} on failure.
      */
-    private void validateFieldReferences(String expression, List<String> allowedFields,
-                                        String context, Span span, List<Diagnostic> issues) {
-        var lambdaParams = new HashSet<String>();
-        var lambdaPattern = java.util.regex.Pattern.compile("(\\w+)\\s*=>");
-        var lambdaMatcher = lambdaPattern.matcher(expression);
-        while (lambdaMatcher.find()) {
-            lambdaParams.add(lambdaMatcher.group(1));
+    private InvariantExpr parseInvariantExpr(String expression, String context,
+                                              Span span, List<Diagnostic> issues) {
+        InvariantExpr ast = new ExpressionParser().parse(expression);
+        if (ast instanceof InvariantExpr.ParseError err) {
+            issues.add(error("CHR-042",
+                    context + ": expression failed to parse: " + err.message(), span));
         }
+        return ast;
+    }
 
-        var tokens = expression.split("[\\s()\\[\\],+\\-*/=!<>&|]+");
+    /**
+     * Walks the AST and emits CHR-019 for any {@link InvariantExpr.FieldRef} that is
+     * not in {@code allowedFields} and is not shadowed by a lambda parameter.
+     */
+    private void checkFieldRefsChr019(InvariantExpr expr, List<String> allowedFields,
+                                       Set<String> lambdaScope, String context,
+                                       Span span, List<Diagnostic> issues) {
+        switch (expr) {
+            case InvariantExpr.FieldRef f -> {
+                String name = f.name();
+                // Determine the leading component (before first dot)
+                String prefix = name.contains(".") ? name.substring(0, name.indexOf('.')) : name;
+                if (lambdaScope.contains(prefix)) break; // lambda param — skip
 
-        for (String token : tokens) {
-            if (token.isEmpty() || token.matches("\\d+(\\.\\d+)?")) {
-                continue;
-            }
-            if (token.equals("true") || token.equals("false") || token.equals("null")) {
-                continue;
-            }
-            if (token.matches("\".*\"") || token.matches("'.*'")) {
-                continue;
-            }
-            if (token.equals("count") || token.equals("sum") || token.equals("min") ||
-                token.equals("max") || token.equals("exists") || token.equals("forAll") ||
-                token.equals("error") || token.equals("warning") || token.equals("info")) {
-                continue;
-            }
-            if (!token.isEmpty() && !token.contains(".") && Character.isUpperCase(token.charAt(0))) {
-                continue;
-            }
+                boolean isValid = name.contains(".")
+                        ? allowedFields.contains(name)
+                        : allowedFields.stream().anyMatch(a -> a.equals(name) || a.endsWith("." + name));
 
-            if (token.contains(".")) {
-                String prefix = token.substring(0, token.indexOf('.'));
-                if (lambdaParams.contains(prefix)) {
-                    continue;
-                }
-            } else if (lambdaParams.contains(token)) {
-                continue;
-            }
-
-            boolean isValid;
-            if (token.contains(".")) {
-                isValid = allowedFields.contains(token);
-            } else {
-                isValid = allowedFields.stream().anyMatch(f ->
-                    f.equals(token) || f.endsWith("." + token));
-            }
-
-            if (!isValid && !token.isEmpty()) {
-                if (token.contains(".") || Character.isLowerCase(token.charAt(0))) {
+                if (!isValid) {
                     issues.add(error("CHR-019",
-                        context + " references undefined field '" + token + "'",
-                        span));
+                            context + " references undefined field '" + name + "'", span));
                 }
             }
+            case InvariantExpr.Lambda lam -> {
+                var newScope = extendLambdaScope(lambdaScope, lam.param());
+                checkFieldRefsChr019(lam.body(), allowedFields, newScope, context, span, issues);
+            }
+            case InvariantExpr.BinaryOp b -> {
+                checkFieldRefsChr019(b.left(),  allowedFields, lambdaScope, context, span, issues);
+                checkFieldRefsChr019(b.right(), allowedFields, lambdaScope, context, span, issues);
+            }
+            case InvariantExpr.UnaryOp u ->
+                checkFieldRefsChr019(u.operand(), allowedFields, lambdaScope, context, span, issues);
+            case InvariantExpr.AggregateCall agg -> {
+                checkFieldRefsChr019(agg.target(), allowedFields, lambdaScope, context, span, issues);
+                var newScope = extendLambdaScope(lambdaScope, agg.lambda().param());
+                checkFieldRefsChr019(agg.lambda().body(), allowedFields, newScope, context, span, issues);
+            }
+            default -> { /* literals, EnumRef, ParseError — nothing to check */ }
         }
+    }
+
+    private static Set<String> extendLambdaScope(Set<String> existing, String param) {
+        if (existing.isEmpty()) return Set.of(param);
+        var extended = new HashSet<>(existing);
+        extended.add(param);
+        return extended;
+    }
+
+    private Map<String, ExprType> buildFieldTypeMap(List<FieldDef> fields) {
+        var map = new HashMap<String, ExprType>();
+        for (FieldDef f : fields) {
+            map.put(f.name(), toExprType(f.type()));
+        }
+        return map;
+    }
+
+    private ExprType toExprType(TypeRef ref) {
+        return switch (ref) {
+            case TypeRef.PrimitiveType p -> switch (p.kind()) {
+                case STRING    -> ExprType.STRING;
+                case INTEGER, LONG -> ExprType.INTEGER;
+                case FLOAT     -> ExprType.FLOAT;
+                case BOOLEAN   -> ExprType.BOOLEAN;
+                case TIMESTAMP -> ExprType.TIMESTAMP;
+                case BLOB, DOCUMENT -> ExprType.OPAQUE;
+            };
+            default -> ExprType.UNKNOWN;
+        };
     }
 
     // ── CHR-020 ────────────────────────────────────────────────────────────────
@@ -1283,8 +1321,10 @@ public class ChronosValidator {
                     .collect(Collectors.toSet());
 
             for (EntityInvariant inv : entity.invariants()) {
-                checkOptionalFieldReferences(inv.expression(), optionalFields,
-                        inv.name(), inv.span(), issues);
+                // Re-use the already-parsed AST if CHR-019 ran first; for simplicity,
+                // we parse again here — it's cheap and keeps the method self-contained.
+                InvariantExpr ast = new ExpressionParser().parse(inv.expression());
+                checkNullGuardChrW001(ast, optionalFields, inv.name(), inv.span(), issues);
             }
         }
 
@@ -1304,39 +1344,102 @@ public class ChronosValidator {
                 }
             }
 
-            checkOptionalFieldReferences(inv.expression(), optionalFields,
-                    inv.name(), inv.span(), issues);
+            InvariantExpr ast = new ExpressionParser().parse(inv.expression());
+            checkNullGuardChrW001(ast, optionalFields, inv.name(), inv.span(), issues);
         }
     }
 
-    private void checkOptionalFieldReferences(String expression, Set<String> optionalFields,
-                                               String invariantName, Span span,
-                                               List<Diagnostic> issues) {
-        if (optionalFields.isEmpty()) {
-            return;
-        }
+    /**
+     * Emits CHR-W001 for each optional field that is referenced in the expression
+     * but lacks a null guard (i.e. no {@code field == null} / {@code field != null}
+     * anywhere in the AST).
+     */
+    private void checkNullGuardChrW001(InvariantExpr ast, Set<String> optionalFields,
+                                        String invariantName, Span span,
+                                        List<Diagnostic> issues) {
+        if (optionalFields.isEmpty()) return;
 
-        var tokens = expression.split("[\\s()\\[\\],+\\-*/=!<>&|]+");
-        var tokenSet = Arrays.stream(tokens)
-                .filter(t -> !t.isEmpty())
-                .collect(Collectors.toSet());
+        // Collect outer (non-lambda-param) field refs and null-guard subjects
+        var outerFieldRefs = new HashSet<String>();
+        collectOuterFieldRefs(ast, Set.of(), outerFieldRefs);
 
-        for (String optionalField : optionalFields) {
-            boolean isReferenced = tokenSet.contains(optionalField);
+        var nullGuardSubjects = new HashSet<String>();
+        collectNullGuards(ast, nullGuardSubjects);
 
-            if (isReferenced) {
-                boolean hasNullGuard = expression.contains(optionalField + " != null") ||
-                                       expression.contains(optionalField + " == null") ||
-                                       expression.contains("null != " + optionalField) ||
-                                       expression.contains("null == " + optionalField);
-
-                if (!hasNullGuard) {
-                    issues.add(warning("CHR-W001",
-                            "Invariant '" + invariantName + "' references optional field '" +
-                            optionalField + "' without a null guard",
-                            span));
-                }
+        for (String optField : optionalFields) {
+            if (outerFieldRefs.contains(optField) && !nullGuardSubjects.contains(optField)) {
+                issues.add(warning("CHR-W001",
+                        "Invariant '" + invariantName + "' references optional field '" +
+                        optField + "' without a null guard",
+                        span));
             }
+        }
+    }
+
+    /**
+     * Collects all {@link InvariantExpr.FieldRef} names that are NOT shadowed by a
+     * lambda parameter into {@code result}.
+     */
+    private void collectOuterFieldRefs(InvariantExpr expr, Set<String> lambdaScope,
+                                        Set<String> result) {
+        switch (expr) {
+            case InvariantExpr.FieldRef f -> {
+                String prefix = f.name().contains(".")
+                        ? f.name().substring(0, f.name().indexOf('.')) : f.name();
+                if (!lambdaScope.contains(prefix)) result.add(f.name());
+            }
+            case InvariantExpr.Lambda lam -> {
+                var newScope = extendLambdaScope(lambdaScope, lam.param());
+                collectOuterFieldRefs(lam.body(), newScope, result);
+            }
+            case InvariantExpr.BinaryOp b -> {
+                collectOuterFieldRefs(b.left(),  lambdaScope, result);
+                collectOuterFieldRefs(b.right(), lambdaScope, result);
+            }
+            case InvariantExpr.UnaryOp u ->
+                collectOuterFieldRefs(u.operand(), lambdaScope, result);
+            case InvariantExpr.AggregateCall agg -> {
+                collectOuterFieldRefs(agg.target(), lambdaScope, result);
+                var newScope = extendLambdaScope(lambdaScope, agg.lambda().param());
+                collectOuterFieldRefs(agg.lambda().body(), newScope, result);
+            }
+            default -> { /* literals, EnumRef, ParseError — no field refs */ }
+        }
+    }
+
+    /**
+     * Collects the subjects of null-guard comparisons anywhere in the AST.
+     * A null guard is: {@code fieldRef == null}, {@code fieldRef != null},
+     * {@code null == fieldRef}, or {@code null != fieldRef}.
+     */
+    private void collectNullGuards(InvariantExpr expr, Set<String> guards) {
+        switch (expr) {
+            case InvariantExpr.BinaryOp b when (b.op() == InvariantExpr.BinOp.EQ
+                    || b.op() == InvariantExpr.BinOp.NEQ) -> {
+                extractNullGuardSubject(b.left(), b.right(), guards);
+                extractNullGuardSubject(b.right(), b.left(), guards);
+                collectNullGuards(b.left(),  guards);
+                collectNullGuards(b.right(), guards);
+            }
+            case InvariantExpr.BinaryOp b -> {
+                collectNullGuards(b.left(),  guards);
+                collectNullGuards(b.right(), guards);
+            }
+            case InvariantExpr.UnaryOp u  -> collectNullGuards(u.operand(), guards);
+            case InvariantExpr.Lambda lam -> collectNullGuards(lam.body(), guards);
+            case InvariantExpr.AggregateCall agg -> {
+                collectNullGuards(agg.target(), guards);
+                collectNullGuards(agg.lambda().body(), guards);
+            }
+            default -> { /* leaf nodes */ }
+        }
+    }
+
+    private void extractNullGuardSubject(InvariantExpr fieldSide, InvariantExpr nullSide,
+                                          Set<String> guards) {
+        if (fieldSide instanceof InvariantExpr.FieldRef f
+                && nullSide instanceof InvariantExpr.NullLit) {
+            guards.add(f.name());
         }
     }
 

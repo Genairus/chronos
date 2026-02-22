@@ -1,78 +1,8 @@
 # Chronos
 
-Chronos is a requirements language and compiler for building machine-readable product and system requirements.
+**Turn a feature brief into validated, machine-readable requirements — in minutes.**
 
-Instead of requirements living only in prose docs, Chronos gives you a typed, validated source format that can generate PRDs, backlog artifacts, type definitions, diagrams, and test scaffolding.
-
-## Start Here: Chronos + LLM Requirements Authoring
-
-If your goal is AI-assisted requirements creation, start with these two documents first:
-
-1. [How-To: Use Chronos with an AI Coding Bot to Generate Requirements](docs/ai-bot-requirements-howto.md)  
-Practical, copy-paste workflow for getting from feature brief to validated multi-file `.chronos` requirements, including prompt templates, correction loops, and quality checks.
-2. [Chronos Vision: AI-Assisted Requirements as a System](Documentation/Chronos-AI-Assisted-Requirements-Vision.md)  
-End-state operating model for how LLMs, reusable requirement libraries, and governance combine so PMs focus on decisions while engineering receives implementation-ready, machine-readable requirements.
-
-Leadership summary: [Chronos Executive One-Pager](Documentation/Chronos-AI-Requirements-Executive-OnePager.md)
-
-## Quick Links
-
-- [Documentation Index](docs/index.md)
-- [Install](docs/install.md)
-- [CLI Reference](docs/cli.md)
-- [Language Quick Reference](docs/quick-reference.md)
-- [Examples](examples/README.md)
-- [LLM Requirements How-To (Hands-On)](docs/ai-bot-requirements-howto.md)
-- [AI-Assisted Requirements Vision (System Design)](Documentation/Chronos-AI-Assisted-Requirements-Vision.md)
-- [Executive One-Pager](Documentation/Chronos-AI-Requirements-Executive-OnePager.md)
-- [Feature Roadmap Recommendations](Documentation/Chronos-Feature-Priority-Order.md)
-
-## Why Chronos
-
-Chronos is designed for teams that want a single source of truth for requirements that works for humans, compilers, and AI coding agents.
-
-- Structured requirements instead of ambiguous prose
-- Multi-file composition with namespace/import resolution
-- Semantic validation with CHR diagnostics
-- Artifact generation for product, engineering, and QA workflows
-- Better downstream AI code generation due to explicit constraints
-
-## Core Capabilities
-
-- Language constructs for:
-  - `entity`, `shape`, `enum`, `list`, `map`
-  - `actor`, `policy`, `journey`
-  - `relationship`, `invariant`, `deny`, `error`, `statemachine`
-- Compiler pipeline:
-  - parse/lower
-  - symbol collection
-  - type and cross-link resolution
-  - validation
-  - finalization
-- Generators:
-  - `prd` / `markdown`
-  - `jira`
-  - `typescript`
-  - `mermaid-state`
-  - `test-scaffold`
-  - `statemachine-tests`
-
-## Quick Start
-
-### 1) Install
-
-Use one of:
-
-- package manager or release binaries: [docs/install.md](docs/install.md)
-- run from source (JDK 21):
-
-```bash
-./gradlew :chronos-cli:run --args="--help"
-```
-
-### 2) Write a minimal model
-
-Create `checkout.chronos`:
+Write `.chronos` files. Get back Markdown PRDs, Jira-ready backlogs, TypeScript type definitions, state diagrams, and test scaffolding — all generated from a single source of truth your whole team can version-control and validate.
 
 ```chronos
 namespace shop.checkout
@@ -112,37 +42,236 @@ journey Checkout {
 }
 ```
 
-### 3) Validate and generate
-
-```bash
-# Validate a single file
-chronos validate checkout.chronos --verbose
-
-# Generate a combined PRD from a file or directory
-chronos prd checkout.chronos --out /tmp/chronos --name checkout-prd
-
-# Generate a specific artifact from one file
-chronos generate checkout.chronos --target typescript --output /tmp/chronos
+```sh
+chronos prd checkout.chronos           # → Markdown PRD
+chronos generate checkout.chronos --target jira       # → Jira-importable CSV
+chronos generate checkout.chronos --target typescript # → TypeScript .d.ts
 ```
 
-## CLI At a Glance
+---
+
+## Install
+
+Chronos is a self-contained native binary — no JRE or runtime required.
+
+### macOS / Linux
+
+```sh
+brew tap Genairus/tap
+brew install chronos
+```
+
+### Windows
+
+```powershell
+scoop bucket add chronos https://github.com/Genairus/scoop-chronos
+scoop install chronos
+```
+
+### Verify
+
+```sh
+chronos --version
+# chronos 0.1.0
+```
+
+For direct downloads, ARM64, and other options see the [full install guide](docs/install.md).
+
+---
+
+## Quick Start
+
+### 1. Write a model
+
+Create a file called `checkout.chronos` with the example above (or copy one from `examples/getting-started/`).
+
+### 2. Validate
+
+```sh
+chronos validate checkout.chronos --verbose
+```
+
+The compiler checks 50+ rules — missing fields, unresolved references, invalid state machines, broken invariants — and tells you exactly what to fix.
+
+### 3. Generate artifacts
+
+```sh
+# Markdown PRD
+chronos prd checkout.chronos --out ./generated --name checkout
+
+# Jira backlog CSV
+chronos generate checkout.chronos --target jira --output ./generated
+
+# TypeScript types
+chronos generate checkout.chronos --target typescript --output ./generated
+```
+
+### 4. Scale to multiple files
+
+Split your model across files by concern. Chronos resolves cross-file references automatically:
+
+```
+my-project/
+├── domain.chronos          # entities, shapes, enums, relationships
+├── actors-policies.chronos # actors, policies
+├── errors.chronos          # error types
+├── events.chronos          # telemetry event types
+├── statemachines.chronos   # lifecycle definitions
+└── journeys.chronos        # journeys with variants
+```
+
+```sh
+chronos prd my-project/ --out ./generated --name my-feature
+```
+
+---
+
+## New User Journey (Brew -> AI Agent -> PRD -> Jira)
+
+Follow this path exactly if this is your first time with Chronos.
+
+### 1. Install Chronos with Homebrew
+
+```sh
+brew tap Genairus/tap
+brew install chronos
+chronos --version
+```
+
+### 2. Set up your coding agent (Claude, ChatGPT, Cursor, Copilot)
+
+Use the dedicated setup guide:
+
+-> **[AI Agent Setup (Claude + Chronos)](docs/ai-agent-setup.md)**
+
+That page gives you:
+- a copy-paste `CLAUDE.md` starter
+- step-by-step instructions to teach your agent Chronos
+- prompt templates that produce higher-quality requirements
+
+### 3. Generate Chronos requirements with your agent
+
+Ask the agent for a first model (single file for easiest first run), then save it as:
+
+`requirements/checkout/checkout.chronos`
+
+Validate it:
+
+```sh
+chronos validate requirements/checkout/checkout.chronos --verbose
+```
+
+If you see errors, paste diagnostics back to your agent and ask for minimal fixes.
+
+### 4. Generate a PRD
+
+```sh
+chronos prd requirements/checkout/checkout.chronos --out ./generated --name checkout-prd
+```
+
+Output:
+- `generated/checkout-prd.md`
+
+### 5. Generate Jira epics and stories
+
+```sh
+chronos generate requirements/checkout/checkout.chronos --target jira --output ./generated
+```
+
+Output:
+- `generated/<namespace>-backlog.csv` (for example: `generated/com-example-checkout-backlog.csv`)
+
+In Jira, import this CSV from your project board using the CSV import flow, then map fields:
+- `Summary`
+- `Issue Type` (Epic/Story)
+- `Description`
+- `Priority`
+- `Labels`
+- `Epic Name`
+- `Epic Link`
+- `Story Points`
+
+---
+
+## What Can Chronos Generate?
+
+| Command | Output | Use Case |
+|---------|--------|----------|
+| `chronos prd` | Markdown PRD | Share with stakeholders, review in GitHub |
+| `--target jira` | CSV backlog | Import directly into Jira (Epics + Stories) |
+| `--target typescript` | `.d.ts` types | Drop into your frontend/backend codebase |
+| `--target mermaid-state` | Mermaid diagrams | Visualize state machines in docs or PRs |
+| `--target test-scaffold` | JUnit tests | Scaffold invariant test cases |
+| `--target statemachine-tests` | JUnit tests | Scaffold state transition test cases |
+
+---
+
+## Use with AI Coding Assistants
+
+Chronos is designed to work with AI coding bots. Feed the bot a feature brief, and it generates `.chronos` files. The compiler catches mistakes instantly.
+
+**Claude Code, ChatGPT, Copilot, Cursor — any LLM works.** See the how-to guide for:
+
+- A copy-pasteable language spec you can drop into any LLM's system prompt
+- A ready-to-use `CLAUDE.md` template that makes Claude Code an instant Chronos expert
+- Prompt templates, compile-fix loops, and team conventions
+
+👉 **[AI Agent Setup (Claude + Chronos)](docs/ai-agent-setup.md)**
+
+👉 **[How-To: Write Requirements with Your AI Coding Bot](docs/ai-bot-requirements-howto.md)**
+
+---
+
+## The Language at a Glance
+
+Chronos has **15 shape types** for modeling your domain:
+
+| Shape | Purpose | Example |
+|-------|---------|---------|
+| `entity` | Domain object with identity | `entity Order { id: String }` |
+| `shape` | Value object (no identity) | `shape Money { amount: Float }` |
+| `enum` | Named constants | `enum Status { PENDING  PAID }` |
+| `list` | Typed collection | `list Items { member: CartItem }` |
+| `map` | Key-value collection | `map Tags { key: String  value: String }` |
+| `actor` | Journey participant | `actor Customer` |
+| `policy` | Governance rule | `policy GDPR { description: "..." }` |
+| `journey` | End-to-end user flow | Steps, variants, outcomes |
+| `relationship` | Association between entities | `from: A  to: B  cardinality: one_to_many` |
+| `invariant` | Business rule with expression | `expression: "total > 0"` |
+| `deny` | Prohibition / compliance constraint | `deny NoPIIInLogs { ... }` |
+| `error` | Typed failure case | `error PayDeclined { code: "PAY-001" }` |
+| `statemachine` | Entity field lifecycle | States, transitions, guards |
+| `role` | Authorization role | `allow: [read]  deny: [delete]` |
+| `event` | Telemetry / domain event | `event CartViewed {}` |
+
+Plus: **traits** (`@required`, `@kpi(...)`, `@compliance("GDPR")`), **doc comments** (`///`), **namespaces** and **imports** (`use ns#Shape`), and an **invariant expression language** with aggregates and lambdas.
+
+👉 **[Full Language Reference](docs/quick-reference.md)**
+
+---
+
+## CLI Reference
 
 | Command | Purpose |
-|---|---|
-| `chronos validate <file>` | Parse + validate one model file |
-| `chronos prd <file-or-dir>` | Compile and generate Markdown PRD |
-| `chronos generate <file> --target <name>` | Generate one target artifact from one file |
+|---------|---------|
+| `chronos validate <file>` | Parse and validate a model file |
+| `chronos prd <file-or-dir>` | Compile and generate a Markdown PRD |
+| `chronos generate <file> --target <name>` | Generate a specific artifact |
 | `chronos build` | Build from `chronos-build.json` config |
+| `chronos select <file> --filter <pattern>` | Query shapes from a compiled model |
+| `chronos diff <file1> <file2>` | Diff two compiled models |
 
-Full details: [docs/cli.md](docs/cli.md)
+👉 **[Full CLI Reference](docs/cli.md)**
 
-## Build Configuration Example
+---
 
-`chronos build` uses `chronos-build.json` in the current directory by default.
+## Build Configuration
+
+For repeatable builds, create a `chronos-build.json`:
 
 ```json
 {
-  "sources": ["examples/ecommerce/**/*.chronos"],
+  "sources": ["requirements/**/*.chronos"],
   "targets": [
     {
       "name": "prd-docs",
@@ -153,73 +282,73 @@ Full details: [docs/cli.md](docs/cli.md)
       "name": "types",
       "generator": "typescript",
       "output": "generated/types"
+    },
+    {
+      "name": "backlog",
+      "generator": "jira",
+      "output": "generated/jira"
     }
   ]
 }
 ```
 
-Then run:
-
-```bash
+```sh
 chronos build
 ```
 
-## Repository Layout
+---
 
-| Path | Purpose |
-|---|---|
-| `chronos-core/` | Shared diagnostics and reference types |
-| `chronos-ir/` | Canonical IR model |
-| `chronos-parser/` | ANTLR grammar and syntax lowering |
-| `chronos-validator/` | Semantic rule enforcement |
-| `chronos-compiler/` | Multi-pass compilation pipeline |
-| `chronos-generators/` | Artifact generators |
-| `chronos-artifacts/` | IR artifact emission |
-| `chronos-cli/` | CLI entry points |
-| `examples/` | Runnable language examples |
-| `docs/` | User/developer documentation |
-| `Documentation/` | Strategy, roadmap, and planning documents |
+## Examples
 
-## Development Workflow
+The `examples/` directory has runnable models you can compile immediately:
 
-Requirements:
+| Example | What It Shows |
+|---------|---------------|
+| [`getting-started/`](examples/README.md#1-getting-started-getting-started) | Two-file intro — entities, actors, journeys, imports |
+| [`ecommerce/`](examples/README.md#2-e-commerce-ecommerce) | Production-scale multi-namespace checkout system |
+| [`backlog-demo/`](examples/README.md) | Hiring domain with Jira backlog generation |
+| [Single-file showcases](examples/README.md#3-single-feature-showcases-top-level-files) | One file per language feature (deny, error, invariant, statemachine) |
 
-- JDK 21
-- Gradle wrapper (`./gradlew`)
-
-Run tests:
-
-```bash
-./gradlew test
+```sh
+# Try the getting-started example right now
+chronos prd examples/getting-started/ --out /tmp/chronos-demo
 ```
 
-Run full verification (recommended before pushing):
+👉 **[All Examples](examples/README.md)**
 
-```bash
-./gradlew check
-```
+---
 
-`check` also runs architectural boundary audits:
+## Why Chronos?
 
-- `verifyArchBoundaries`
-- `verifyNoLegacyImports`
+| Without Chronos | With Chronos |
+|-----------------|--------------|
+| Requirements live in Confluence (stale within a week) | `.chronos` files are the versioned source of truth |
+| Jira tickets created manually from meetings | `chronos generate --target jira` creates the backlog |
+| Developers write their own TypeScript types | `--target typescript` emits `.d.ts` matching the spec |
+| AI bots get inconsistent, unstructured context | Feed the compiled model directly to your coding assistant |
+| PRDs drift from the implementation | PRD is regenerated on every CI run |
 
-These help prevent module dependency drift and forbidden imports.
+---
 
-## Documentation Map
+## Learn More
 
-- Start here: [docs/index.md](docs/index.md)
-- Install guide: [docs/install.md](docs/install.md)
-- Language syntax: [docs/quick-reference.md](docs/quick-reference.md)
-- Generator details: [docs/generators.md](docs/generators.md)
-- Examples walkthroughs: [docs/examples/getting-started.md](docs/examples/getting-started.md)
+- [Documentation Index](docs/index.md) — full docs hub
+- [Language Quick Reference](docs/quick-reference.md) — every shape type and trait
+- [AI Bot How-To](docs/ai-bot-requirements-howto.md) — teach your AI assistant to write Chronos
+- [Generators](docs/generators.md) — all output targets and what they produce
+- [Examples](examples/README.md) — runnable models to learn from
+- [AI-Assisted Requirements Vision](Documentation/Chronos-AI-Assisted-Requirements-Vision.md) — the operating model
+- [Executive One-Pager](Documentation/Chronos-AI-Requirements-Executive-OnePager.md) — leadership summary
 
-## Project Status
+---
 
-Chronos is actively evolving. Planned language extensions and rollout recommendations live in:
+## Contributing
 
-- [Documentation/Chronos-Evolution-Plan.md](Documentation/Chronos-Evolution-Plan.md)
-- [Documentation/Chronos-Feature-Priority-Order.md](Documentation/Chronos-Feature-Priority-Order.md)
+Want to extend the language, add a generator, or fix a bug?
+
+👉 **[Contributing Guide](docs/contributing.md)** — source build instructions, module layout, ANTLR grammar, test suite, and how to add new shape types and generators.
+
+---
 
 ## License
 

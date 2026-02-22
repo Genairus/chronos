@@ -1,0 +1,59 @@
+:root {
+  --md-primary-fg-color: #0f172a; /* Slate 900 */
+  --md-accent-fg-color: #4f46e5;  /* Indigo 600 */
+  --md-code-bg-color: #1e293b;    /* Slate 800 */
+}
+
+/* Glassmorphism Navigation */
+.md-header {
+  background-color: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.md-main__inner {
+    margin-top: 2rem;
+}
+
+/* Modern Typography */
+body {
+    font-family: 'Inter', sans-serif;
+    letter-spacing: -0.011em;
+}
+
+/* Hero Section Style */
+.hero-card {
+    background: linear-gradient(135deg, #4f46e5 0%, #0f172a 100%);
+    color: white;
+    padding: 3rem;
+    border-radius: 12px;
+    margin-bottom: 3rem;
+    text-align: center;
+    box-shadow: 0 10px 30px -10px rgba(79, 70, 229, 0.5);
+}
+
+.hero-card h1 {
+    color: white !important;
+    font-size: 3rem !important;
+    font-weight: 800;
+    margin-bottom: 1rem;
+}
+
+.hero-card p {
+    font-size: 1.25rem;
+    opacity: 0.9;
+}
+
+/* Code Block Enhancements */
+.md-typeset pre code {
+    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+/* Admonition Styling */
+.md-typeset .admonition {
+    border-left-width: 0.4rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px -2px rgba(0,0,0,0.05);
+}

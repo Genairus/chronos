@@ -8,15 +8,19 @@ copyright: Copyright &copy; 2024 Genairus
 
 theme:
   name: material
+  custom_dir: docs/overrides
   features:
     - navigation.tabs
     - navigation.sections
     - navigation.top
     - navigation.indexes
+    - navigation.tracking
+    - navigation.expand
     - content.code.copy
     - content.code.annotate
     - search.suggest
     - search.highlight
+    - search.share
     - toc.follow
   palette:
     - media: "(prefers-color-scheme)"
@@ -25,39 +29,71 @@ theme:
         name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
+      primary: slate
       accent: indigo
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
+      primary: black
       accent: indigo
       toggle:
         icon: material/brightness-4
         name: Switch to system preference
   icon:
     repo: fontawesome/brands/github
+  font:
+    text: Inter
+    code: JetBrains Mono
 
-# Exclude internal development notes that contain relative links to source files
-# (these are not part of the public documentation site)
+extra_css:
+  - stylesheets/extra.css
+
+# Exclude internal development notes
 exclude_docs: |
   status/
   ir/
 
 nav:
   - Home: index.md
-  - Getting Started:
+  - Platform Vision: vision.md
+  - The "Chronos 13":
+    - Overview: shapes/index.md
+    - Core Data (Entity, Shape, Enum): shapes/data.md
+    - Flows (Journey, Statemachine): shapes/flows.md
+    - Governance (Policy, Invariant, Deny, Error): shapes/governance.md
+    - Relationships & Actors: shapes/actors.md
+  - Industry Blueprints:
+    - Fintech (Payments): examples/fintech.md
+    - Healthcare (AI Triage): examples/healthcare.md
+  - AI Workflows:
+    - AI Agent Setup: ai-agent-setup.md
+    - Prompting with Chronos: ai-bot-requirements-howto.md
+  - Tooling:
     - Installation: install.md
-    - Quick Start: examples/getting-started.md
-  - Language Reference: quick-reference.md
-  - Generators: generators.md
-  - CLI Reference: cli.md
-  - Examples:
-    - E-Commerce Model: examples/ecommerce.md
-  - Architecture:
-    - ADR-0001 IR & Resolver: architecture/ADR-0001-chronos-ir-and-resolver.md
+    - CLI Reference: cli.md
+    - Generators: generators.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - admonition
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
 
 markdown_extensions:
   - pymdownx.highlight:

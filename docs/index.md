@@ -1,92 +1,92 @@
-# Chronos
+<div class="hero-card">
+  <h1>Requirements as Code</h1>
+  <p>The "Requirements OS" for AI-Assisted Product Teams.</p>
+</div>
 
-**Chronos** is a requirements modeling language designed to describe the behavior of software systems in a structured, machine-readable form — so that AI coding assistants, document generators, and static analyzers can all work from the same source of truth.
+**Chronos** is the bridge between Product intent and Engineering reality. 
 
-Write once. Generate backlogs, PRDs, TypeScript types, test scaffolding, and more.
+Stop writing prose that goes stale in Confluence. Model your requirements in a structured, machine-readable language that your AI coding assistants, static analyzers, and documentation generators can finally understand.
 
 ---
 
-## In 30 seconds
+### **For Technical Product Managers**
+
+In an AI-first development world, **structured requirements are your most valuable asset.** Chronos allows you to:
+
+- 🧠 **Define Intent:** Use 13 built-in "shapes" (Entities, Journeys, Policies) to model how your software should behave.
+- 🛡️ **Enforce Governance:** Encode HIPAA, GDPR, or AML rules directly into your requirements.
+- 🤖 **Empower AI Agents:** Give tools like Claude, Cursor, and GitHub Copilot an unambiguous "Source of Truth" to code from.
+- ⚡ **Auto-Generate Everything:** One command emits your PRDs, Jira backlogs, TypeScript types, and Mermaid diagrams.
+
+---
+
+### **The "30-Second" Healthcare Example**
+
+Model a complex, AI-assisted health triage flow with built-in compliance checks.
 
 ```chronos
-namespace shop.checkout
+namespace health.triage
 
-actor Customer
+actor Patient
+actor Doctor
 
-entity Order {
-    @required
-    id: String
-    status: OrderStatus
+/// HIPAA-compliant policy for sensitive data
+@compliance("HIPAA")
+deny LeakPHI {
+    description: "The system must never log or store PHI in plain text"
+    scope: [PatientData]
+    severity: critical
 }
 
-enum OrderStatus {
-    PENDING = 1
-    CONFIRMED = 2
-    PAID = 3
-}
-
-/// The end-to-end checkout flow.
-@kpi(metric: "checkout_completion_rate", target: "95%")
-journey Checkout {
-    actor: Customer
+/// AI-Assisted Triage Journey
+journey PatientTriage {
+    actor: Patient
     steps: [
-        step ReviewCart {
-            action: "Customer reviews cart and totals"
-            expectation: "All items and prices are correct"
+        step ReportSymptoms {
+            action: "Patient describes symptoms to the AI"
+            expectation: "AI analyzes text and extracts clinical indicators"
+            telemetry: [SymptomCaptured]
         },
-        step Pay {
-            action: "Customer submits payment"
-            expectation: "Payment is accepted and order is confirmed"
-            outcome: TransitionTo(PAID)
+        step AIAnalysis {
+            @confidence(target: "90%")
+            action: "AI suggests urgency level"
+            expectation: "System routes high-urgency cases to a human Doctor"
+            outcome: TransitionTo(URGENT_REVIEW)
         }
     ]
-    outcomes: {
-        success: "Order confirmed and email sent",
-        failure: "Cart intact, no charge made"
-    }
 }
 ```
 
-Then run:
+---
 
-```sh
-chronos prd checkout.chronos
-# → shop.checkout-prd.md
+### **How it Works**
 
-chronos generate --target jira checkout.chronos
-# → shop.checkout-backlog.csv
+1.  **Model:** Write `.chronos` files (or have an AI assistant draft them for you).
+2.  **Validate:** The Chronos compiler catches broken links and policy violations in real-time.
+3.  **Generate:** Turn your model into everything the team needs to build.
 
-chronos generate --target typescript checkout.chronos
-# → shop.checkout.d.ts
+```bash
+chronos prd triage.chronos        # → Generates a perfect Markdown PRD
+chronos generate --target jira    # → Generates your Jira Backlog (Epics & Stories)
+chronos generate --target ts      # → Generates TypeScript types for developers
 ```
 
 ---
 
-## Why Chronos?
+### **The Chronos Advantage**
 
-| Without Chronos | With Chronos |
+| Traditional PRDs | Chronos Models |
 |-----------------|--------------|
-| Requirements live in Confluence (stale) | Single `.chronos` file is the source of truth |
-| Jira tickets created manually | `chronos generate --target jira` generates the backlog |
-| Developers write their own TypeScript types | `--target typescript` emits `.d.ts` files |
-| AI bots get inconsistent context | Feed the IR directly to your coding assistant |
-| PRDs drift from the implementation | PRD is regenerated on every CI run |
+| Live in Confluence/Docs (stale) | Live in Git (Source of Truth) |
+| Manual Jira entry (slow/error-prone) | Automated Jira generation |
+| Ambiguous for AI assistants | Machine-readable and deterministic |
+| Compliance is "checked" later | Compliance is "compiled" into the model |
 
 ---
 
-## Key Concepts
+### **Get Started**
 
-- **13 shape types** — `entity`, `shape`, `enum`, `list`, `map`, `actor`, `policy`, `journey`, `relationship`, `invariant`, `deny`, `error`, `statemachine`
-- **Multi-file namespaces** — split large models across files; Chronos resolves cross-file references automatically
-- **Traits** — attach metadata (`@kpi`, `@compliance`, `@description`, `@required`) to any shape
-- **Generators** — pluggable output targets: Markdown PRD, Jira CSV, TypeScript, Mermaid diagrams, JUnit scaffolding
-- **Validators** — 20+ rules catch unresolved references, missing required fields, and constraint violations at compile time
-
----
-
-## Next steps
-
-- [**Install**](install.md) — get the `chronos` binary on your machine
-- [**Quick Start**](examples/getting-started.md) — walk through the getting-started example
-- [**Language Reference**](quick-reference.md) — every shape type and trait in one page
-- [**Generators**](generators.md) — all output targets and what they produce
+- [**Install Chronos**](install.md) — Get the CLI tool.
+- [**The Vision**](vision.md) — Learn why "Requirements as Code" is the future.
+- [**Industry Blueprints**](examples/fintech.md) — See Fintech & Healthcare in action.
+- [**The Language Reference**](shapes/index.md) — Deep dive into the "Chronos 13".

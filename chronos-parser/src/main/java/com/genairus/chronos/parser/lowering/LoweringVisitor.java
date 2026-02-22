@@ -518,6 +518,19 @@ public class LoweringVisitor extends ChronosBaseVisitor<Object> {
                 traits, span(ctx));
     }
 
+    // ── eventDef ──────────────────────────────────────────────────────────────
+
+    @Override
+    public Object visitEventDef(ChronosParser.EventDefContext ctx) {
+        List<String>      docComments = consumePendingDocComments();
+        List<SyntaxTrait> traits      = consumePendingTraits();
+        String name = ctx.ID().getText();
+        List<SyntaxFieldDef> fields = ctx.fieldDef().stream()
+                .map(f -> (SyntaxFieldDef) visit(f))
+                .toList();
+        return new SyntaxEventDecl(name, docComments, fields, traits, span(ctx));
+    }
+
     @Override
     public Object visitTransition(ChronosParser.TransitionContext ctx) {
         String guardOrNull  = null;

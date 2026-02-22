@@ -3,6 +3,10 @@ namespace catalog.journeys
 use catalog.domain#Product
 use catalog.domain#Supplier
 
+event ProductFormOpened {}
+event SupplierSelected {}
+event ProductPublished {}
+
 /// The catalog manager who adds, edits, and publishes products.
 @description("Internal team member managing the product catalog")
 actor CatalogManager

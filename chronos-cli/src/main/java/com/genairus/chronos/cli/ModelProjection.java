@@ -87,6 +87,7 @@ public final class ModelProjection {
             case ErrorDef         er -> "error";
             case StateMachineDef  sm -> "statemachine";
             case RoleDef          ro -> "role";
+            case EventDef         ev -> "event";
         };
     }
 }

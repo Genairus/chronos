@@ -26,6 +26,7 @@ This PRD covers 1 journey, 2 entities, 1 value object, 3 enumerations, 1 actor, 
 - [Actors](#actors)
 - [Policies](#policies)
 - [Error Catalog](#error-catalog)
+- [Event Catalog](#event-catalog)
 - [Telemetry Catalog](#telemetry-catalog)
 
 ---
@@ -197,6 +198,26 @@ stateDiagram-v2
 **Code:** PAYMENT_DECLINED | **Severity:** high | **Recoverable:** Yes
 **Message:** Payment gateway returned a declined response
 **Payload:** declineReason: String, retryAllowed: Boolean
+
+---
+
+## Event Catalog
+
+### CartReviewed
+
+_No payload fields._
+
+### OrderSubmitted
+
+_No payload fields._
+
+### PageViewed
+
+_No payload fields._
+
+### PaymentFormOpened
+
+_No payload fields._
 
 ---
 

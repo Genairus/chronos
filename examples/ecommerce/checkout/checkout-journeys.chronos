@@ -8,6 +8,16 @@ use ecommerce.payments#PaymentDeclinedError
 use ecommerce.payments#PaymentGatewayTimeoutError
 use ecommerce.payments#CardExpiredError
 
+event CartViewed {}
+event ShippingAddressEntered {}
+event PaymentMethodChosen {}
+event PaymentAuthorizationAttempted {}
+event PaymentDeclinedShown {}
+event CardExpiredHandled {}
+event PaymentRetryOffered {}
+event ShippingConfirmed {}
+event PaymentMethodConfirmed {}
+
 /// Guest checkout flow that allows unauthenticated shoppers to purchase without an account.
 /// The actor supplies a shipping address and payment details inline during the flow.
 /// This path is optimised for first-time and low-friction conversions; every additional

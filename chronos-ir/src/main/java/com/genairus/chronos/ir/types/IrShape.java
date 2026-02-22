@@ -24,6 +24,7 @@ import com.genairus.chronos.core.refs.Span;
  *       case ErrorDef         e -> ...
  *       case StateMachineDef  s -> ...
  *       case RoleDef          r -> ...
+ *       case EventDef         e -> ...
  *   }
  * </pre>
  */
@@ -33,6 +34,7 @@ public sealed interface IrShape
                 EntityDef,
                 EnumDef,
                 ErrorDef,
+                EventDef,
                 InvariantDef,
                 JourneyDef,
                 ListDef,

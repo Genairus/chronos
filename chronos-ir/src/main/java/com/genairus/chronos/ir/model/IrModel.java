@@ -132,6 +132,14 @@ public record IrModel(
                 .toList();
     }
 
+    /** Returns all event definitions. */
+    public List<EventDef> events() {
+        return shapes.stream()
+                .filter(s -> s instanceof EventDef)
+                .map(s -> (EventDef) s)
+                .toList();
+    }
+
     /** Finds the first shape with the given name, regardless of type. */
     public java.util.Optional<IrShape> findShape(String name) {
         return shapes.stream()

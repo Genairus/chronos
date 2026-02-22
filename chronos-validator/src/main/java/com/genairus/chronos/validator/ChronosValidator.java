@@ -11,7 +11,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Validates an {@link IrModel} against semantic rules CHR-001 through CHR-040 and CHR-W001.
+ * Validates an {@link IrModel} against semantic rules CHR-001 through CHR-041 and CHR-W001.
  *
  * <p>Grammar-enforced syntax rules (e.g. "namespace must be present") are not
  * re-checked here; the validator covers semantic constraints that the parser
@@ -109,6 +109,7 @@ public class ChronosValidator {
         checkChr038(model, issues);
         checkChr039(model, issues);
         checkChr040(model, issues);
+        checkChr041(model, issues);
         checkChrW001(model, issues);
 
         return new ValidationResult(Collections.unmodifiableList(issues));
@@ -1233,6 +1234,37 @@ public class ChronosValidator {
         for (Step step : steps) {
             for (TraitApplication t : authorizeTraits(step.traits())) {
                 checkAuthDenyChr040(t, "Step '" + step.name() + "' in " + context, step.span(), rolesByName, issues);
+            }
+        }
+    }
+
+    // ── CHR-041 ────────────────────────────────────────────────────────────────
+
+    /** Step telemetry event must reference a declared or imported event type. */
+    private void checkChr041(IrModel model, List<Diagnostic> issues) {
+        var knownEvents = new HashSet<String>();
+        model.events().forEach(e -> knownEvents.add(e.name()));
+        model.imports().forEach(imp -> knownEvents.add(imp.name()));
+
+        for (JourneyDef journey : model.journeys()) {
+            checkTelemetryChr041(journey.name(), journey.steps(), knownEvents, issues);
+            for (Variant v : journey.variants().values()) {
+                checkTelemetryChr041(journey.name() + "/" + v.name(),
+                        v.steps(), knownEvents, issues);
+            }
+        }
+    }
+
+    private void checkTelemetryChr041(String context, List<Step> steps,
+                                       Set<String> knownEvents, List<Diagnostic> issues) {
+        for (Step step : steps) {
+            for (String eventId : step.telemetryEvents()) {
+                if (!knownEvents.contains(eventId)) {
+                    issues.add(error("CHR-041",
+                            "Telemetry event '" + eventId + "' in step '" + step.name()
+                                    + "' (journey '" + context + "') is not a declared event",
+                            step.span()));
+                }
             }
         }
     }

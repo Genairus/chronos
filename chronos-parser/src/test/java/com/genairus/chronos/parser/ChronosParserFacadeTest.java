@@ -459,6 +459,42 @@ class ChronosParserFacadeTest {
         assertEquals("permission", trait.args().get(1).keyOrNull());
     }
 
+    // ── event declaration ─────────────────────────────────────────────────────
+
+    @Test
+    void eventDeclarationStructure() {
+        var model = parse("""
+                namespace com.example
+                event CartReviewed {
+                    cartId: String
+                    itemCount: Integer
+                    userId: String
+                }
+                """);
+        assertEquals(1, model.declarations().size());
+        var decl = assertInstanceOf(SyntaxEventDecl.class, model.declarations().get(0));
+        assertEquals("CartReviewed", decl.name());
+        assertEquals(3, decl.fields().size());
+        assertEquals("cartId",     decl.fields().get(0).name());
+        assertEquals("itemCount",  decl.fields().get(1).name());
+        assertEquals("userId",     decl.fields().get(2).name());
+        assertFalse(decl.span().isUnknown());
+        assertEquals("<test>", decl.span().sourceName());
+    }
+
+    @Test
+    void eventDeclarationNoFields() {
+        var model = parse("""
+                namespace com.example
+                event OrderSubmitted {}
+                """);
+        assertEquals(1, model.declarations().size());
+        var decl = assertInstanceOf(SyntaxEventDecl.class, model.declarations().get(0));
+        assertEquals("OrderSubmitted", decl.name());
+        assertTrue(decl.fields().isEmpty());
+        assertFalse(decl.span().isUnknown());
+    }
+
     // ── syntax error handling ─────────────────────────────────────────────────
 
     @Test

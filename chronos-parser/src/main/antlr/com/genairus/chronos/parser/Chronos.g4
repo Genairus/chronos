@@ -43,6 +43,7 @@ shapeDef
     | errorDef
     | statemachineDef
     | roleDef
+    | eventDef
     ;
 
 // ─── Trait System ─────────────────────────────────────────────────────────────
@@ -105,6 +106,7 @@ traitId
     | 'role'
     | 'allow'
     | 'permission'
+    | 'event'
     ;
 
 traitArgList
@@ -512,6 +514,20 @@ roleBody
 roleBodyField
     : 'allow' ':' '[' ID (',' ID)* ']'
     | 'deny'  ':' '[' ID (',' ID)* ']'
+    ;
+
+// ─── Event ────────────────────────────────────────────────────────────────────
+// 4.2  Typed telemetry event declaration — flat fieldDef list (same as shape).
+//
+//   event CartReviewed {
+//       cartId: String
+//       itemCount: Integer
+//   }
+//
+//   event OrderSubmitted {}   // zero-field signal event
+
+eventDef
+    : 'event' ID '{' fieldDef* '}'
     ;
 
 // ─── Shared ───────────────────────────────────────────────────────────────────

@@ -72,6 +72,7 @@ public final class BuildIrSkeletonPhase implements ResolverPhase<SyntaxModel, Ir
                 case SyntaxErrorDecl        d -> convertError(d);
                 case SyntaxStateMachineDecl d -> convertStateMachine(d);
                 case SyntaxRoleDecl         d -> convertRole(d);
+                case SyntaxEventDecl        d -> convertEvent(d);
             };
         }
 
@@ -213,6 +214,15 @@ public final class BuildIrSkeletonPhase implements ResolverPhase<SyntaxModel, Ir
                     d.docComments(),
                     d.allowedPermissions(),
                     d.deniedPermissions(),
+                    d.span());
+        }
+
+        private EventDef convertEvent(SyntaxEventDecl d) {
+            return new EventDef(
+                    d.name(),
+                    convertTraits(d.traits()),
+                    d.docComments(),
+                    d.fields().stream().map(this::convertField).toList(),
                     d.span());
         }
 

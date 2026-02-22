@@ -22,6 +22,7 @@ import com.genairus.chronos.ir.types.MapDef;
 import com.genairus.chronos.ir.types.OutcomeExpr;
 import com.genairus.chronos.ir.types.PolicyDef;
 import com.genairus.chronos.ir.types.RelationshipDef;
+import com.genairus.chronos.ir.types.EventDef;
 import com.genairus.chronos.ir.types.RoleDef;
 import com.genairus.chronos.ir.types.ShapeStructDef;
 import com.genairus.chronos.ir.types.StateMachineDef;
@@ -295,6 +296,7 @@ public final class IrModelSerializer {
             case ErrorDef        s -> writeError(w, s);
             case StateMachineDef s -> writeStateMachine(w, s);
             case RoleDef         s -> writeRole(w, s);
+            case EventDef        s -> writeEvent(w, s);
         }
     }
 
@@ -529,6 +531,18 @@ public final class IrModelSerializer {
         w.strField("name", r.name());
         writeSpanField(w, "span", r.span());
         writeListField(w, "traits", r.traits(), IrModelSerializer::writeTraitApplication);
+        w.endObj();
+    }
+
+    // EventDef: kind(first), docComments, fields, name, span, traits
+    private static void writeEvent(JWriter w, EventDef e) {
+        w.beginObj();
+        w.strField("kind", "event");
+        writeListField(w, "docComments", e.docComments(), JWriter::strVal);
+        writeListField(w, "fields", e.fields(), IrModelSerializer::writeField);
+        w.strField("name", e.name());
+        writeSpanField(w, "span", e.span());
+        writeListField(w, "traits", e.traits(), IrModelSerializer::writeTraitApplication);
         w.endObj();
     }
 

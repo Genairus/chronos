@@ -9,6 +9,7 @@ import com.genairus.chronos.ir.types.DenyDef;
 import com.genairus.chronos.ir.types.EntityDef;
 import com.genairus.chronos.ir.types.EnumDef;
 import com.genairus.chronos.ir.types.ErrorDef;
+import com.genairus.chronos.ir.types.EventDef;
 import com.genairus.chronos.ir.types.FieldDef;
 import com.genairus.chronos.ir.types.InvariantDef;
 import com.genairus.chronos.ir.types.IrShape;
@@ -129,6 +130,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         appendPoliciesSection(sb, model);
         appendProhibitionsSection(sb, model);
         appendErrorCatalogSection(sb, model);
+        appendEventCatalogSection(sb, model);
         appendTelemetryCatalogSection(sb, model.journeys(), j -> j.name());
 
         String filename = model.namespace().replace('.', '-') + "-prd.md";
@@ -274,6 +276,8 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             sb.append("- [Prohibitions](#prohibitions)\n");
         if (!model.errors().isEmpty())
             sb.append("- [Error Catalog](#error-catalog)\n");
+        if (!model.events().isEmpty())
+            sb.append("- [Event Catalog](#event-catalog)\n");
         if (hasTelemetry(model.journeys()))
             sb.append("- [Telemetry Catalog](#telemetry-catalog)\n");
     }
@@ -716,6 +720,22 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         });
     }
 
+    // ── Event Catalog ─────────────────────────────────────────────────────────
+
+    private static void appendEventCatalogSection(StringBuilder sb, IrModel model) {
+        if (model.events().isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Event Catalog\n");
+        model.events().stream().sorted(Comparator.comparing(EventDef::name)).forEach(event -> {
+            sb.append("\n### ").append(event.name()).append("\n\n");
+            renderDocComments(sb, event.docComments());
+            if (event.fields().isEmpty()) {
+                sb.append("_No payload fields._\n");
+            } else {
+                appendFieldTable(sb, event.fields());
+            }
+        });
+    }
+
     // ── Telemetry Catalog ─────────────────────────────────────────────────────
 
     private static <T extends JourneyDef> boolean hasTelemetry(List<T> journeys) {
@@ -802,6 +822,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         var policies      = nsSort(models, IrModel::policies);
         var denies        = nsSort(models, IrModel::denies);
         var errors        = nsSort(models, IrModel::errors);
+        var events        = nsSort(models, IrModel::events);
 
         // Symbol anchor maps for cross-references
         var symbolAnchors     = buildCombinedSymbolAnchors(models);
@@ -827,7 +848,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
 
         appendCombinedExecutiveSummary(sb, models, journeys, policies, denies);
         appendCombinedToc(sb, journeys, entities, structs, enums, lists, maps,
-                invariants, relationships, stateMachines, actors, roles, policies, denies, errors);
+                invariants, relationships, stateMachines, actors, roles, policies, denies, errors, events);
         appendCombinedJourneysSection(sb, journeys, symbolAnchors, enumMemberAnchors);
         appendCombinedDataModelSection(sb, entities, structs, enums, lists, maps, resolvers,
                 relationships, symbolAnchors);
@@ -839,6 +860,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         appendCombinedPoliciesSection(sb, policies);
         appendCombinedProhibitionsSection(sb, denies);
         appendCombinedErrorCatalogSection(sb, errors);
+        appendCombinedEventCatalogSection(sb, events);
         appendCombinedTelemetryCatalogSection(sb, journeys);
 
         String filename = (docName == null ? "chronos-prd" : docName) + ".md";
@@ -939,7 +961,8 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
             List<Map.Entry<String, RoleDef>> roles,
             List<Map.Entry<String, PolicyDef>> policies,
             List<Map.Entry<String, DenyDef>> denies,
-            List<Map.Entry<String, ErrorDef>> errors) {
+            List<Map.Entry<String, ErrorDef>> errors,
+            List<Map.Entry<String, EventDef>> events) {
 
         sb.append("\n## Table of Contents\n\n");
 
@@ -968,6 +991,7 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
         if (!policies.isEmpty())      sb.append("- [Policies](#policies)\n");
         if (!denies.isEmpty())        sb.append("- [Prohibitions](#prohibitions)\n");
         if (!errors.isEmpty())        sb.append("- [Error Catalog](#error-catalog)\n");
+        if (!events.isEmpty())        sb.append("- [Event Catalog](#event-catalog)\n");
 
         boolean hasTelemetry = journeys.stream().anyMatch(e -> hasTelemetry(List.of(e.getValue())));
         if (hasTelemetry) sb.append("- [Telemetry Catalog](#telemetry-catalog)\n");
@@ -1368,6 +1392,25 @@ public final class MarkdownPrdGenerator implements ChronosGenerator {
                         .reduce((a, b) -> a + ", " + b)
                         .orElse("");
                 sb.append("**Payload:** ").append(payload).append("\n");
+            }
+        }
+    }
+
+    // ── Combined Event Catalog ────────────────────────────────────────────────
+
+    private static void appendCombinedEventCatalogSection(
+            StringBuilder sb,
+            List<Map.Entry<String, EventDef>> events) {
+        if (events.isEmpty()) return;
+        sb.append(DIVIDER).append("\n## Event Catalog\n");
+        for (var e : events) {
+            EventDef event = e.getValue();
+            sb.append("\n#### ").append(e.getKey()).append(".").append(event.name()).append("\n\n");
+            renderDocComments(sb, event.docComments());
+            if (event.fields().isEmpty()) {
+                sb.append("_No payload fields._\n");
+            } else {
+                appendFieldTable(sb, event.fields());
             }
         }
     }

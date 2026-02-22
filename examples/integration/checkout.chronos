@@ -69,6 +69,11 @@ statemachine OrderLifecycle {
     ]
 }
 
+event CartReviewed {}
+event PageViewed {}
+event PaymentFormOpened {}
+event OrderSubmitted {}
+
 @description("A registered shopper who can add items to the cart and complete purchases")
 actor Customer
 

@@ -48,6 +48,7 @@ public final class CollectSymbolsPhase implements ResolverPhase<SyntaxModel, Syn
             case SyntaxErrorDecl        ignored -> SymbolKind.ERROR;
             case SyntaxStateMachineDecl ignored -> SymbolKind.STATEMACHINE;
             case SyntaxRoleDecl         ignored -> SymbolKind.ROLE;
+            case SyntaxEventDecl        ignored -> SymbolKind.EVENT;
         };
     }
 }

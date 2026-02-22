@@ -14,7 +14,7 @@ public sealed interface SyntaxDecl
         permits SyntaxEntityDecl, SyntaxShapeDecl, SyntaxListDecl, SyntaxMapDecl,
                 SyntaxEnumDecl, SyntaxActorDecl, SyntaxPolicyDecl, SyntaxJourneyDecl,
                 SyntaxRelationshipDecl, SyntaxInvariantDecl, SyntaxDenyDecl,
-                SyntaxErrorDecl, SyntaxStateMachineDecl, SyntaxRoleDecl {
+                SyntaxErrorDecl, SyntaxStateMachineDecl, SyntaxRoleDecl, SyntaxEventDecl {
 
     /** The declared name exactly as it appears in source. */
     String name();

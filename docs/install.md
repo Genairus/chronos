@@ -19,12 +19,12 @@ Chronos ships as a self-contained native binary — no JRE or runtime required.
 
 === "Direct download"
 
-    Download the appropriate archive from the [latest release](https://github.com/Genairus/chronos/releases/latest):
+    Download the archive from the [latest release](https://github.com/Genairus/chronos/releases/latest):
 
     | Mac | File |
     |-----|------|
-    | Apple Silicon (M1/M2/M3) | `chronos-macos-aarch64.tar.gz` |
-    | Intel | `chronos-macos-x86_64.tar.gz` |
+    | Apple Silicon (M1/M2/M3/M4) | `chronos-macos-aarch64.tar.gz` |
+    | Intel | Use the ARM binary — it runs transparently via Rosetta 2 |
 
     Then extract and install:
 

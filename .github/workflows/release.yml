@@ -18,10 +18,8 @@ jobs:
             platform: macos-aarch64
             binary: chronos
             archive_ext: tar.gz
-          - os: macos-13
-            platform: macos-x86_64
-            binary: chronos
-            archive_ext: tar.gz
+          # macos-13 (Intel x86_64) is retired by GitHub — no hosted Intel runner available.
+          # Intel Mac users can run the ARM binary via Rosetta 2, or build from source.
           - os: ubuntu-22.04
             platform: linux-x86_64
             binary: chronos
@@ -153,7 +151,6 @@ jobs:
         id: sha
         run: |
           echo "macos_arm=$(sha256sum artifacts/chronos-macos-aarch64.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-          echo "macos_x86=$(sha256sum artifacts/chronos-macos-x86_64.tar.gz  | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
           echo "linux_x86=$(sha256sum artifacts/chronos-linux-x86_64.tar.gz  | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
           echo "linux_arm=$(sha256sum artifacts/chronos-linux-aarch64.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
@@ -163,7 +160,6 @@ jobs:
             tap/Formula/chronos.rb \
             "${{ needs.release.outputs.version }}" \
             "${{ steps.sha.outputs.macos_arm }}" \
-            "${{ steps.sha.outputs.macos_x86 }}" \
             "${{ steps.sha.outputs.linux_x86 }}" \
             "${{ steps.sha.outputs.linux_arm }}"
 

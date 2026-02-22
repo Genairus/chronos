@@ -3,20 +3,16 @@
 Update the Homebrew formula (Formula/chronos.rb) with a new version and SHA256 hashes.
 
 Usage:
-    update-formula.py <formula_path> <version> <sha_macos_arm> <sha_macos_x86> <sha_linux_x86> <sha_linux_arm>
+    update-formula.py <formula_path> <version> <sha_macos_arm> <sha_linux_x86> <sha_linux_arm>
+
+Note: No separate Intel macOS binary is produced. Intel Mac users run the ARM binary
+via Rosetta 2, which is transparent on macOS 11+.
 
 Called by the GitHub Actions release workflow after building native binaries.
 """
 
 import sys
 import re
-
-PLACEHOLDERS = {
-    "PLACEHOLDER_MACOS_ARM": None,
-    "PLACEHOLDER_MACOS_X86": None,
-    "PLACEHOLDER_LINUX_X86": None,
-    "PLACEHOLDER_LINUX_ARM": None,
-}
 
 TEMPLATE = '''\
 class Chronos < Formula
@@ -26,13 +22,9 @@ class Chronos < Formula
   version "{version}"
 
   on_macos do
-    if Hardware::CPU.arm?
-      url "https://github.com/Genairus/chronos/releases/download/v{version}/chronos-macos-aarch64.tar.gz"
-      sha256 "{sha_macos_arm}"
-    else
-      url "https://github.com/Genairus/chronos/releases/download/v{version}/chronos-macos-x86_64.tar.gz"
-      sha256 "{sha_macos_x86}"
-    end
+    # Single ARM binary for all macOS — Intel Macs run it via Rosetta 2 (macOS 11+).
+    url "https://github.com/Genairus/chronos/releases/download/v{version}/chronos-macos-aarch64.tar.gz"
+    sha256 "{sha_macos_arm}"
   end
 
   on_linux do
@@ -57,22 +49,18 @@ end
 
 
 def main():
-    if len(sys.argv) != 7:
+    if len(sys.argv) != 6:
         print(
             "Usage: update-formula.py <formula_path> <version> "
-            "<sha_macos_arm> <sha_macos_x86> <sha_linux_x86> <sha_linux_arm>",
+            "<sha_macos_arm> <sha_linux_x86> <sha_linux_arm>",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    formula_path, version, sha_macos_arm, sha_macos_x86, sha_linux_x86, sha_linux_arm = (
-        sys.argv[1:]
-    )
+    formula_path, version, sha_macos_arm, sha_linux_x86, sha_linux_arm = sys.argv[1:]
 
-    # Validate inputs look like hex SHA256
     for label, val in [
         ("sha_macos_arm", sha_macos_arm),
-        ("sha_macos_x86", sha_macos_x86),
         ("sha_linux_x86", sha_linux_x86),
         ("sha_linux_arm", sha_linux_arm),
     ]:
@@ -83,7 +71,6 @@ def main():
     content = TEMPLATE.format(
         version=version,
         sha_macos_arm=sha_macos_arm,
-        sha_macos_x86=sha_macos_x86,
         sha_linux_x86=sha_linux_x86,
         sha_linux_arm=sha_linux_arm,
     )

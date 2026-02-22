@@ -65,6 +65,8 @@ import java.util.stream.Collectors;
  *   CHR-041 ERROR   Step telemetry event must be a declared or imported event type
  *   CHR-042 ERROR   Invariant expression failed to parse
  *   CHR-043 WARNING Type mismatch in invariant expression
+ *   CHR-044 ERROR   Statemachine state is not a member of the bound enum
+ *   CHR-045 WARNING Bound enum member not covered by any statemachine state (WARNING)
  *   CHR-W001 WARNING Invariant references optional field without null guard
  * </pre>
  */
@@ -109,6 +111,7 @@ public class ChronosValidator {
         checkChr031(model, issues);
         checkChr032(model, issues);
         checkChr033(model, issues);
+        checkChr044And045(model, issues);
         checkChr034(model, issues);
         checkChr035(model, issues);
         checkChr036(model, issues);
@@ -984,6 +987,64 @@ public class ChronosValidator {
                         "Field '" + sm.fieldName() + "' on entity '" + sm.entityName() +
                         "' must have an enum type, but has type '" + field.type() + "'",
                         sm.span()));
+            }
+        }
+    }
+
+    // ── CHR-044 / CHR-045 ──────────────────────────────────────────────────────
+
+    /**
+     * CHR-044 ERROR:   A state declared in the statemachine is not a member of the bound enum.
+     * CHR-045 WARNING: A bound enum member is not covered by any declared state in the statemachine.
+     *
+     * <p>Skips gracefully when the entity is imported, the field is absent, the field type is
+     * non-named, or the enum is not locally defined (e.g. imported from another compilation unit).
+     */
+    private void checkChr044And045(IrModel model, List<Diagnostic> issues) {
+        Map<String, EntityDef> entityMap = model.entities().stream()
+                .collect(Collectors.toMap(EntityDef::name, e -> e, (e1, e2) -> e1));
+        Map<String, EnumDef> enumMap = model.enums().stream()
+                .collect(Collectors.toMap(EnumDef::name, e -> e, (e1, e2) -> e1));
+
+        for (StateMachineDef sm : model.stateMachines()) {
+            EntityDef entity = entityMap.get(sm.entityName());
+            if (entity == null) continue;  // imported or missing — CHR-033 already handles
+
+            FieldDef field = entity.fields().stream()
+                    .filter(f -> f.name().equals(sm.fieldName()))
+                    .findFirst().orElse(null);
+            if (field == null) continue;  // CHR-033 already handles
+
+            if (!(field.type() instanceof TypeRef.NamedTypeRef namedType)) continue;
+
+            // If the enum is not locally defined (e.g. imported), we can't inspect its members
+            String typeName = namedType.qualifiedId();
+            EnumDef enumDef = enumMap.get(typeName);
+            if (enumDef == null) continue;
+
+            Set<String> enumMemberNames = enumDef.members().stream()
+                    .map(EnumMember::name)
+                    .collect(Collectors.toSet());
+
+            // CHR-044: each declared state must be a member of the enum
+            for (String state : sm.states()) {
+                if (!enumMemberNames.contains(state)) {
+                    issues.add(error("CHR-044",
+                            "State '" + state + "' declared in statemachine '" + sm.name()
+                            + "' is not a member of enum '" + typeName + "'",
+                            sm.span()));
+                }
+            }
+
+            // CHR-045: each enum member should be covered by a declared state
+            Set<String> declaredStates = new HashSet<>(sm.states());
+            for (EnumMember member : enumDef.members()) {
+                if (!declaredStates.contains(member.name())) {
+                    issues.add(warning("CHR-045",
+                            "Enum member '" + member.name() + "' of '" + typeName
+                            + "' is not covered by any state in statemachine '" + sm.name() + "'",
+                            sm.span()));
+                }
             }
         }
     }

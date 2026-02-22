@@ -101,11 +101,11 @@ class Chr031InitialStateValidationTest {
                 statemachine SingleState {
                     entity: Order
                     field: status
-                    states: [PENDING, COMPLETE]
+                    states: [PENDING, DELIVERED]
                     initial: PENDING
-                    terminal: [COMPLETE]
+                    terminal: [DELIVERED]
                     transitions: [
-                        PENDING -> COMPLETE
+                        PENDING -> DELIVERED
                     ]
                 }
                 """, "test").modelOrNull();

@@ -64,6 +64,8 @@ import static org.junit.jupiter.api.Assertions.*;
  *   CHR-041   ChronosValidator        Step telemetry event must be a declared or imported event type
  *   CHR-042   ChronosValidator        Invariant expression failed to parse
  *   CHR-043   ChronosValidator        Type mismatch in invariant expression (WARNING)
+ *   CHR-044   ChronosValidator        Statemachine state is not a member of the bound enum
+ *   CHR-045   ChronosValidator        Bound enum member not covered by any statemachine state (WARNING)
  *   CHR-W001  ChronosValidator        Invariant references optional field without null guard (WARNING)
  * </pre>
  */
@@ -85,6 +87,7 @@ class DiagnosticCodeRegistryTest {
             "CHR-037", "CHR-038", "CHR-039", "CHR-040",
             "CHR-041",
             "CHR-042", "CHR-043",
+            "CHR-044", "CHR-045",
             "CHR-W001"
     );
 

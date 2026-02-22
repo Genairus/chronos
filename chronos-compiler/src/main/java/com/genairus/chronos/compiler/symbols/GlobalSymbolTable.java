@@ -15,7 +15,7 @@ import java.util.*;
  *
  * <h2>Duplicate detection</h2>
  * When {@link #define} is called with a fully-qualified name that already exists
- * (defined in a different file), a {@code CHR-014} diagnostic is emitted. The first
+ * (defined in a different file), a {@code CHR-005} diagnostic is emitted. The first
  * definition wins; subsequent duplicates are recorded as errors but not stored.
  *
  * <h2>Lookup helpers</h2>
@@ -31,7 +31,7 @@ public final class GlobalSymbolTable {
     /** Primary index: fqName ("namespace#name") → Symbol. */
     private final Map<String, Symbol> byFqName = new LinkedHashMap<>();
 
-    /** Tracks which source path first defined each fqName; used in CHR-014 messages. */
+    /** Tracks which source path first defined each fqName; used in CHR-005 messages. */
     private final Map<String, String> fqNameToPath = new LinkedHashMap<>();
 
     /** Secondary index: simple name → all symbols with that simple name (across namespaces). */
@@ -44,14 +44,14 @@ public final class GlobalSymbolTable {
      *
      * <p>If a symbol with the same fully-qualified name ({@code namespace#name})
      * was already registered from a <em>different</em> source file, a
-     * {@code CHR-014} error is emitted and the first definition is kept.
+     * {@code CHR-005} error is emitted and the first definition is kept.
      *
      * <p>The simple-name index is always updated (including duplicates) to
      * support ambiguity detection in future resolution phases.
      *
      * @param sym        the symbol to register
      * @param sourcePath logical path of the source file (used in diagnostic messages)
-     * @param diag       collector that receives {@code CHR-014} errors on cross-file duplicates
+     * @param diag       collector that receives {@code CHR-005} errors on cross-file duplicates
      */
     public void define(Symbol sym, String sourcePath, DiagnosticCollector diag) {
         String fqName = sym.id().toString();   // "namespace#name"
@@ -59,7 +59,7 @@ public final class GlobalSymbolTable {
         if (existing != null) {
             String firstPath = fqNameToPath.get(fqName);
             diag.error(
-                    "CHR-014",
+                    "CHR-005",
                     "Duplicate definition: '" + fqName + "' defined in "
                             + firstPath + " and " + sourcePath,
                     sym.span());

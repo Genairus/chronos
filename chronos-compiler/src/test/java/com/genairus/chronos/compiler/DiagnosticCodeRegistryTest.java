@@ -25,7 +25,8 @@ import static org.junit.jupiter.api.Assertions.*;
  *   CHR-002   ChronosValidator        Journey must have a success outcome
  *   CHR-003   ChronosValidator        Every step must declare action and expectation
  *   CHR-004   ChronosValidator        Journey declares zero happy-path steps (WARNING)
- *   CHR-005   IndexCompilationUnit    Duplicate shape name within the same model
+ *   CHR-005   ChronosValidator /       Duplicate shape name (per-file: ChronosValidator;
+ *             GlobalSymbolTable        cross-file: GlobalSymbolTable)
  *   CHR-006   ChronosValidator        Entity/shape declares no fields (WARNING)
  *   CHR-007   ChronosValidator        Actor missing @description (WARNING)
  *   CHR-008   ChronosValidator        NamedTypeRef cannot be resolved
@@ -34,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *   CHR-011   ChronosValidator        Relationship targets must reference defined entities
  *   CHR-012   FinalizeIrPhase         Unresolved SymbolRef after all resolution phases
  *   CHR-013   TypeResolutionPhase     Type name cannot be resolved during type resolution
- *   CHR-014   IndexCompilationUnit    Inverse field name must exist on target entity
+ *   CHR-014   ChronosValidator        Inverse field name must exist on target entity
  *   CHR-015   ChronosValidator        Circular inheritance chain detected
  *   CHR-016   ImportResolver          Unknown import target
  *   CHR-017   ImportResolver          Ambiguous import: same simple name → different targets
@@ -68,6 +69,8 @@ import static org.junit.jupiter.api.Assertions.*;
  *   CHR-045   ChronosValidator        Bound enum member not covered by any statemachine state (WARNING)
  *   CHR-046   ChronosValidator        TransitionTo() target state is ambiguous (declared in multiple statemachines)
  *   CHR-047   ChronosValidator        TransitionTo() target state has no declared incoming transitions (WARNING)
+ *   CHR-048   ChronosValidator        Composition target cannot be referenced by multiple composing entities
+ *   CHR-049   ChronosValidator        Child entity redefines parent field with incompatible type
  *   CHR-W001  ChronosValidator        Invariant references optional field without null guard (WARNING)
  * </pre>
  */
@@ -91,6 +94,7 @@ class DiagnosticCodeRegistryTest {
             "CHR-042", "CHR-043",
             "CHR-044", "CHR-045",
             "CHR-046", "CHR-047",
+            "CHR-048", "CHR-049",
             "CHR-W001"
     );
 
@@ -133,6 +137,78 @@ class DiagnosticCodeRegistryTest {
                 "CHR-017 (ambiguous import) is a compiler-phase code; "
                         + "ChronosValidator must never emit it. Got: "
                         + validationResult.diagnostics());
+    }
+
+    /**
+     * CHR-012 is owned by {@link com.genairus.chronos.compiler.phase.FinalizeIrPhase}.
+     * {@link ChronosValidator} must never emit it — composition uniqueness is now CHR-048.
+     */
+    @Test
+    void chr012_neverEmittedByValidator() {
+        // Two composition relationships targeting the same entity — would have been CHR-012
+        // before the normalization; must now be CHR-048.
+        var src = """
+                namespace com.example
+                entity Order { id: String }
+                entity Invoice { id: String }
+                entity LineItem { id: String }
+                relationship OrderItems {
+                    from: Order
+                    to: LineItem
+                    cardinality: one_to_many
+                    semantics: composition
+                }
+                relationship InvoiceItems {
+                    from: Invoice
+                    to: LineItem
+                    cardinality: one_to_many
+                    semantics: composition
+                }
+                """;
+        var model = new ChronosCompiler().compile(src, "test").modelOrNull();
+        var result = new ChronosValidator().validate(model);
+
+        boolean hasChr012 = result.diagnostics().stream()
+                .anyMatch(d -> "CHR-012".equals(d.code()));
+        assertFalse(hasChr012,
+                "CHR-012 (unresolved SymbolRef) is a compiler-phase code; "
+                        + "ChronosValidator must never emit it. Got: " + result.diagnostics());
+
+        // The correct code is CHR-048
+        assertTrue(result.diagnostics().stream().anyMatch(d -> "CHR-048".equals(d.code())),
+                "Expected CHR-048 for multiple composition owners; got: " + result.diagnostics());
+    }
+
+    /**
+     * CHR-016 is owned by {@link com.genairus.chronos.compiler.imports.ImportResolver}.
+     * {@link ChronosValidator} must never emit it — field type incompatibility is now CHR-049.
+     */
+    @Test
+    void chr016_neverEmittedByValidator() {
+        // Child entity redefines parent field with incompatible type — would have been CHR-016
+        // before the normalization; must now be CHR-049.
+        var src = """
+                namespace com.example
+                entity User {
+                    id: String
+                    age: Integer
+                }
+                entity PremiumUser extends User {
+                    age: String
+                }
+                """;
+        var model = new ChronosCompiler().compile(src, "test").modelOrNull();
+        var result = new ChronosValidator().validate(model);
+
+        boolean hasChr016 = result.diagnostics().stream()
+                .anyMatch(d -> "CHR-016".equals(d.code()));
+        assertFalse(hasChr016,
+                "CHR-016 (unknown import target) is a compiler-phase code; "
+                        + "ChronosValidator must never emit it. Got: " + result.diagnostics());
+
+        // The correct code is CHR-049
+        assertTrue(result.diagnostics().stream().anyMatch(d -> "CHR-049".equals(d.code())),
+                "Expected CHR-049 for incompatible field type override; got: " + result.diagnostics());
     }
 
     /**

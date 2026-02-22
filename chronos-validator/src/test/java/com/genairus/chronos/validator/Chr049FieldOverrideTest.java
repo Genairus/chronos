@@ -5,18 +5,21 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class Chr016FieldOverrideTest {
+/**
+ * Tests for CHR-049: A child entity may not redefine a parent field with an incompatible type.
+ */
+class Chr049FieldOverrideTest {
 
     @Test
     void validOverride_sameType() {
         var model = new ChronosCompiler().compile("""
                 namespace com.example
-                
+
                 entity User {
                     id: String
                     email: String
                 }
-                
+
                 entity PremiumUser extends User {
                     email: String
                     tier: String
@@ -26,24 +29,24 @@ class Chr016FieldOverrideTest {
         var validator = new ChronosValidator();
         var result = validator.validate(model);
 
-        // Should not have any CHR-016 errors
-        var chr016Errors = result.errors().stream()
-                .filter(e -> e.code().equals("CHR-016"))
+        // Should not have any CHR-049 errors
+        var chr049Errors = result.errors().stream()
+                .filter(e -> e.code().equals("CHR-049"))
                 .toList();
-        
-        assertEquals(0, chr016Errors.size());
+
+        assertEquals(0, chr049Errors.size());
     }
 
     @Test
     void validInheritance_noOverride() {
         var model = new ChronosCompiler().compile("""
                 namespace com.example
-                
+
                 entity User {
                     id: String
                     email: String
                 }
-                
+
                 entity PremiumUser extends User {
                     tier: String
                 }
@@ -52,24 +55,24 @@ class Chr016FieldOverrideTest {
         var validator = new ChronosValidator();
         var result = validator.validate(model);
 
-        // Should not have any CHR-016 errors
-        var chr016Errors = result.errors().stream()
-                .filter(e -> e.code().equals("CHR-016"))
+        // Should not have any CHR-049 errors
+        var chr049Errors = result.errors().stream()
+                .filter(e -> e.code().equals("CHR-049"))
                 .toList();
-        
-        assertEquals(0, chr016Errors.size());
+
+        assertEquals(0, chr049Errors.size());
     }
 
     @Test
     void invalidOverride_differentPrimitiveType() {
         var model = new ChronosCompiler().compile("""
                 namespace com.example
-                
+
                 entity User {
                     id: String
                     age: Integer
                 }
-                
+
                 entity PremiumUser extends User {
                     age: String
                 }
@@ -79,34 +82,34 @@ class Chr016FieldOverrideTest {
         var result = validator.validate(model);
 
         assertTrue(result.hasErrors());
-        var chr016Errors = result.errors().stream()
-                .filter(e -> e.code().equals("CHR-016"))
+        var chr049Errors = result.errors().stream()
+                .filter(e -> e.code().equals("CHR-049"))
                 .toList();
-        
-        assertEquals(1, chr016Errors.size());
-        assertTrue(chr016Errors.get(0).message().contains("age"));
-        assertTrue(chr016Errors.get(0).message().contains("incompatible type"));
+
+        assertEquals(1, chr049Errors.size());
+        assertTrue(chr049Errors.get(0).message().contains("age"));
+        assertTrue(chr049Errors.get(0).message().contains("incompatible type"));
     }
 
     @Test
     void invalidOverride_differentNamedType() {
         var model = new ChronosCompiler().compile("""
                 namespace com.example
-                
+
                 shape Address {
                     street: String
                 }
-                
+
                 shape Location {
                     lat: Double
                     lon: Double
                 }
-                
+
                 entity User {
                     id: String
                     location: Address
                 }
-                
+
                 entity PremiumUser extends User {
                     location: Location
                 }
@@ -116,13 +119,13 @@ class Chr016FieldOverrideTest {
         var result = validator.validate(model);
 
         assertTrue(result.hasErrors());
-        var chr016Errors = result.errors().stream()
-                .filter(e -> e.code().equals("CHR-016"))
+        var chr049Errors = result.errors().stream()
+                .filter(e -> e.code().equals("CHR-049"))
                 .toList();
-        
-        assertEquals(1, chr016Errors.size());
-        assertTrue(chr016Errors.get(0).message().contains("location"));
-        assertTrue(chr016Errors.get(0).message().contains("incompatible type"));
+
+        assertEquals(1, chr049Errors.size());
+        assertTrue(chr049Errors.get(0).message().contains("location"));
+        assertTrue(chr049Errors.get(0).message().contains("incompatible type"));
     }
 
     @Test
@@ -143,12 +146,12 @@ class Chr016FieldOverrideTest {
         var result = validator.validate(model);
 
         assertTrue(result.hasErrors());
-        var chr016Errors = result.errors().stream()
-                .filter(e -> e.code().equals("CHR-016"))
+        var chr049Errors = result.errors().stream()
+                .filter(e -> e.code().equals("CHR-049"))
                 .toList();
 
-        assertEquals(1, chr016Errors.size());
-        assertTrue(chr016Errors.get(0).message().contains("id"));
+        assertEquals(1, chr049Errors.size());
+        assertTrue(chr049Errors.get(0).message().contains("id"));
     }
 
     @Test
@@ -170,12 +173,12 @@ class Chr016FieldOverrideTest {
         var result = validator.validate(model);
 
         assertTrue(result.hasErrors());
-        var chr016Errors = result.errors().stream()
-                .filter(e -> e.code().equals("CHR-016"))
+        var chr049Errors = result.errors().stream()
+                .filter(e -> e.code().equals("CHR-049"))
                 .toList();
 
-        assertEquals(1, chr016Errors.size());
-        assertTrue(chr016Errors.get(0).message().contains("tags"));
+        assertEquals(1, chr049Errors.size());
+        assertTrue(chr049Errors.get(0).message().contains("tags"));
     }
 
     @Test
@@ -197,12 +200,12 @@ class Chr016FieldOverrideTest {
         var validator = new ChronosValidator();
         var result = validator.validate(model);
 
-        // Should not have any CHR-016 errors
-        var chr016Errors = result.errors().stream()
-                .filter(e -> e.code().equals("CHR-016"))
+        // Should not have any CHR-049 errors
+        var chr049Errors = result.errors().stream()
+                .filter(e -> e.code().equals("CHR-049"))
                 .toList();
 
-        assertEquals(0, chr016Errors.size());
+        assertEquals(0, chr049Errors.size());
     }
 
     @Test
@@ -226,12 +229,12 @@ class Chr016FieldOverrideTest {
         var result = validator.validate(model);
 
         assertTrue(result.hasErrors());
-        var chr016Errors = result.errors().stream()
-                .filter(e -> e.code().equals("CHR-016"))
+        var chr049Errors = result.errors().stream()
+                .filter(e -> e.code().equals("CHR-049"))
                 .toList();
 
         // Should have 2 errors - one for age, one for email
-        assertEquals(2, chr016Errors.size());
+        assertEquals(2, chr049Errors.size());
     }
 
     @Test
@@ -247,13 +250,11 @@ class Chr016FieldOverrideTest {
         var validator = new ChronosValidator();
         var result = validator.validate(model);
 
-        // Should have CHR-008 error for undefined parent, but not CHR-016
-        var chr016Errors = result.errors().stream()
-                .filter(e -> e.code().equals("CHR-016"))
+        // Should have CHR-008 error for undefined parent, but not CHR-049
+        var chr049Errors = result.errors().stream()
+                .filter(e -> e.code().equals("CHR-049"))
                 .toList();
 
-        assertEquals(0, chr016Errors.size());
+        assertEquals(0, chr049Errors.size());
     }
 }
-
-

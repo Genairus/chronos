@@ -35,10 +35,10 @@ import java.util.stream.Collectors;
  *   CHR-009 WARNING Journey is missing a @kpi trait
  *   CHR-010 WARNING Journey is missing @compliance when model has compliance policies
  *   CHR-011 ERROR   Relationship targets must reference defined or imported entities
- *   CHR-012 ERROR   Composition targets cannot be referenced by more than one composing entity
  *   CHR-014 ERROR   Inverse field name (if specified) must exist on the target entity
  *   CHR-015 ERROR   Circular inheritance chains are a validation error
- *   CHR-016 ERROR   A child entity may not redefine a parent field with an incompatible type
+ *   CHR-048 ERROR   Composition targets cannot be referenced by more than one composing entity
+ *   CHR-049 ERROR   A child entity may not redefine a parent field with an incompatible type
  *   CHR-018 ERROR   Multiple inheritance is not supported
  *   CHR-019 ERROR   Invariant expressions must reference only fields visible in scope
  *   CHR-020 ERROR   Severity must be one of: error, warning, info
@@ -93,10 +93,10 @@ public class ChronosValidator {
         checkChr009(model, issues);
         checkChr010(model, issues);
         checkChr011(model, issues);
-        checkChr012(model, issues);
         checkChr014(model, issues);
         checkChr015(model, issues);
-        checkChr016(model, issues);
+        checkChr048(model, issues);
+        checkChr049(model, issues);
         checkChr018(model, issues);
         checkChr019(model, issues);
         checkChr020(model, issues);
@@ -380,10 +380,10 @@ public class ChronosValidator {
         return isDefined || isImported;
     }
 
-    // ── CHR-012 ────────────────────────────────────────────────────────────────
+    // ── CHR-048 ────────────────────────────────────────────────────────────────
 
     /** Composition targets cannot be referenced by more than one composing entity. */
-    private void checkChr012(IrModel model, List<Diagnostic> issues) {
+    private void checkChr048(IrModel model, List<Diagnostic> issues) {
         var compositionTargets = new HashMap<String, ArrayList<RelationshipDef>>();
 
         for (RelationshipDef rel : model.relationships()) {
@@ -401,7 +401,7 @@ public class ChronosValidator {
             if (relationships.size() > 1) {
                 for (int i = 1; i < relationships.size(); i++) {
                     RelationshipDef rel = relationships.get(i);
-                    issues.add(error("CHR-012",
+                    issues.add(error("CHR-048",
                             "Entity '" + target + "' is already composed by relationship '" +
                             relationships.get(0).name() + "'; composition target cannot be referenced by multiple composing entities",
                             rel.span()));
@@ -466,10 +466,10 @@ public class ChronosValidator {
         }
     }
 
-    // ── CHR-016 ────────────────────────────────────────────────────────────────
+    // ── CHR-049 ────────────────────────────────────────────────────────────────
 
     /** A child entity may not redefine a parent field with an incompatible type. */
-    private void checkChr016(IrModel model, List<Diagnostic> issues) {
+    private void checkChr049(IrModel model, List<Diagnostic> issues) {
         for (EntityDef entity : model.entities()) {
             Optional<String> parentNameOpt = IrInheritanceResolver.parentName(entity);
             if (parentNameOpt.isEmpty()) {
@@ -493,7 +493,7 @@ public class ChronosValidator {
 
                 if (parentField.isPresent()) {
                     if (!areTypesCompatible(parentField.get().type(), childField.type())) {
-                        issues.add(error("CHR-016",
+                        issues.add(error("CHR-049",
                                 "Entity '" + entity.name() + "' redefines field '" + childField.name() +
                                 "' with incompatible type '" + formatType(childField.type()) +
                                 "' (parent type is '" + formatType(parentField.get().type()) + "')",

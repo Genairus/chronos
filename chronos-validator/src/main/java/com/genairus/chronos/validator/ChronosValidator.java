@@ -67,6 +67,8 @@ import java.util.stream.Collectors;
  *   CHR-043 WARNING Type mismatch in invariant expression
  *   CHR-044 ERROR   Statemachine state is not a member of the bound enum
  *   CHR-045 WARNING Bound enum member not covered by any statemachine state (WARNING)
+ *   CHR-046 ERROR   TransitionTo() target state is ambiguous (declared in multiple statemachines)
+ *   CHR-047 WARNING TransitionTo() target state has no declared incoming transitions
  *   CHR-W001 WARNING Invariant references optional field without null guard
  * </pre>
  */
@@ -1051,42 +1053,82 @@ public class ChronosValidator {
 
     // ── CHR-034 ────────────────────────────────────────────────────────────────
 
-    /** TransitionTo() in journey steps must reference a state declared in a statemachine. */
+    /**
+     * TransitionTo() in journey steps must reference a state declared in exactly one statemachine,
+     * and the target state must have at least one declared incoming transition.
+     *
+     * <p>CHR-046 fires when the target state is ambiguous (in multiple machines).
+     * CHR-047 fires when the target state has no incoming transitions in its machine.
+     */
     private void checkChr034(IrModel model, List<Diagnostic> issues) {
         // In multi-file compilation, statemachines may be defined in a different file.
         // If this file declares no statemachines, skip the check rather than false-positiving.
         if (model.stateMachines().isEmpty()) return;
 
-        Set<String> allDeclaredStates = new HashSet<>();
+        // Build state → machines index for machine-aware validation (CHR-046/047)
+        Map<String, List<StateMachineDef>> stateToMachines = new HashMap<>();
         for (StateMachineDef sm : model.stateMachines()) {
-            allDeclaredStates.addAll(sm.states());
+            for (String state : sm.states()) {
+                stateToMachines.computeIfAbsent(state, k -> new ArrayList<>()).add(sm);
+            }
         }
 
         for (JourneyDef journey : model.journeys()) {
             for (Step step : journey.steps()) {
-                checkStepOutcome(step, allDeclaredStates, issues);
+                checkStepOutcome(step, stateToMachines, issues);
             }
-
             for (Variant variant : journey.variants().values()) {
                 for (Step step : variant.steps()) {
-                    checkStepOutcome(step, allDeclaredStates, issues);
+                    checkStepOutcome(step, stateToMachines, issues);
                 }
+                // Validate variant-level outcome (was not checked before)
+                variant.outcome().ifPresent(expr ->
+                        checkTransitionOutcome(variant.name(), expr, stateToMachines, issues));
             }
         }
     }
 
-    private void checkStepOutcome(Step step, Set<String> allDeclaredStates, List<Diagnostic> issues) {
-        step.outcome().ifPresent(outcome -> {
-            if (outcome instanceof OutcomeExpr.TransitionTo transitionTo) {
-                String targetState = transitionTo.stateId();
-                if (!allDeclaredStates.contains(targetState)) {
-                    issues.add(error("CHR-034",
-                            "TransitionTo('" + targetState + "') in step '" + step.name() +
-                            "' references a state that is not declared in any statemachine",
-                            transitionTo.span()));
-                }
+    private void checkStepOutcome(Step step,
+            Map<String, List<StateMachineDef>> stateToMachines, List<Diagnostic> issues) {
+        step.outcome().ifPresent(expr ->
+                checkTransitionOutcome(step.name(), expr, stateToMachines, issues));
+    }
+
+    private void checkTransitionOutcome(String location, OutcomeExpr outcome,
+            Map<String, List<StateMachineDef>> stateToMachines, List<Diagnostic> issues) {
+        if (!(outcome instanceof OutcomeExpr.TransitionTo transitionTo)) return;
+
+        String targetState = transitionTo.stateId();
+        List<StateMachineDef> machines = stateToMachines.getOrDefault(targetState, List.of());
+
+        if (machines.isEmpty()) {
+            // CHR-034: state not declared in any statemachine
+            issues.add(error("CHR-034",
+                    "TransitionTo('" + targetState + "') in step '" + location +
+                    "' references a state that is not declared in any statemachine",
+                    transitionTo.span()));
+        } else if (machines.size() > 1) {
+            // CHR-046: state is declared in multiple statemachines — ambiguous
+            String machineNames = machines.stream().map(StateMachineDef::name).sorted()
+                    .collect(Collectors.joining(", "));
+            issues.add(error("CHR-046",
+                    "TransitionTo('" + targetState + "') in step '" + location +
+                    "' is ambiguous: state '" + targetState +
+                    "' is declared in multiple statemachines: " + machineNames,
+                    transitionTo.span()));
+        } else {
+            // Exactly one machine — validate edge reachability (CHR-047)
+            StateMachineDef sm = machines.get(0);
+            boolean hasIncomingEdge = sm.transitions().stream()
+                    .anyMatch(t -> t.toState().equals(targetState));
+            if (!hasIncomingEdge) {
+                issues.add(warning("CHR-047",
+                        "TransitionTo('" + targetState + "') in step '" + location +
+                        "' targets state '" + targetState +
+                        "' which has no declared incoming transitions in statemachine '" + sm.name() + "'",
+                        transitionTo.span()));
             }
-        });
+        }
     }
 
     // ── CHR-035 ────────────────────────────────────────────────────────────────

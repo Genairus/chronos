@@ -66,6 +66,8 @@ import static org.junit.jupiter.api.Assertions.*;
  *   CHR-043   ChronosValidator        Type mismatch in invariant expression (WARNING)
  *   CHR-044   ChronosValidator        Statemachine state is not a member of the bound enum
  *   CHR-045   ChronosValidator        Bound enum member not covered by any statemachine state (WARNING)
+ *   CHR-046   ChronosValidator        TransitionTo() target state is ambiguous (declared in multiple statemachines)
+ *   CHR-047   ChronosValidator        TransitionTo() target state has no declared incoming transitions (WARNING)
  *   CHR-W001  ChronosValidator        Invariant references optional field without null guard (WARNING)
  * </pre>
  */
@@ -88,6 +90,7 @@ class DiagnosticCodeRegistryTest {
             "CHR-041",
             "CHR-042", "CHR-043",
             "CHR-044", "CHR-045",
+            "CHR-046", "CHR-047",
             "CHR-W001"
     );
 

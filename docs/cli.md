@@ -23,13 +23,13 @@ chronos [global options] <command> [command options] [arguments]
 Generate a Markdown PRD from one or more `.chronos` files.
 
 ```
-chronos prd <input> [--out <dir>] [--name <docName>]
+chronos prd <input> [--output <dir>] [--name <docName>]
 ```
 
 | Argument | Description |
 |----------|-------------|
 | `<input>` | A `.chronos` file or directory. Directories are walked recursively. |
-| `--out <dir>` | Output directory (default: current directory) |
+| `--output <dir>` | Output directory (default: current directory) |
 | `--name <docName>` | Combined document name when compiling a directory (default: derived from namespace) |
 
 **Examples:**
@@ -39,10 +39,10 @@ chronos prd <input> [--out <dir>] [--name <docName>]
 chronos prd checkout.chronos
 
 # Directory → combined PRD
-chronos prd examples/ecommerce/ --name ecommerce-prd --out /tmp/out/
+chronos prd examples/ecommerce/ --name ecommerce-prd --output /tmp/out/
 
 # Getting-started example
-chronos prd examples/getting-started/ --out /tmp/
+chronos prd examples/getting-started/ --output /tmp/
 ```
 
 **Exit codes:** `0` = success (warnings allowed), `1` = compilation errors.
@@ -68,14 +68,14 @@ Useful for editor integrations and pre-commit hooks.
 Compile and generate output using a named generator target.
 
 ```
-chronos generate <input> --target <name> [--out <dir>]
+chronos generate <input> --target <name> [--output <dir>]
 ```
 
 | Argument | Description |
 |----------|-------------|
 | `<input>` | A `.chronos` file or directory |
 | `--target <name>` | Generator target (see [Generators](generators.md)) |
-| `--out <dir>` | Output directory (default: current directory) |
+| `--output <dir>` | Output directory (default: current directory) |
 
 **Known targets:** `prd`, `markdown`, `jira`, `typescript`, `mermaid-state`, `test-scaffold`, `statemachine-tests`
 

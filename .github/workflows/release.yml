@@ -109,8 +109,7 @@ jobs:
 
             **macOS / Linux (Homebrew)**
             ```sh
-            brew tap Genairus/tap
-            brew install chronos
+            brew install Genairus/tap/chronos
             ```
 
             **Windows (Scoop)**

@@ -6,10 +6,10 @@ Chronos compiles a model and then passes the resulting IR to a generator, which 
 
 ```sh
 # Single-file generation
-chronos generate --target <name> <file.chronos> [--out <dir>]
+chronos generate --target <name> <file.chronos> [--output <dir>]
 
 # Directory (multi-file, all .chronos files compiled together)
-chronos generate --target <name> <directory/> [--out <dir>]
+chronos generate --target <name> <directory/> [--output <dir>]
 ```
 
 The `prd` target is also available via the `chronos prd` shortcut command.
@@ -23,7 +23,7 @@ The `prd` target is also available via the `chronos prd` shortcut command.
 Produces a Markdown Product Requirements Document.
 
 ```sh
-chronos prd examples/ecommerce/ --name ecommerce-prd --out /tmp/out/
+chronos prd examples/ecommerce/ --name ecommerce-prd --output /tmp/out/
 # → /tmp/out/ecommerce-prd.md
 ```
 
@@ -40,7 +40,7 @@ chronos prd examples/ecommerce/ --name ecommerce-prd --out /tmp/out/
 Produces a Jira-importable CSV file (RFC 4180).
 
 ```sh
-chronos generate --target jira checkout.chronos --out /tmp/
+chronos generate --target jira checkout.chronos --output /tmp/
 # → /tmp/com.example.checkout-backlog.csv
 ```
 

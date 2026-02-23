@@ -32,7 +32,7 @@ class PrdCommandIntegrationTest {
                 """, "other.chronos");
 
         Path outDir = dir.resolve("out");
-        var result = run("prd", "--out", outDir.toString(), dir.toString());
+        var result = run("prd", "--output", outDir.toString(), dir.toString());
 
         assertEquals(0, result.exit(), "Expected exit 0. stderr: " + result.err());
         assertTrue(Files.exists(outDir.resolve("chronos-prd.md")),
@@ -49,7 +49,7 @@ class PrdCommandIntegrationTest {
         writeChronos(dir, VALID_MODEL);
         Path outDir = dir.resolve("out");
 
-        var result = run("prd", "--out", outDir.toString(), "--name", "my-prd", dir.toString());
+        var result = run("prd", "--output", outDir.toString(), "--name", "my-prd", dir.toString());
 
         assertEquals(0, result.exit(), "Expected exit 0. stderr: " + result.err());
         assertTrue(Files.exists(outDir.resolve("my-prd.md")),
@@ -78,7 +78,7 @@ class PrdCommandIntegrationTest {
         Path file = writeChronos(dir, VALID_MODEL);
         Path outDir = dir.resolve("out");
 
-        var result = run("prd", "--out", outDir.toString(), file.toString());
+        var result = run("prd", "--output", outDir.toString(), file.toString());
 
         assertEquals(0, result.exit(), "Expected exit 0. stderr: " + result.err());
         assertTrue(Files.exists(outDir.resolve("chronos-prd.md")),
@@ -132,21 +132,21 @@ class PrdCommandIntegrationTest {
         writeChronos(dir, VALID_MODEL);
         Path outDir = dir.resolve("out");
 
-        var result = run("prd", "--out", outDir.toString(), "--emit-ir", dir.toString());
+        var result = run("prd", "--output", outDir.toString(), "--emit-ir", dir.toString());
 
         assertEquals(0, result.exit(), "Expected exit 0. stderr: " + result.err());
         // PRD must be directly in outDir
         assertTrue(Files.exists(outDir.resolve("chronos-prd.md")),
-                "Expected chronos-prd.md under --out dir");
+                "Expected chronos-prd.md under --output dir");
         // IR must be under outDir/ir/
         Path irDir = outDir.resolve("ir");
-        assertTrue(Files.isDirectory(irDir), "Expected ir/ subdir under --out dir");
+        assertTrue(Files.isDirectory(irDir), "Expected ir/ subdir under --output dir");
         assertTrue(Files.exists(irDir.resolve("manifest.json")),
-                "Expected manifest.json under --out/ir/");
+                "Expected manifest.json under --output/ir/");
         long irFiles = Files.list(irDir)
                 .filter(p -> p.toString().endsWith(".ir.json"))
                 .count();
-        assertTrue(irFiles > 0, "Expected at least one .ir.json file under --out/ir/");
+        assertTrue(irFiles > 0, "Expected at least one .ir.json file under --output/ir/");
     }
 
     @Test

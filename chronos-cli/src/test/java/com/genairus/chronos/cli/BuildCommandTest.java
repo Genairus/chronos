@@ -128,21 +128,21 @@ class BuildCommandTest {
     }
 
     @Test
-    void validAndInvalidSources_validSourceStillProcessed() throws Exception {
+    void mixedSources_errorFailsWholeBuild_noOutputWritten() throws Exception {
         Path cfg = writeConfig(tmp, BUILD_CONFIG);
-        // Two source files: one valid (different namespace), one invalid
+        // Two source files compiled together — bad.chronos triggers CHR-001
         writeChronos(tmp, VALID_MODEL,   "good.chronos");
         writeChronos(tmp, INVALID_MODEL, "bad.chronos");
 
         Result r = run("build", "--config", cfg.toString());
 
-        assertEquals(1, r.exit(), "Exit 1 because one source failed");
-        // The valid source should have produced output
-        assertTrue(Files.exists(tmp.resolve("out").resolve("com-example-prd.md")),
-                "Valid source should still produce output");
-        // Error about the bad source
+        assertEquals(1, r.exit(), "Exit 1 because bad.chronos has a validation error");
+        // Error from bad.chronos must be reported
         assertTrue(r.err().contains("CHR-001"),
-                "Expected validation error from bad.chronos");
+                "Expected CHR-001 error from bad.chronos, got: " + r.err());
+        // Build is atomic: no output written when any source has errors
+        assertFalse(Files.exists(tmp.resolve("out").resolve("com-example-prd.md")),
+                "No output should be written when any source fails");
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────

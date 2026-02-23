@@ -11,8 +11,7 @@ This guide is the fastest path for new users to go from zero to generated requir
 ## 1) Install Chronos (Homebrew)
 
 ```sh
-brew tap Genairus/tap
-brew install chronos
+brew install Genairus/tap/chronos
 chronos --version
 ```
 
@@ -104,7 +103,7 @@ Repeat until the file validates cleanly.
 ## 5) Generate a PRD
 
 ```sh
-chronos prd requirements/<feature>/<feature>.chronos --out ./generated --name <feature>-prd
+chronos prd requirements/<feature>/<feature>.chronos --output ./generated --name <feature>-prd
 ```
 
 Example output:

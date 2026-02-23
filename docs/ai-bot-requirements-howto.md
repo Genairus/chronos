@@ -13,8 +13,7 @@ Chronos is a self-contained native binary — no JRE or runtime required.
 **macOS / Linux**
 
 ```sh
-brew tap Genairus/tap
-brew install chronos
+brew install Genairus/tap/chronos
 ```
 
 **Windows**
@@ -902,7 +901,7 @@ find it here for the cause and fix.
 
 ```bash
 # Compile and generate PRD from a directory of .chronos files
-chronos prd <file-or-directory> [--out <outDir>] [--name <docName>]
+chronos prd <file-or-directory> [--output <outDir>] [--name <docName>]
 
 # Generate to a specific target
 chronos generate --target <target> <file-or-directory>
@@ -957,7 +956,7 @@ Model directory: <!-- e.g., src/requirements/ -->
 3. Compile and validate:
 
 ```bash
-chronos prd /path/to/model-dir --name draft --out /tmp/chronos-draft
+chronos prd /path/to/model-dir --name draft --output /tmp/chronos-draft
 ```
 
 4. If diagnostics appear, paste them back to the bot and ask for targeted fixes only.
@@ -1054,7 +1053,7 @@ Use this loop every time:
 2. Compile:
 
 ```bash
-chronos prd /path/to/model-dir --name draft --out /tmp/chronos-draft
+chronos prd /path/to/model-dir --name draft --output /tmp/chronos-draft
 ```
 
 3. If errors exist, paste the diagnostic output into a correction prompt.

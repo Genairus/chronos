@@ -10,4 +10,5 @@ dependencies {
 
     testImplementation(project(":chronos-core"))
     testImplementation(project(":chronos-compiler"))
+    testImplementation("com.google.code.gson:gson:2.10.1")
 }

@@ -28,13 +28,13 @@ Three namespaces: `ecommerce.common`, `ecommerce.checkout`, `ecommerce.payments`
 
 ```sh
 # Combined PRD (all three namespaces in one document)
-chronos prd examples/ecommerce/ --name ecommerce-prd --out /tmp/ecommerce/
+chronos prd examples/ecommerce/ --name ecommerce-prd --output /tmp/ecommerce/
 
 # Jira backlog
-chronos generate --target jira examples/ecommerce/ --out /tmp/ecommerce/
+chronos generate --target jira examples/ecommerce/ --output /tmp/ecommerce/
 
 # TypeScript types
-chronos generate --target typescript examples/ecommerce/ --out /tmp/ecommerce/
+chronos generate --target typescript examples/ecommerce/ --output /tmp/ecommerce/
 ```
 
 ## What it demonstrates

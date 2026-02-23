@@ -57,8 +57,7 @@ Chronos is a self-contained native binary — no JRE or runtime required.
 ### macOS / Linux
 
 ```sh
-brew tap Genairus/tap
-brew install chronos
+brew install Genairus/tap/chronos
 ```
 
 ### Windows
@@ -97,7 +96,7 @@ The compiler checks 50+ rules — missing fields, unresolved references, invalid
 
 ```sh
 # Markdown PRD
-chronos prd checkout.chronos --out ./generated --name checkout
+chronos prd checkout.chronos --output ./generated --name checkout
 
 # Jira backlog CSV
 chronos generate checkout.chronos --target jira --output ./generated
@@ -121,7 +120,7 @@ my-project/
 ```
 
 ```sh
-chronos prd my-project/ --out ./generated --name my-feature
+chronos prd my-project/ --output ./generated --name my-feature
 ```
 
 ---
@@ -133,8 +132,7 @@ Follow this path exactly if this is your first time with Chronos.
 ### 1. Install Chronos with Homebrew
 
 ```sh
-brew tap Genairus/tap
-brew install chronos
+brew install Genairus/tap/chronos
 chronos --version
 ```
 
@@ -142,7 +140,7 @@ chronos --version
 
 Use the dedicated setup guide:
 
--> **[AI Agent Setup (Claude + Chronos)](docs/ai-agent-setup.md)**
+**[AI Agent Setup (Claude + Chronos)](docs/ai-agent-setup.md)**
 
 That page gives you:
 - a copy-paste `CLAUDE.md` starter
@@ -150,6 +148,30 @@ That page gives you:
 - prompt templates that produce higher-quality requirements
 
 ### 3. Generate Chronos requirements with your agent
+
+If you are using Claude Code, do this once per repository:
+
+1. Create `CLAUDE.md` in the repo root.
+2. Paste the starter from [docs/ai-agent-setup.md](docs/ai-agent-setup.md).
+3. Open Claude in this repo and use this prompt:
+
+```text
+Create Chronos requirements for feature "Checkout Address Validation".
+
+Feature:
+- Problem: Invalid addresses cause failed shipments
+- Primary actor: Customer
+- Business outcome: Reduce failed shipment rate by 30%
+- In scope: capture address, validate format, block invalid submit, return actionable error
+- Out of scope: carrier-specific normalization
+- Compliance/security constraints: do not log raw PII in errors
+- Known failure cases: invalid zip, missing house number
+
+Authoring constraints:
+- Generate one file at: requirements/checkout/checkout.chronos
+- Namespace: com.example.checkout
+- Include: 2+ entities/shapes, 1 actor, 1 journey with 3+ steps, 1 variant with typed error trigger, 1 invariant, 1 deny rule
+```
 
 Ask the agent for a first model (single file for easiest first run), then save it as:
 
@@ -161,18 +183,27 @@ Validate it:
 chronos validate requirements/checkout/checkout.chronos --verbose
 ```
 
-If you see errors, paste diagnostics back to your agent and ask for minimal fixes.
+If you see errors, paste diagnostics back to your agent with:
+
+```text
+Apply only the minimum edits required to fix these Chronos diagnostics.
+Do not rename or redesign unless required by an error.
+
+<paste diagnostics>
+```
 
 ### 4. Generate a PRD
 
 ```sh
-chronos prd requirements/checkout/checkout.chronos --out ./generated --name checkout-prd
+chronos prd requirements/checkout/checkout.chronos --output ./generated --name checkout-prd
 ```
 
 Output:
 - `generated/checkout-prd.md`
 
 ### 5. Generate Jira epics and stories
+
+`chronos generate` currently accepts a single `.chronos` file input, so keep your first iteration in one file.
 
 ```sh
 chronos generate requirements/checkout/checkout.chronos --target jira --output ./generated
@@ -311,7 +342,7 @@ The `examples/` directory has runnable models you can compile immediately:
 
 ```sh
 # Try the getting-started example right now
-chronos prd examples/getting-started/ --out /tmp/chronos-demo
+chronos prd examples/getting-started/ --output /tmp/chronos-demo
 ```
 
 👉 **[All Examples](examples/README.md)**

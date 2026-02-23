@@ -138,10 +138,10 @@ Key points:
 
 ```sh
 # Markdown PRD
-chronos prd examples/getting-started/ --out /tmp/getting-started/
+chronos prd examples/getting-started/ --output /tmp/getting-started/
 
 # Jira backlog CSV
-chronos generate --target jira examples/getting-started/ --out /tmp/getting-started/
+chronos generate --target jira examples/getting-started/ --output /tmp/getting-started/
 
 # Validate only (print diagnostics)
 chronos validate examples/getting-started/domain.chronos

@@ -7,14 +7,13 @@ Chronos ships as a self-contained native binary — no JRE or runtime required.
 === "Homebrew (recommended)"
 
     ```sh
-    brew tap Genairus/tap
-    brew install chronos
+    brew install Genairus/tap/chronos
     ```
 
     To upgrade later:
 
     ```sh
-    brew upgrade chronos
+    brew upgrade Genairus/tap/chronos
     ```
 
 === "Direct download"
@@ -52,8 +51,7 @@ Chronos ships as a self-contained native binary — no JRE or runtime required.
     # Install Homebrew if you don't have it
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-    brew tap Genairus/tap
-    brew install chronos
+    brew install Genairus/tap/chronos
     ```
 
 === "Direct download"

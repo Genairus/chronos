@@ -1,6 +1,7 @@
 package com.genairus.chronos.cli;
 
 import com.genairus.chronos.artifacts.IrArtifactEmitter;
+import com.genairus.chronos.artifacts.IrBundleEmitter;
 import com.genairus.chronos.compiler.ChronosCompiler;
 import com.genairus.chronos.compiler.SourceUnit;
 import com.genairus.chronos.core.diagnostics.Diagnostic;
@@ -56,9 +57,9 @@ public class PrdCommand implements Callable<Integer> {
     private Path input;
 
     @Option(
-        names = {"-o", "--out"},
-        description = "Output root directory. PRD is written here; IR artifacts (if --emit-ir) go under <outDir>/ir/. Default: <input>/build/chronos",
-        paramLabel = "<outDir>"
+        names = {"-o", "--output"},
+        description = "Output root directory. PRD is written here; IR artifacts (if --emit-ir) go under <outputDir>/ir/. Default: <input>/build/chronos",
+        paramLabel = "<outputDir>"
     )
     private Path outDir;
 
@@ -72,9 +73,15 @@ public class PrdCommand implements Callable<Integer> {
     @Option(
         names = "--emit-ir",
         negatable = true,
-        description = "Write per-file IR JSON artifacts to <out>/ir/ alongside the PRD (default: false)"
+        description = "Write per-file IR JSON artifacts to <output>/ir/ alongside the PRD (default: false)"
     )
     private boolean emitIr = false;
+
+    @Option(
+        names = "--emit-bundle",
+        description = "Write an ir-bundle.json to the output directory alongside the PRD (default: false)"
+    )
+    private boolean emitBundle = false;
 
     @Override
     public Integer call() {
@@ -171,6 +178,17 @@ public class PrdCommand implements Callable<Integer> {
 
         int n = sources.size();
         console.success("Generated " + filename + " from " + n + (n == 1 ? " file." : " files."));
+
+        // ── Optionally emit IR bundle ──────────────────────────────────────────
+        if (emitBundle) {
+            try {
+                Path bundlePath = IrBundleEmitter.emit(result.unitOrNull(), outputRoot);
+                console.success("Bundle: " + bundlePath.toAbsolutePath());
+            } catch (IOException e) {
+                console.error("Error writing bundle: " + e.getMessage());
+                return 1;
+            }
+        }
 
         // ── Optionally emit IR JSON artifacts ──────────────────────────────────
         if (emitIr) {

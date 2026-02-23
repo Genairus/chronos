@@ -42,7 +42,7 @@ class Chronos < Formula
   end
 
   test do
-    assert_match version.to_s, shell_output("\#{bin}/chronos --version")
+    assert_match version.to_s, shell_output("#{{bin}}/chronos --version")
   end
 end
 '''

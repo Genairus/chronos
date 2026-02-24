@@ -148,7 +148,7 @@ class McpSdkSpikeTest {
     void mcpVersionIsGenerated() {
         assertNotNull(McpVersion.VERSION, "McpVersion.VERSION must be generated");
         assertFalse(McpVersion.VERSION.isBlank(), "McpVersion.VERSION must not be blank");
-        assertEquals("0.1.0", McpVersion.VERSION,
+        assertEquals("0.2.0", McpVersion.VERSION,
                 "McpVersion.VERSION must match project.version from root build.gradle.kts");
     }
 }

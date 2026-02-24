@@ -34,8 +34,12 @@ Follow these sources exactly:
 
 Authoring rules:
 1. Use one namespace per file.
-2. For first draft, generate exactly one file:
-   - requirements/<feature>/<feature>.chronos
+2. For first draft, generate a multi-file model under:
+   - requirements/<feature>/
+   Suggested split:
+   - requirements/<feature>/domain.chronos
+   - requirements/<feature>/journeys.chronos
+   - requirements/<feature>/policies.chronos
 3. Every journey must include:
    - actor:
    - steps: (each step must have action and expectation)
@@ -45,13 +49,14 @@ Authoring rules:
 
 Output rules:
 1. Output only .chronos code in fenced blocks.
-2. Do not output prose requirements docs unless asked.
-3. After code, include a short self-check against the rules above.
+2. For multi-file output, include the file path above each code block.
+3. Do not output prose requirements docs unless asked.
+4. After code, include a short self-check against the rules above.
 ```
 
 For the complete long-form Chronos instruction pack and advanced Claude template, see: [ai-bot-requirements-howto.md](ai-bot-requirements-howto.md).
 
-## 3) Prompt Claude to Generate Requirements
+## 3) Prompt Claude to Generate Requirements (Multi-File Default)
 
 Use this prompt template:
 
@@ -69,8 +74,9 @@ Feature:
 - Known failure cases: <list>
 
 Authoring constraints:
-- Generate one file at: requirements/<feature>/<feature>.chronos
-- Use namespace: com.<org>.<domain>.<feature>
+- Generate multiple files under: requirements/<feature>/
+- Use namespace prefix: com.<org>.<domain>.<feature>
+- Use one namespace per file (e.g., com.<org>.<domain>.<feature>.domain and .journeys)
 - Include at minimum:
   - 2 entities or shapes
   - 1 actor
@@ -78,7 +84,8 @@ Authoring constraints:
   - 1 variant with typed error trigger
   - 1 invariant
   - 1 deny rule
-- Keep it compileable with Chronos.
+- Keep it compilable with Chronos.
+- Return each file in a separate fenced code block with its target path.
 ```
 
 ## 4) Validate and Fix in a Loop
@@ -86,7 +93,7 @@ Authoring constraints:
 Run:
 
 ```sh
-chronos validate requirements/<feature>/<feature>.chronos --verbose
+chronos validate requirements/<feature>/ --verbose
 ```
 
 If errors appear, paste diagnostics back to Claude with this prompt:
@@ -98,12 +105,12 @@ Do not rename or redesign unless required by an error.
 <paste diagnostics>
 ```
 
-Repeat until the file validates cleanly.
+Repeat until the model directory validates cleanly.
 
 ## 5) Generate a PRD
 
 ```sh
-chronos prd requirements/<feature>/<feature>.chronos --output ./generated --name <feature>-prd
+chronos prd requirements/<feature>/ --output ./generated --name <feature>-prd
 ```
 
 Example output:
@@ -112,7 +119,7 @@ Example output:
 ## 6) Generate Jira Epics and Stories
 
 ```sh
-chronos generate requirements/<feature>/<feature>.chronos --target jira --output ./generated
+chronos generate requirements/<feature>/ --target jira --output ./generated
 ```
 
 Example output:
@@ -158,9 +165,13 @@ Return only updated .chronos code.
 
 ## Recommended Team Standard
 
-- Keep one feature per file for onboarding.
-- Move to multi-file composition after the team is comfortable.
+- Keep one feature per directory.
+- Default to multi-file models (`domain.chronos`, `journeys.chronos`, `policies.chronos`) for agent workflows.
 - Run `chronos validate` in PR checks for every `.chronos` change.
+
+CLI reminder:
+- `chronos validate`, `chronos prd`, and `chronos generate` accept either a single `.chronos` file or a directory.
+- For AI agent workflows, use directory input by default.
 
 ---
 
@@ -230,11 +241,11 @@ Keep edits minimal. Preserve user naming and structure unless diagnostics requir
 ```
 1. chronos.health          → confirm server running, note compiler version
 2. chronos.discover        → find existing .chronos files in workspace
-3. chronos.scaffold        → generate starter template for entity + actor + journey
-4. [write file to disk]
-5. chronos.validate        → check for errors; repeat steps 4-5 until clean
+3. chronos.scaffold        → generate starter templates (often multiple files)
+4. [write/update files under requirements/<feature>/]
+5. chronos.validate        → check for errors after each file write; repeat until clean
 6. chronos.explain_diagnostic → if any CHR-XXX error is unclear
-7. chronos.generate        → generate PRD with dryRun:true first, then dryRun:false
+7. chronos.generate        → generate artifacts with dryRun:true first, then dryRun:false
 ```
 
 ### MCP tool reference

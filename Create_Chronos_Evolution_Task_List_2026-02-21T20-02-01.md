@@ -1,0 +1,121 @@
+[/] NAME:Current Task List DESCRIPTION:Root task for conversation __NEW_AGENT__
+-[x] NAME:Phase 1: Structural Foundations DESCRIPTION:Extend the shape system with relationship semantics and type hierarchies
+--[x] NAME:1.1 Entity Relationships and Cardinality DESCRIPTION:Add first-class relationship declarations between entities with association, aggregation, and composition semantics and explicit cardinality constraints
+--[x] NAME:1.1.1 Add relationship keyword and @relationship trait to lexer/parser DESCRIPTION:Extend the ANTLR grammar to support the relationship keyword and @relationship trait with type and cardinality parameters
+--[x] NAME:1.1.2 Extend type-checker for cardinality and target resolution DESCRIPTION:Validate that relationship targets reference defined or imported entities (CHR-011) and cardinality values are valid (CHR-013)
+--[x] NAME:1.1.3 Add composition lifecycle validation (single-owner constraint) DESCRIPTION:Enforce CHR-012: composition targets cannot be referenced by more than one composing entity
+--[x] NAME:1.1.4 Add inverse-field cross-validation DESCRIPTION:Enforce CHR-014: inverse field name (if specified) must exist on the target entity
+--[x] NAME:1.1.5 Update artifact generators for relationship metadata DESCRIPTION:Emit relationship metadata in generated diagrams and docs, including correct cardinality notation in class diagrams
+--[x] NAME:1.2 Inheritance and Generalization DESCRIPTION:Allow entities and actors to extend a parent type using an extends keyword, inheriting all fields, traits, and relationships
+--[x] NAME:1.2.1 Add extends keyword to parser for entity and actor declarations DESCRIPTION:Extend the ANTLR grammar to support 'extends' keyword in entity and actor declarations
+--[x] NAME:1.2.2 Implement field-merging logic in type-checker DESCRIPTION:Merge parent fields + child fields in the type-checker, supporting parent field inheritance
+--[x] NAME:1.2.3 Add trait propagation with override semantics DESCRIPTION:Enforce CHR-017: traits on parent entities propagate to children unless explicitly overridden
+--[x] NAME:1.2.4 Validate no circular and no multiple inheritance DESCRIPTION:Enforce CHR-015 (circular inheritance) and CHR-018 (multiple inheritance not supported)
+--[x] NAME:1.2.5 Validate compatible field overrides DESCRIPTION:Enforce CHR-016: a child entity may not redefine a parent field with an incompatible type
+--[x] NAME:1.2.6 Update generators to resolve full field set through hierarchy DESCRIPTION:Ensure all artifact generators reflect the full merged field set from the inheritance hierarchy
+-[x] NAME:Phase 2: Constraint and Rule System DESCRIPTION:Introduce invariants, negative requirements, and typed errors for business rule validation
+--[x] NAME:2.1 Cross-Entity Invariants DESCRIPTION:Introduce invariant blocks for boolean constraints across fields and entities, both entity-scoped and global
+--[x] NAME:2.1.1 Design and document the expression micro-language DESCRIPTION:Define comparison operators, arithmetic, and aggregation functions (sum, count, min, max, exists, forAll) for invariant expressions
+--[x] NAME:2.1.2 Add invariant keyword to parser (entity-scoped and global) DESCRIPTION:Extend the ANTLR grammar to support invariant blocks with expression, severity, message, and scope fields
+--[x] NAME:2.1.3 Implement expression parsing and type-checking DESCRIPTION:Parse and type-check invariant expressions against resolved entity fields; enforce CHR-019, CHR-020, CHR-021, CHR-022
+--[x] NAME:2.1.4 Generate invariant documentation and test scaffolding DESCRIPTION:Include invariant docs in PRDs and generate assertion stubs in test scaffolding for each invariant
+--[x] NAME:2.1.5 Emit warnings for invariants referencing optional fields without null guards DESCRIPTION:Warn when invariant expressions reference optional fields that lack null-guard checks
+--[x] NAME:2.2 Negative Requirements (deny) DESCRIPTION:Introduce a deny construct for expressing prohibitions — things the system must never do
+--[x] NAME:2.2.1 Add deny keyword to the parser DESCRIPTION:Extend the ANTLR grammar to support deny blocks with description, scope, severity, and optional @compliance trait
+--[x] NAME:2.2.2 Implement scope resolution and validation for deny DESCRIPTION:Enforce CHR-023 (description required), CHR-024 (scope entities defined), CHR-025 (valid severity)
+--[x] NAME:2.2.3 Generate negative test case stubs for deny blocks DESCRIPTION:Generate test stubs asserting that each prohibited condition never holds
+--[x] NAME:2.2.4 Include deny items in compliance traceability reports DESCRIPTION:Compliance-tagged denials appear in compliance traceability output; add deny blocks to PRD under a Prohibitions heading
+--[x] NAME:2.3 Error and Exception Taxonomy DESCRIPTION:Introduce a typed error construct with codes, severity, recoverability, and optional payloads
+---[x] NAME:2.3.5 Validate error code uniqueness within namespace DESCRIPTION:Enforce CHR-026: error codes must be unique across the namespace; Enforce CHR-028: error severity must be one of: critical, high, medium, low
+--[x] NAME:2.3.1 Add error keyword to the parser DESCRIPTION:Extend the ANTLR grammar to support error blocks with code, severity, recoverable, message, and payload fields
+--[x] NAME:2.3.2 Require variant triggers to reference named error types DESCRIPTION:Enforce CHR-027: string-based variant triggers are not supported; all triggers must reference a defined error type
+--[x] NAME:2.3.3 Validate error code uniqueness within namespace DESCRIPTION:Enforce CHR-026: error codes must be unique across the namespace
+--[x] NAME:2.3.4 Generate error catalog documentation DESCRIPTION:Generate error catalog docs from all defined errors including codes, descriptions, and payloads; include payload shapes in API stub generation
+-[/] NAME:Phase 3: Behavioral Enrichment DESCRIPTION:Add formal state machines, step data flow, and authorization model
+--[x] NAME:3.1 Formal State Machines DESCRIPTION:Introduce statemachine construct with declared states, transitions, guard conditions, and entry/exit actions
+--[x] NAME:3.1.1 Add statemachine keyword and transition syntax to parser DESCRIPTION:Extend the ANTLR grammar to support statemachine blocks with entity, field, states, initial, terminal, and transitions
+--[x] NAME:3.1.2 Validate state declarations and transition completeness DESCRIPTION:Enforce CHR-029 through CHR-033: state references, initial/terminal markers, non-terminal outbound transitions, entity/field type validation
+--[x] NAME:3.1.3 Cross-reference entity field type against declared states DESCRIPTION:Validate that the referenced entity field type matches the declared state enum members
+--[x] NAME:3.1.4 Generate state diagrams from statemachine declarations DESCRIPTION:Generate Mermaid or PlantUML state diagrams from statemachine declarations
+--[x] NAME:3.1.5 Generate transition-coverage test stubs DESCRIPTION:Generate test stubs covering each declared state transition
+--[x] NAME:3.1.6 Allow journey steps to reference statemachine transitions DESCRIPTION:Enable TransitionTo() in journey steps to be validated against declared statemachine transitions
+--[ ] NAME:3.2 Step Data Flow DESCRIPTION:Allow journey steps to declare typed inputs and outputs, enabling data-flow validation across steps
+--[ ] NAME:3.2.1 Add input and output blocks to the step grammar DESCRIPTION:Extend the ANTLR grammar to support optional input and output blocks within step declarations
+--[ ] NAME:3.2.2 Implement type resolution for input/output fields DESCRIPTION:Resolve input/output field types against defined shapes, entities, and primitives; enforce CHR-034
+--[ ] NAME:3.2.3 Add data-flow validation across steps DESCRIPTION:Enforce CHR-035: reject if a step input type has no matching upstream output or precondition; enforce CHR-036: unique output field names within journey scope
+--[ ] NAME:3.2.4 Generate data-flow diagrams and documentation DESCRIPTION:Include input/output signatures in work item descriptions and generate data-flow diagrams showing how data moves through a journey
+--[ ] NAME:3.3 Authorization and Permissions DESCRIPTION:Introduce role and permission constructs with @authorize trait for journeys, steps, and entities
+--[ ] NAME:3.3.1 Add role and permission keywords to the parser DESCRIPTION:Extend the ANTLR grammar to support role blocks with allow/deny permission lists
+--[ ] NAME:3.3.2 Add @authorize trait with role and permission parameters DESCRIPTION:Implement the @authorize trait for use on journeys and steps
+--[ ] NAME:3.3.3 Implement cross-validation: journey actor vs. required roles DESCRIPTION:Enforce CHR-037 through CHR-040: role references, permission declarations, actor-role compatibility, deny-over-allow precedence
+--[ ] NAME:3.3.4 Generate authorization matrix documentation DESCRIPTION:Generate actor x permission authorization matrix in docs and include authorization checks in test scaffolding
+-[ ] NAME:Phase 4: Temporal and Reactive Constructs DESCRIPTION:Introduce timeouts, deadlines, events, and system-initiated flows
+--[ ] NAME:4.1 Temporal and Time-Based Requirements DESCRIPTION:Introduce temporal constraint annotations for steps, states, and entities: timeouts, deadlines, scheduling, and duration literals
+--[ ] NAME:4.1.1 Define duration literal syntax and add to lexer DESCRIPTION:Add duration literal tokens (ms, s, m, h, d) to the ANTLR lexer
+--[ ] NAME:4.1.2 Add @timeout trait with duration and onExpiry parameters DESCRIPTION:Implement @timeout trait for steps; validate duration format (CHR-041) and onExpiry references (CHR-042)
+--[ ] NAME:4.1.3 Add @ttl trait for entity-level time-to-live DESCRIPTION:Implement @ttl trait for entities; validate action values (CHR-043: delete, archive, notify)
+--[ ] NAME:4.1.4 Add trigger keyword with @schedule trait and cron support DESCRIPTION:Extend the ANTLR grammar to support trigger blocks with @schedule trait; validate 5-field cron syntax (CHR-044)
+--[ ] NAME:4.1.5 Validate temporal references against state machines and variants DESCRIPTION:Cross-validate @timeout onExpiry and stateAge() guard expressions against declared statemachine states and variants
+--[ ] NAME:4.1.6 Generate SLA documentation from temporal constraints DESCRIPTION:Generate SLA/timeout summary tables in PRD output from all temporal annotations
+--[ ] NAME:4.2 Events, Reactions, and System-Initiated Flows DESCRIPTION:Promote events to first-class typed constructs with payloads; introduce reaction and trigger constructs
+--[ ] NAME:4.2.1 Add event keyword with payload block to the parser DESCRIPTION:Extend the ANTLR grammar to support event declarations with typed payload fields
+--[ ] NAME:4.2.2 Require telemetry fields to reference typed event definitions DESCRIPTION:Enforce CHR-045: bare name strings in telemetry fields are not supported; all references must be typed event definitions
+--[ ] NAME:4.2.3 Add reaction keyword to the parser DESCRIPTION:Extend the ANTLR grammar to support reaction blocks (structurally similar to journey but triggered by event); enforce CHR-046 and CHR-047
+--[ ] NAME:4.2.4 Validate event references across journeys, reactions, and state machine actions DESCRIPTION:Cross-validate all event references throughout the codebase; enforce CHR-048 for payload field types
+--[ ] NAME:4.2.5 Generate event catalog and event-flow diagrams DESCRIPTION:Generate event catalog documentation with payload schemas and event-flow diagrams showing publish/subscribe chains
+-[ ] NAME:Phase 5: Concurrency and Composition DESCRIPTION:Add parallel flows, journey composition, and non-functional requirements
+--[ ] NAME:5.1 Concurrency and Parallel Flows DESCRIPTION:Introduce parallel blocks within journey steps with fork/join semantics and optional race conditions
+--[ ] NAME:5.1.1 Add parallel keyword with join and branches to step grammar DESCRIPTION:Extend the ANTLR grammar to support parallel blocks with join strategy (all, any, n_of) and branches list
+--[ ] NAME:5.1.2 Validate branch independence (no cross-branch data-flow references) DESCRIPTION:Enforce CHR-049 (min 2 branches), CHR-050 (valid join strategy), CHR-051 (no cross-branch data dependencies), CHR-052 (branch step validation)
+--[ ] NAME:5.1.3 Update data-flow analysis for parallel blocks DESCRIPTION:Treat all branch outputs as available after the parallel block completes in data-flow analysis
+--[ ] NAME:5.1.4 Generate parallel-aware state diagrams and test scaffolding DESCRIPTION:Generate state diagrams with fork/join notation and concurrent test scaffolding for parallel blocks
+--[ ] NAME:5.2 Inter-Journey Dependencies and Composition DESCRIPTION:Allow journeys to declare dependencies on other journeys and compose sub-journeys as reusable steps
+--[ ] NAME:5.2.1 Add @requires trait for journey-level dependency declaration DESCRIPTION:Implement @requires trait on journeys; enforce CHR-053 (targets must be defined journeys)
+--[ ] NAME:5.2.2 Add invoke keyword to step grammar DESCRIPTION:Extend the ANTLR grammar to support invoke in steps with onSuccess and onFailure transitions; enforce CHR-055
+--[ ] NAME:5.2.3 Build dependency graph and validate for cycles DESCRIPTION:Enforce CHR-054: circular journey dependencies are a validation error
+--[ ] NAME:5.2.4 Validate actor compatibility between parent and invoked journeys DESCRIPTION:Enforce CHR-056: an invoked journey actor must be compatible with the parent journey actor
+--[ ] NAME:5.2.5 Generate journey dependency diagrams and end-to-end test scaffolding DESCRIPTION:Generate accurate acyclic dependency diagrams and end-to-end test scaffolding respecting dependency ordering
+--[ ] NAME:5.3 Expanded Non-Functional Requirements DESCRIPTION:Extend the trait system with availability, throughput, scalability, capacity, and recoverability constructs
+--[ ] NAME:5.3.1 Add @availability, @throughput, @capacity, @recoverability traits DESCRIPTION:Implement NFR traits for use on journeys and entities; validate percentage formats (CHR-057), duration formats (CHR-058), rate units (CHR-060)
+--[ ] NAME:5.3.2 Add nfr keyword for system-level NFR blocks DESCRIPTION:Extend the ANTLR grammar to support nfr blocks with availability, rpo, rto, throughput, scalability, and scope fields; enforce CHR-059
+--[ ] NAME:5.3.3 Generate NFR summary tables and performance test baselines DESCRIPTION:Generate NFR summary sections in PRD output and include NFR targets in test scaffolding as performance test baselines
+-[ ] NAME:Phase 6: Interface and Presentation Layer DESCRIPTION:Implement API contracts and UI/UX requirements
+--[ ] NAME:6.1 Interface and API Contracts DESCRIPTION:Introduce api construct for declaring request/response contracts, HTTP semantics, error responses, and versioning
+--[ ] NAME:6.1.1 Add api keyword with method, path, version, request, response blocks DESCRIPTION:Extend the ANTLR grammar to support api declarations with all sub-blocks
+--[ ] NAME:6.1.2 Add @rateLimit trait DESCRIPTION:Implement @rateLimit trait with limit and window parameters
+--[ ] NAME:6.1.3 Validate body types, error references, and path uniqueness DESCRIPTION:Enforce CHR-061 through CHR-064: HTTP method validation, body/error type references, unique method+path combinations
+--[ ] NAME:6.1.4 Generate OpenAPI 3.x specs from api declarations DESCRIPTION:Generate valid OpenAPI 3.x specifications from all declared api endpoints
+--[ ] NAME:6.1.5 Generate API documentation and journey traceability links DESCRIPTION:Generate API docs with request/response examples and link api endpoints to journeys that use them
+--[ ] NAME:6.2 UI/UX and Accessibility Requirements DESCRIPTION:Introduce @accessibility, @responsive traits and a view construct for UI constraints and accessibility standards
+--[ ] NAME:6.2.1 Add @accessibility and @responsive traits DESCRIPTION:Implement @accessibility trait (WCAG-2.0-A, WCAG-2.1-AA, WCAG-2.2-AAA, Section508) and @responsive trait with breakpoints; enforce CHR-065 and CHR-068
+--[ ] NAME:6.2.2 Add view keyword with components and layout blocks DESCRIPTION:Extend the ANTLR grammar to support view declarations with field, action components and layout; enforce CHR-066 and CHR-067
+--[ ] NAME:6.2.3 Validate journey/step references in views DESCRIPTION:Enforce CHR-066: view constructs must reference a defined journey and step
+--[ ] NAME:6.2.4 Generate accessibility checklist and component specs DESCRIPTION:Generate accessibility requirements checklist from @accessibility annotations and wireframe-level component specs from view declarations; include accessibility requirements in test scaffolding
+-[ ] NAME:Cross-Cutting: Documentation Generation System DESCRIPTION:Auto-generate language reference from grammar and compiler internals
+--[ ] NAME:D.1 Grammar Doc Extractor DESCRIPTION:Build a Java tool that parses the Chronos ANTLR .g4 grammar files and generates structured Markdown reference pages for every language construct
+--[ ] NAME:D.1.1 Establish doc comment convention in .g4 files DESCRIPTION:Define and document the Javadoc-style /** ... */ comment convention with @since, @category, @see, @example, @deprecated, @internal annotations for all parser rules
+--[ ] NAME:D.1.2 Implement DocCommentParser.java DESCRIPTION:Write a lightweight parser for /** ... */ blocks to extract structured annotations from comment text above each ANTLR rule
+--[ ] NAME:D.1.3 Implement RuleSignatureExtractor.java DESCRIPTION:Walk each ANTLR rule AST to extract alternatives, referenced rules, referenced tokens, and labeled elements
+--[ ] NAME:D.1.4 Implement GrammarDocModel.java DESCRIPTION:Build the in-memory model grouping doc entries by @category with cross-reference resolution
+--[ ] NAME:D.1.5 Implement MarkdownRenderer.java DESCRIPTION:Emit one .md file per category using the template format matching Chronos-Language.md structure
+--[ ] NAME:D.1.6 Implement KeywordIndexRenderer.java DESCRIPTION:Emit an alphabetical keyword reference page
+--[ ] NAME:D.1.7 Add Gradle task :generateGrammarDocs DESCRIPTION:Register the grammar doc extractor as a Gradle task that runs as part of the compiler build
+--[ ] NAME:D.1.8 Add CI check for missing doc comments DESCRIPTION:Fail the build if any non-internal parser rule lacks a /** doc comment (enforces CHR-069 through CHR-072)
+--[ ] NAME:D.2 Semantic Doc Extractor DESCRIPTION:Build a Java tool that introspects compiler internals (trait registry, validation rules, type system, expression functions) and generates semantic reference documentation
+--[ ] NAME:D.2.1 Define @DocExport and @DocParam annotations DESCRIPTION:Create the @DocExport and @DocParam Java annotations in the compiler source for marking constructs for documentation extraction
+--[ ] NAME:D.2.2 Annotate all existing traits, validation rules, and primitive types DESCRIPTION:Add @DocExport annotations to all existing Trait subclasses, ValidationRule constants, and primitive type definitions
+--[ ] NAME:D.2.3 Implement SemanticDocExtractor.java DESCRIPTION:Build the reflection-based scanner that reads @DocExport-annotated classes from the compiler classpath
+--[ ] NAME:D.2.4 Implement TraitReferenceRenderer.java DESCRIPTION:Generate trait tables with trait, parameters, description, and example columns matching the format in Chronos-Language.md
+--[ ] NAME:D.2.5 Implement ValidationRuleRenderer.java DESCRIPTION:Generate the validation rules table with code, severity, description, and @since version columns
+--[ ] NAME:D.2.6 Implement TypeCatalogRenderer.java DESCRIPTION:Generate primitive and collection type catalog documentation
+--[ ] NAME:D.2.7 Add Gradle task :generateSemanticDocs and CI enforcement DESCRIPTION:Register the semantic doc extractor as a Gradle task; add CI check that fails if any Trait subclass or ValidationRule constant lacks @DocExport
+--[ ] NAME:D.3 Railroad Diagram Generator DESCRIPTION:Generate visual railroad (syntax) diagrams from ANTLR parser rules and embed them in the language reference
+--[ ] NAME:D.3.1 Implement EBNFConverter.java DESCRIPTION:Convert ANTLR rule ASTs to W3C EBNF notation as input to the railroad diagram renderer
+--[ ] NAME:D.3.2 Integrate railroad diagram SVG library DESCRIPTION:Integrate rr-diagram-java or GrammarKit to render EBNF as SVG railroad diagrams
+--[ ] NAME:D.3.3 Implement RailroadDiagramRenderer.java DESCRIPTION:Generate one SVG per parser rule into docs/generated/diagrams/railroad/
+--[ ] NAME:D.3.4 Embed railroad diagrams in generated Markdown DESCRIPTION:Reference the generated SVG files in the Markdown output from MarkdownRenderer
+--[ ] NAME:D.4 Unified Doc Pipeline DESCRIPTION:Integrate all doc extractors into a single Gradle task as part of the chronos build
+--[ ] NAME:D.4.1 Create :generateDocs aggregate Gradle task DESCRIPTION:Create a top-level :generateDocs Gradle task that depends on :generateGrammarDocs, :generateSemanticDocs, and :generateRailroadDiagrams
+--[ ] NAME:D.4.2 Wire :generateDocs into the main build lifecycle DESCRIPTION:Ensure :generateDocs runs automatically as part of the standard compiler build so docs are always in sync
+--[ ] NAME:D.4.3 Validate @example blocks against the Chronos parser DESCRIPTION:At build time, parse all @example code blocks in doc comments through the Chronos parser to enforce CHR-072
+-[x] NAME:Fix build error in MarkdownPrdGeneratorSnapshotTest DESCRIPTION:Add content() convenience method to GeneratorOutput for single-file generators

@@ -33,7 +33,9 @@ val allowedProjectDeps: Map<String, Set<String>> = mapOf(
     "chronos-artifacts"  to setOf("chronos-core", "chronos-ir", "chronos-compiler"),
     "chronos-cli"        to setOf("chronos-core", "chronos-ir", "chronos-compiler",
                                    "chronos-generators", "chronos-artifacts",
-                                   "chronos-validator")             // TEMP until CLI goes via compiler pipeline
+                                   "chronos-validator"),            // TEMP until CLI goes via compiler pipeline
+    "chronos-mcp"        to setOf("chronos-core", "chronos-ir", "chronos-compiler",
+                                   "chronos-generators", "chronos-artifacts")
 )
 
 // Deps in this map are in allowedProjectDeps only temporarily.
@@ -119,7 +121,7 @@ subprojects {
     apply(plugin = "jacoco")
 
     group = "com.genairus.chronos"
-    version = "0.1.0"
+    version = "0.2.0"
 
     configure<JavaPluginExtension> {
         sourceCompatibility = JavaVersion.VERSION_21

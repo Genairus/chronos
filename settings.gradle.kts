@@ -8,5 +8,6 @@ include(
     "chronos-compiler",
     "chronos-generators",
     "chronos-artifacts",
-    "chronos-cli"
+    "chronos-cli",
+    "chronos-mcp"
 )

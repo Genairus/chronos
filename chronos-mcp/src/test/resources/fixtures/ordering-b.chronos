@@ -1,0 +1,13 @@
+namespace test.b
+
+actor Customer
+
+journey PlaceOrder {
+    steps: [
+        step Submit {
+            action: "Customer submits order"
+            expectation: "Order is created"
+        }
+    ]
+    outcomes: { success: "Order placed successfully" }
+}

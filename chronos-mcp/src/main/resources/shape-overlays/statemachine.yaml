@@ -1,0 +1,70 @@
+shape: statemachine
+description: "Declares lifecycle states and transitions for an entity field. Binds to an enum via 'entity' and 'field'."
+compilable: false
+required_fields:
+  - name: entity
+    type: EntityRef
+    notes: "The entity whose field this statemachine governs."
+  - name: field
+    type: FieldRef
+    notes: "The field on the entity — must be of an enum type."
+  - name: initial
+    type: StateName
+    notes: "The initial state — must be in the states list (CHR-031)."
+  - name: states
+    type: StateList
+    notes: "All possible states. Must match enum members (CHR-044)."
+  - name: transitions
+    type: TransitionList
+    notes: "Allowed state transitions. Non-terminal states must have at least one outbound (CHR-030)."
+optional_fields:
+  - name: terminal
+    type: StateList
+    notes: "Terminal states — must not have outbound transitions (CHR-032)."
+applicable_rules: ["CHR-005", "CHR-029", "CHR-030", "CHR-031", "CHR-032", "CHR-034", "CHR-044", "CHR-045", "CHR-046", "CHR-047"]
+common_mistakes:
+  - "Declaring states not present in the bound enum (CHR-044)"
+  - "TransitionTo() in a journey step referencing a state not in this machine (CHR-034)"
+  - "Non-terminal state with no outbound transitions (CHR-030)"
+  - "Initial state not in the states list (CHR-031)"
+notes:
+  - "Scaffold references placeholder entity and field names — replace MyEntity and myStatus with real declared entity/field"
+  - "The field must be typed as an enum — declare an enum and use it as the field type"
+minimal_example: |
+  statemachine OrderLifecycle {
+      entity: Order
+      field: status
+      initial: PENDING
+      states: [PENDING, CONFIRMED, CANCELLED]
+      terminal: [CANCELLED]
+      transitions: [
+          { from: PENDING to: CONFIRMED },
+          { from: PENDING to: CANCELLED }
+      ]
+  }
+full_example: |
+  statemachine OrderLifecycle {
+      entity: Order
+      field: status
+      initial: PENDING
+      states: [PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED]
+      terminal: [DELIVERED, CANCELLED]
+      transitions: [
+          { from: PENDING to: CONFIRMED },
+          { from: CONFIRMED to: SHIPPED },
+          { from: SHIPPED to: DELIVERED },
+          { from: PENDING to: CANCELLED },
+          { from: CONFIRMED to: CANCELLED }
+      ]
+  }
+scaffold_template: |
+  statemachine {{Name}} {
+      entity: {{EntityName}}
+      field: {{fieldName}}
+      initial: PENDING
+      states: [PENDING]
+      terminal: []
+      transitions: [
+          // add transitions here
+      ]
+  }

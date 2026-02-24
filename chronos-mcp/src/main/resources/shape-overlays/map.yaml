@@ -1,0 +1,21 @@
+shape: map
+description: "Named map type alias. Declares a reusable map-from-K-to-V type."
+compilable: true
+required_fields:
+  - name: from
+    type: TypeRef
+    notes: "Key type."
+  - name: to
+    type: TypeRef
+    notes: "Value type."
+optional_fields: []
+applicable_rules: ["CHR-005", "CHR-008", "CHR-013"]
+common_mistakes:
+  - "Swapping 'from' and 'to' — 'from' is the key type"
+notes: []
+minimal_example: |
+  map OrderMap from String to Order
+full_example: |
+  map OrderMap from String to Order
+scaffold_template: |
+  map {{Name}} from {{KeyType}} to {{ValueType}}

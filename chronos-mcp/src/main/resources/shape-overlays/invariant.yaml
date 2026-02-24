@@ -1,0 +1,44 @@
+shape: invariant
+description: "A global cross-entity business rule with a named scope. Scoped to entities in the same namespace."
+compilable: false
+required_fields:
+  - name: scope
+    type: EntityRefList
+    notes: "One or more entity names. Must reference entities in the same namespace (CHR-021)."
+  - name: expression
+    type: String
+    notes: "Boolean expression referencing direct fields. Dot-path navigation is not supported."
+  - name: severity
+    type: Severity
+    notes: "One of: error, warning, info — NOT critical/high/medium/low (CHR-020)."
+optional_fields:
+  - name: message
+    type: String
+    notes: "Optional human-readable message emitted when the invariant fires."
+applicable_rules: ["CHR-019", "CHR-020", "CHR-021", "CHR-022", "CHR-042", "CHR-043", "CHR-W001"]
+common_mistakes:
+  - "Using severity 'critical' or 'high' — invariant severity must be error/warning/info (CHR-020)"
+  - "Referencing entities from another namespace in 'scope' — cross-namespace scope not supported (CHR-021)"
+  - "Using dot-path navigation in expression (e.g. 'order.total > 0') — only direct field refs valid (CHR-019)"
+notes:
+  - "Scaffold references placeholder entity name — replace MyEntity with a real entity declared in this namespace"
+  - "Expression references direct fields only — check the entity's field names before writing the expression"
+minimal_example: |
+  invariant PositivePrice {
+      scope: [Product]
+      expression: "price > 0"
+      severity: error
+  }
+full_example: |
+  invariant PositivePrice {
+      scope: [Product]
+      expression: "price > 0"
+      severity: error
+      message: "Product price must be positive"
+  }
+scaffold_template: |
+  invariant {{Name}} {
+      scope: [{{EntityName}}]
+      expression: "TODO: boolean expression using direct fields"
+      severity: error
+  }

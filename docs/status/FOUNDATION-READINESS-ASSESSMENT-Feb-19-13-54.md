@@ -228,7 +228,7 @@ Before returning, `FinalizeIrPhase` calls `IrRefWalker.findUnresolvedRefs(model)
 | CHR-014 | ERROR | Inverse field name must exist on target entity | ✅ |
 | CHR-015 | ERROR | Circular inheritance chain detected | ✅ |
 | CHR-016 | ERROR | Child entity redefines parent field with incompatible type | ✅ |
-| CHR-017 | ERROR | *(documented but not implemented — trait inheritance propagation)* | ❌ |
+| CHR-017 | ERROR | Ambiguous import: same simple name bound to different targets (compiler / `ImportResolver`) | ✅ |
 | CHR-018 | ERROR | Multiple inheritance not supported | ✅ |
 | CHR-019 | ERROR | Invariant expression references undeclared field | ✅ |
 | CHR-020 | ERROR | Invariant severity must be `error`, `warning`, or `info` | ✅ |
@@ -249,7 +249,6 @@ Before returning, `FinalizeIrPhase` calls `IrRefWalker.findUnresolvedRefs(model)
 | CHR-W001 | WARNING | Invariant references an optional field without a null guard | ✅ |
 
 **Gap:** CHR-013 has no implementation — the code number is skipped entirely.
-**Gap:** CHR-017 ("trait inheritance propagation") is listed in the class-level Javadoc comment in `ChronosValidator.java` but has no `checkChr017()` method and no matching string in executable code.
 
 ---
 
@@ -390,7 +389,7 @@ Legend: ✅ = fully covered, ⚠️ = partially covered, ❌ = gap
 - [x] All 13 shape definitions have Syntax DTOs.
 - [x] All shape DTOs have IR representations.
 - [ ] **CHR-013 (c)** — No validation rule with this code exists.
-- [ ] **CHR-017 (c)** — Documented in Javadoc but not implemented.
+- [x] **CHR-017** — Implemented in `ImportResolver` (ambiguous import: same simple name → different targets).
 - [ ] **`ReturnToStep` step name validation (c)** — Grammar supports `ReturnToStep(StepId)` but no CHR rule verifies that `StepId` names a real step in the journey.
 - [x] All grammar constructs that have validation targets are covered by at least one CHR rule.
 - [x] All 13 shapes have `MarkdownPrdGenerator` rendering coverage (via `IrModelAdapter`).
@@ -452,7 +451,7 @@ The Chronos foundation is architecturally sound and ready for feature growth:
 |---|---|
 | **C1: Raw-string references are not tracked by IrRefWalker.** `EntityDef.parentType`, `ActorDef.parentType`, `StateMachineDef.entityName`, `Variant.triggerName`, etc. are strings checked only by validator rules. If a new feature adds a raw-string cross-reference and a developer forgets to add a CHR rule, the error will be silent — `finalized=true` will not catch it. | Silent invalid IR delivered to generators. |
 | **C2: DOC_COMMENTs are parsed but discarded.** All IR shapes have a `docComments: List<String>` field that is always `List.of()`. Users who write `/// My comment` will see it silently ignored in all outputs. | Poor DX for a documentation-oriented language. |
-| **C3: CHR-013 and CHR-017 are unimplemented.** CHR-017 is documented in the validator Javadoc but has no code. CHR-013 doesn't exist anywhere. These gaps may cause future confusion about the numbering scheme. | Incorrect documentation; potential validator gaps if these rules were intended to close real holes. |
+| **C3: CHR-013 is unimplemented.** The code number is skipped entirely; no rule with that code exists anywhere in the codebase. This may cause future confusion about the numbering scheme. | Incorrect documentation; potential validator gap if this rule was intended to close a real hole. |
 
 ---
 

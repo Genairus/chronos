@@ -1,0 +1,30 @@
+shape: shape
+description: "Value object — no identity, embedded or referenced by value rather than by ID."
+compilable: true
+required_fields: []
+optional_fields:
+  - name: fields
+    type: FieldDef
+    notes: "One or more field declarations."
+applicable_rules: ["CHR-005", "CHR-006", "CHR-008", "CHR-013"]
+common_mistakes:
+  - "Treating a shape like an entity — shapes have no id field and are not independently persisted"
+  - "Using 'description' as a field name — contextual keyword; use 'summary' instead"
+notes: []
+minimal_example: |
+  shape Money {
+      amount: Decimal
+      currency: String
+  }
+full_example: |
+  /// Monetary amount with currency.
+  shape Money {
+      @required
+      amount: Decimal
+      @required
+      currency: String
+  }
+scaffold_template: |
+  shape {{Name}} {
+      // add fields here
+  }

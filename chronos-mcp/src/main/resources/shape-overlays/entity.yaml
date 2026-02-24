@@ -1,0 +1,39 @@
+shape: entity
+description: "Domain object with identity — persisted and referenced by ID."
+compilable: true
+required_fields:
+  - name: id
+    type: String
+    notes: "Must be unique. Use String or a value type."
+optional_fields:
+  - name: status
+    type: EnumType
+    notes: "Typically bound to a statemachine."
+  - name: invariant
+    type: InvariantBlock
+    notes: "One or more invariant declarations."
+applicable_rules: ["CHR-005", "CHR-006", "CHR-008", "CHR-013", "CHR-015", "CHR-018", "CHR-019", "CHR-022", "CHR-042", "CHR-043", "CHR-044", "CHR-048", "CHR-049"]
+common_mistakes:
+  - "Using 'description' as a field name — it is a contextual keyword; use 'summary' instead"
+  - "Dot-path in invariant expression (e.g. 'price.amount > 0') — only direct fields are valid"
+  - "Defining multiple parents with 'extends' — multiple inheritance is not supported (CHR-018)"
+notes: []
+minimal_example: |
+  entity Order {
+      id: String
+  }
+full_example: |
+  /// An order placed by a customer.
+  @compliance("PCI-DSS")
+  entity Order extends BaseEntity {
+      @required
+      id: String
+      status: OrderStatus
+      invariant positiveTotal { expression: "total > 0" severity: error }
+  }
+scaffold_template: |
+  entity {{Name}} {
+      @required
+      id: String
+      // add fields here
+  }

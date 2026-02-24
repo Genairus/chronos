@@ -1,0 +1,26 @@
+shape: actor
+description: "A human or system role that participates in journeys. Actors carry authorization traits."
+compilable: true
+required_fields: []
+optional_fields:
+  - name: "@description"
+    type: String
+    notes: "Strongly recommended — omitting it triggers CHR-007 WARNING."
+  - name: "@authorize"
+    type: AuthorizeTrait
+    notes: "Declares role and permission claims."
+applicable_rules: ["CHR-005", "CHR-007", "CHR-037", "CHR-038", "CHR-039", "CHR-040"]
+common_mistakes:
+  - "Omitting @description — triggers CHR-007 WARNING"
+  - "Referencing a role in @authorize that has not been declared (CHR-037)"
+notes: []
+minimal_example: |
+  actor Customer
+full_example: |
+  /// The customer placing the order.
+  @description("A registered customer with a verified payment method.")
+  @authorize(role: Buyer, permissions: [place_order, cancel_order])
+  actor Customer
+scaffold_template: |
+  @description("TODO: describe the actor")
+  actor {{Name}}

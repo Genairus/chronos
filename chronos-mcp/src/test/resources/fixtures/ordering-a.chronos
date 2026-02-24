@@ -1,0 +1,21 @@
+namespace test.a
+
+actor Customer
+
+journey BuyProduct {
+    actor: Customer
+    steps: [
+        step AddItem {
+            action: "Customer adds item to cart"
+            expectation: "Item appears in cart"
+        }
+    ]
+}
+
+entity Product {
+    id: String
+}
+
+entity Product {
+    id: String
+}

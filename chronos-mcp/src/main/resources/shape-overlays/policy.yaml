@@ -1,0 +1,28 @@
+shape: policy
+description: "A named business rule or compliance policy with a description and optional constraints."
+compilable: true
+required_fields:
+  - name: description
+    type: StringBlock
+    notes: "Required policy description text."
+optional_fields:
+  - name: applies_to
+    type: EntityRef
+    notes: "Optional list of entity types this policy applies to."
+applicable_rules: ["CHR-005"]
+common_mistakes:
+  - "Confusing 'description' inside a policy body with the @description trait — inside policy, 'description' is a keyword-introduced block"
+notes: []
+minimal_example: |
+  policy RefundPolicy {
+      description "Refunds must be processed within 30 days."
+  }
+full_example: |
+  /// Refund policy for all orders.
+  policy RefundPolicy {
+      description "Refunds must be processed within 30 days of purchase."
+  }
+scaffold_template: |
+  policy {{Name}} {
+      description "TODO: describe the policy"
+  }

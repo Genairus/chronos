@@ -1,10 +1,9 @@
 package com.genairus.chronos.compiler;
 
+import com.genairus.chronos.core.diagnostics.DiagnosticCodeRegistry;
 import com.genairus.chronos.validator.ChronosValidator;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -80,41 +79,18 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class DiagnosticCodeRegistryTest {
 
-    /**
-     * All known CHR codes, each listed exactly once.
-     * A duplicate entry here is a compile-time mistake caught by the uniqueness test below.
-     */
-    private static final List<String> ALL_KNOWN_CODES = List.of(
-            "CHR-001", "CHR-002", "CHR-003", "CHR-004", "CHR-005",
-            "CHR-006", "CHR-007", "CHR-008", "CHR-009", "CHR-010",
-            "CHR-011", "CHR-012", "CHR-013", "CHR-014", "CHR-015",
-            "CHR-016", "CHR-017", "CHR-018", "CHR-019", "CHR-020",
-            "CHR-021", "CHR-022", "CHR-023", "CHR-024", "CHR-025",
-            "CHR-026", "CHR-027", "CHR-028", "CHR-029", "CHR-030",
-            "CHR-031", "CHR-032", "CHR-033", "CHR-034",
-            "CHR-035", "CHR-036",
-            "CHR-037", "CHR-038", "CHR-039", "CHR-040",
-            "CHR-041",
-            "CHR-042", "CHR-043",
-            "CHR-044", "CHR-045",
-            "CHR-046", "CHR-047",
-            "CHR-048", "CHR-049",
-            "CHR-050", "CHR-051", "CHR-052", "CHR-053",
-            "CHR-W001"
-    );
-
     // ── Registry self-check ───────────────────────────────────────────────────
 
+    /**
+     * The authoritative code list now lives in {@link DiagnosticCodeRegistry}.
+     * {@code Set.copyOf} in that class throws at initialization if there are duplicates,
+     * so this test simply asserts the expected cardinality (53 numeric + CHR-W001 = 54).
+     */
     @Test
     void registryHasNoDuplicateCodes() {
-        var seen = new HashSet<String>();
-        var duplicates = new ArrayList<String>();
-        for (String code : ALL_KNOWN_CODES) {
-            if (!seen.add(code)) duplicates.add(code);
-        }
-        assertTrue(duplicates.isEmpty(),
-                "Duplicate CHR codes in registry: " + duplicates
-                        + ". Each code must appear exactly once.");
+        assertEquals(54, DiagnosticCodeRegistry.ALL_KNOWN_CODES.size(),
+                "Expected exactly 54 CHR codes (CHR-001..CHR-053 + CHR-W001). "
+                        + "Update DiagnosticCodeRegistry when adding or removing codes.");
     }
 
     // ── CHR-017 behavioral contract ───────────────────────────────────────────

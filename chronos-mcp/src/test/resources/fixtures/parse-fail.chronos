@@ -1,0 +1,4 @@
+namespace test.c
+
+entity BadEntity {
+    name: String

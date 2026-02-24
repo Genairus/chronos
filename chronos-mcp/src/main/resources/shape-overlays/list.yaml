@@ -1,0 +1,18 @@
+shape: list
+description: "Named list type alias. Declares a reusable list-of-T type that can be referenced in field declarations."
+compilable: true
+required_fields:
+  - name: of
+    type: TypeRef
+    notes: "The element type."
+optional_fields: []
+applicable_rules: ["CHR-005", "CHR-008", "CHR-013"]
+common_mistakes:
+  - "Forgetting to declare the element type with 'of:'"
+notes: []
+minimal_example: |
+  list OrderList of Order
+full_example: |
+  list OrderList of Order
+scaffold_template: |
+  list {{Name}} of {{ElementType}}

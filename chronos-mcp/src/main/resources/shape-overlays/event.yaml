@@ -1,0 +1,28 @@
+shape: event
+description: "A typed telemetry event that can be referenced in journey step 'telemetry:' declarations."
+compilable: true
+required_fields: []
+optional_fields:
+  - name: fields
+    type: FieldDef
+    notes: "Event payload fields."
+applicable_rules: ["CHR-005", "CHR-041"]
+common_mistakes:
+  - "Referencing an event in step 'telemetry:' before declaring it as an 'event' type (CHR-041)"
+  - "Declaring event fields with nested structures — event bodies are flat field lists only"
+notes: []
+minimal_example: |
+  event OrderPlaced {
+      orderId: String
+  }
+full_example: |
+  /// Emitted when an order is successfully placed.
+  event OrderPlaced {
+      orderId: String
+      customerId: String
+      totalAmount: Decimal
+  }
+scaffold_template: |
+  event {{Name}} {
+      // add payload fields here
+  }

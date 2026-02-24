@@ -1,666 +1,502 @@
-# Chronos MCP API Contract (v1)
+# Chronos MCP API Contract
 
-Status: Draft
+Status: Implemented
 Owner: Chronos Platform
 Last updated: 2026-02-23
+Schema version: `1.0`
 
-## 1. Goals
+---
 
-This contract defines a low-token, compiler-in-the-loop MCP interface for Chronos authoring.
-It replaces the "paste a giant language spec" workflow with on-demand tool calls backed by source-of-truth artifacts:
+## Overview
 
-- Grammar: `/Users/scott/Developer/projects/ai/holodeck/chronos/chronos-parser/src/main/antlr/com/genairus/chronos/parser/Chronos.g4`
-- Validator rules: `/Users/scott/Developer/projects/ai/holodeck/chronos/chronos-validator/src/main/java/com/genairus/chronos/validator/ChronosValidator.java`
-- Compiler pipeline: `/Users/scott/Developer/projects/ai/holodeck/chronos/chronos-compiler`
-- Generators/CLI behavior: `/Users/scott/Developer/projects/ai/holodeck/chronos/chronos-cli`
+The `chronos-mcp` module provides a 9-tool MCP server for AI-assisted Chronos authoring.
+It replaces the "paste language spec + run CLI + copy-paste diagnostics" workflow with
+on-demand compiler-in-the-loop tool calls, so agents never guess at syntax.
 
-## 2. Protocol Profile
+**Key design principles:**
 
-- Protocol: MCP tools over JSON-RPC 2.0 (stdio transport for local use; HTTP optional later)
-- Server name: `chronos-mcp`
-- API version: `2026-02-23.v1`
-- Content type for tool results: `application/json`
-- All tool outputs return a single JSON object (no freeform prose)
+- The compiler is always in the loop — tools validate before generating
+- Partial results are safe — `list_symbols` returns what compiled even if finalization failed
+- No LLM-generated fix suggestions — the agent writes fixes, tools validate them
+- All paths in all responses are **absolute** — no ambiguity about file locations
+- `diagnostics[]` is always present (never absent), even when empty
 
-## 3. Common Response Envelopes
+---
 
-All tools MUST return one of two shapes.
+## 1. Response Envelope Contract
 
-### 3.1 Success envelope
+Every tool response is a JSON object with one of two shapes. Clients **MUST** check for `"error"` before reading `"result"`.
+
+### 1.1 Success envelope
 
 ```json
 {
-  "ok": true,
-  "data": {},
-  "meta": {
-    "apiVersion": "2026-02-23.v1",
-    "durationMs": 42,
-    "requestId": "0f2d1c6e-4e9a-4d66-9ff2-c4dbce7c5f53"
-  }
+  "schemaVersion": "1.0",
+  "toolVersion": "chronos.validate@1.0",
+  "result": { ... }
 }
 ```
 
-### 3.2 Error envelope
+### 1.2 Error envelope
 
 ```json
 {
-  "ok": false,
+  "schemaVersion": "1.0",
+  "toolVersion": "chronos.validate@1.0",
   "error": {
-    "code": "CHRONOS_INPUT_NOT_FOUND",
-    "message": "Input path does not exist",
-    "details": {
-      "path": "requirements/payments"
-    },
+    "code": "INVALID_INPUT",
+    "message": "inputPaths is required and must not be empty",
     "retryable": false
-  },
-  "meta": {
-    "apiVersion": "2026-02-23.v1",
-    "durationMs": 3,
-    "requestId": "6f212e50-7a79-4b00-b4ce-4d0f24ec8c41"
   }
 }
 ```
 
-## 4. Error Code Registry (server-level)
+**Error codes:**
 
-- `CHRONOS_INPUT_NOT_FOUND`
-- `CHRONOS_INVALID_ARGUMENT`
-- `CHRONOS_IO_ERROR`
-- `CHRONOS_PARSE_FAILED`
-- `CHRONOS_VALIDATION_FAILED`
-- `CHRONOS_UNKNOWN_TARGET`
-- `CHRONOS_BUNDLE_ERROR`
-- `CHRONOS_INTERNAL_ERROR`
+| Code | Meaning |
+|------|---------|
+| `INVALID_INPUT` | Bad or missing argument — fix the request |
+| `PATH_OUTSIDE_WORKSPACE` | Path escapes the workspace root — security violation |
+| `COMPILE_ERROR` | Compilation produced one or more errors (parse or semantic/type) |
+| `INTERNAL_ERROR` | Unexpected server error (usually retryable; non-retryable if partial writes occurred) |
 
-## 5. Tool Contracts (v1)
+### 1.3 Envelope fields
 
-## 5.1 `chronos.validate`
+| Field | Description |
+|-------|-------------|
+| `schemaVersion` | Contract version. Clients should reject unknown values. Currently `"1.0"`. |
+| `toolVersion` | Per-tool version string `"<toolName>@<semver>"`. |
+| `diagnosticSort` | Included in every `result` with a `diagnostics[]` array. Value: `"path,line,col,code"`. |
 
-Compile and validate one file or a directory recursively.
+### 1.4 Path conventions
 
-Input schema:
+- Every field named `sourcePath`, `path`, `bundlePath`, `outputPath`, or `writtenFiles[n]`
+  in any tool response is an **absolute path** (resolved via `toAbsolutePath().normalize()`).
+- Relative paths are never returned.
 
-```json
-{
-  "type": "object",
-  "required": ["inputPath"],
-  "properties": {
-    "inputPath": { "type": "string" },
-    "workspaceRoot": { "type": "string" },
-    "maxDiagnostics": { "type": "integer", "minimum": 1, "maximum": 5000, "default": 200 },
-    "includeWarnings": { "type": "boolean", "default": true },
-    "includeSourceExcerpt": { "type": "boolean", "default": false }
-  },
-  "additionalProperties": false
-}
-```
+### 1.5 Security gate
 
-Success `data` schema:
+All tools reject any caller-supplied path that, after normalization, does not start with
+the resolved `workspaceRoot`. Returns `PATH_OUTSIDE_WORKSPACE` error, `retryable: false`.
+Applies to every path argument in every tool.
 
-```json
-{
-  "type": "object",
-  "required": ["summary", "diagnostics"],
-  "properties": {
-    "summary": {
-      "type": "object",
-      "required": ["parsed", "finalized", "errorCount", "warningCount", "fileCount"],
-      "properties": {
-        "parsed": { "type": "boolean" },
-        "finalized": { "type": "boolean" },
-        "errorCount": { "type": "integer" },
-        "warningCount": { "type": "integer" },
-        "fileCount": { "type": "integer" }
-      }
-    },
-    "diagnostics": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["severity", "code", "message", "span"],
-        "properties": {
-          "severity": { "type": "string", "enum": ["ERROR", "WARNING", "INFO"] },
-          "code": { "type": "string" },
-          "message": { "type": "string" },
-          "path": { "type": ["string", "null"] },
-          "span": {
-            "type": "object",
-            "required": ["startLine", "startCol", "endLine", "endCol"],
-            "properties": {
-              "startLine": { "type": "integer" },
-              "startCol": { "type": "integer" },
-              "endLine": { "type": "integer" },
-              "endCol": { "type": "integer" }
-            }
-          },
-          "sourceExcerpt": { "type": ["string", "null"] }
-        }
-      }
-    }
-  }
-}
-```
+---
 
-Expected clean response:
+## 2. Tools (9 total)
+
+### 2.1 `chronos.health`
+
+**Purpose:** Confirm server is reachable; enumerate available tools; check versions.
+**Call this first** when bootstrapping an agent session.
+
+**Input:** No required fields.
+
+**Response result:**
 
 ```json
 {
-  "ok": true,
-  "data": {
-    "summary": {
-      "parsed": true,
-      "finalized": true,
-      "errorCount": 0,
-      "warningCount": 1,
-      "fileCount": 3
-    },
-    "diagnostics": [
-      {
-        "severity": "WARNING",
-        "code": "CHR-009",
-        "message": "Journey 'Checkout' is missing a @kpi trait",
-        "path": "/repo/requirements/checkout/journeys.chronos",
-        "span": { "startLine": 12, "startCol": 1, "endLine": 12, "endCol": 8 },
-        "sourceExcerpt": null
-      }
-    ]
-  },
-  "meta": {
-    "apiVersion": "2026-02-23.v1",
-    "durationMs": 118,
-    "requestId": "c2f5f429-f779-4aba-bfd6-3cb6546fb125"
-  }
-}
-```
-
-## 5.2 `chronos.explain_diagnostic`
-
-Return canonical explanation and fix strategies for a CHR code.
-
-Input schema:
-
-```json
-{
-  "type": "object",
-  "required": ["code"],
-  "properties": {
-    "code": { "type": "string", "pattern": "^CHR(-W)?-[0-9]{3}$" },
-    "includeExamples": { "type": "boolean", "default": true }
-  },
-  "additionalProperties": false
-}
-```
-
-Success `data` schema:
-
-```json
-{
-  "type": "object",
-  "required": ["code", "severity", "title", "description", "fixes"],
-  "properties": {
-    "code": { "type": "string" },
-    "severity": { "type": "string", "enum": ["ERROR", "WARNING", "INFO"] },
-    "title": { "type": "string" },
-    "description": { "type": "string" },
-    "likelyCauses": { "type": "array", "items": { "type": "string" } },
-    "fixes": { "type": "array", "items": { "type": "string" } },
-    "examples": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["bad", "good"],
-        "properties": {
-          "bad": { "type": "string" },
-          "good": { "type": "string" }
-        }
-      }
-    },
-    "source": {
-      "type": "object",
-      "properties": {
-        "file": { "type": "string" },
-        "line": { "type": "integer" }
-      }
-    }
-  }
-}
-```
-
-Expected response:
-
-```json
-{
-  "ok": true,
-  "data": {
-    "code": "CHR-003",
-    "severity": "ERROR",
-    "title": "Step requires action and expectation",
-    "description": "Every step in journeys and variants must declare both action and expectation.",
-    "likelyCauses": [
-      "Generated step omitted expectation",
-      "Refactor removed action field"
-    ],
-    "fixes": [
-      "Add action: \"...\" to the step",
-      "Add expectation: \"...\" to the step"
-    ],
-    "examples": [
-      {
-        "bad": "step Pay { action: \"Submit payment\" }",
-        "good": "step Pay { action: \"Submit payment\" expectation: \"Payment authorized\" }"
-      }
-    ],
-    "source": {
-      "file": "/Users/scott/Developer/projects/ai/holodeck/chronos/chronos-validator/src/main/java/com/genairus/chronos/validator/ChronosValidator.java",
-      "line": 171
-    }
-  },
-  "meta": {
-    "apiVersion": "2026-02-23.v1",
-    "durationMs": 4,
-    "requestId": "8a89d631-6f81-42bb-92fd-0f7f865ad932"
-  }
-}
-```
-
-## 5.3 `chronos.lookup_syntax`
-
-Lookup parser/lexer rules and keyword usage from `Chronos.g4`.
-
-Input schema:
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "rule": { "type": "string" },
-    "keyword": { "type": "string" },
-    "symbol": { "type": "string" },
-    "maxMatches": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 }
-  },
-  "additionalProperties": false,
-  "anyOf": [
-    { "required": ["rule"] },
-    { "required": ["keyword"] },
-    { "required": ["symbol"] }
+  "status": "ok",
+  "apiVersion": "1.0",
+  "compilerVersion": "0.1.0",
+  "serverVersion": "0.1.0",
+  "tools": [
+    "chronos.validate",
+    "chronos.explain_diagnostic",
+    "chronos.describe_shape",
+    "chronos.generate",
+    "chronos.emit_ir_bundle",
+    "chronos.scaffold",
+    "chronos.list_symbols",
+    "chronos.discover",
+    "chronos.health"
   ]
 }
 ```
 
-Success `data` schema:
+---
+
+### 2.2 `chronos.discover`
+
+**Purpose:** Find all `.chronos` files in the workspace without compiling them.
+
+**Input:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `workspaceRoot` | string | no | Defaults to `CHRONOS_WORKSPACE` env var or CWD |
+| `maxDepth` | integer | no | Max directory depth to walk (default: 10) |
+
+**Response result:**
 
 ```json
 {
-  "type": "object",
-  "required": ["matches"],
-  "properties": {
-    "matches": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["kind", "name", "excerpt", "source"],
-        "properties": {
-          "kind": { "type": "string", "enum": ["parserRule", "lexerRule", "literal"] },
-          "name": { "type": "string" },
-          "excerpt": { "type": "string" },
-          "source": {
-            "type": "object",
-            "required": ["file", "startLine", "endLine"],
-            "properties": {
-              "file": { "type": "string" },
-              "startLine": { "type": "integer" },
-              "endLine": { "type": "integer" }
-            }
-          }
-        }
-      }
+  "files": [
+    {"path": "/abs/path/to/order.chronos", "namespace": "com.example.domain", "sizeBytes": 1420},
+    {"path": "/abs/path/to/other.chronos", "namespace": null, "sizeBytes": 203}
+  ]
+}
+```
+
+`namespace` is `null` when not found within the first 100 lines.
+
+---
+
+### 2.3 `chronos.validate`
+
+**Purpose:** Run the full 7-phase compiler pipeline and return all diagnostics.
+
+**Input:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `inputPaths` | string[] | yes | Absolute paths to `.chronos` files |
+| `workspaceRoot` | string | no | Defaults to `CHRONOS_WORKSPACE` env var or CWD |
+
+**Response result:**
+
+```json
+{
+  "diagnosticSort": "path,line,col,code",
+  "errorCount": 2,
+  "warningCount": 1,
+  "parsed": true,
+  "finalized": false,
+  "diagnostics": [
+    {
+      "code": "CHR-001",
+      "severity": "ERROR",
+      "message": "Journey 'PlaceOrder' has no actor declaration",
+      "sourcePath": "/abs/path/to/order.chronos",
+      "span": {"sourceName": "order.chronos", "startLine": 5, "startCol": 1, "endLine": 5, "endCol": 10}
     }
-  }
+  ]
 }
 ```
 
-Expected response:
+`diagnostics` is always present (empty array `[]` when none).
+
+---
+
+### 2.4 `chronos.explain_diagnostic`
+
+**Purpose:** Look up detailed explanation, causes, and fixes for a CHR diagnostic code.
+
+**Input:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `code` | string | yes | e.g. `"CHR-001"` or `"CHR-W001"` |
+
+**Response result:**
 
 ```json
 {
-  "ok": true,
-  "data": {
-    "matches": [
-      {
-        "kind": "parserRule",
-        "name": "stepField",
-        "excerpt": "| 'input' ':' '[' dataField (',' dataField)* ']' | 'output' ':' '[' dataField (',' dataField)* ']'",
-        "source": {
-          "file": "/Users/scott/Developer/projects/ai/holodeck/chronos/chronos-parser/src/main/antlr/com/genairus/chronos/parser/Chronos.g4",
-          "startLine": 317,
-          "endLine": 324
-        }
-      }
-    ]
-  },
-  "meta": {
-    "apiVersion": "2026-02-23.v1",
-    "durationMs": 6,
-    "requestId": "8b0ef953-15d8-42eb-a6f0-0949e3f51f86"
-  }
-}
-```
-
-## 5.4 `chronos.generate`
-
-Compile and run one generator target.
-
-Input schema:
-
-```json
-{
-  "type": "object",
-  "required": ["inputPath", "target", "outputDir"],
-  "properties": {
-    "inputPath": { "type": "string" },
-    "target": {
-      "type": "string",
-      "enum": ["prd", "markdown", "jira", "typescript", "mermaid-state", "test-scaffold", "statemachine-tests"]
-    },
-    "outputDir": { "type": "string" },
-    "emitIrBundle": { "type": "boolean", "default": false }
-  },
-  "additionalProperties": false
-}
-```
-
-Success `data` schema:
-
-```json
-{
-  "type": "object",
-  "required": ["target", "generatedFiles", "summary"],
-  "properties": {
-    "target": { "type": "string" },
-    "generatedFiles": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["path", "bytes"],
-        "properties": {
-          "path": { "type": "string" },
-          "bytes": { "type": "integer" },
-          "sha256": { "type": "string" }
-        }
-      }
-    },
-    "bundlePath": { "type": ["string", "null"] },
-    "summary": {
-      "type": "object",
-      "required": ["modelCount", "errorCount", "warningCount"],
-      "properties": {
-        "modelCount": { "type": "integer" },
-        "errorCount": { "type": "integer" },
-        "warningCount": { "type": "integer" }
-      }
+  "code": "CHR-001",
+  "severity": "ERROR",
+  "title": "Journey missing actor declaration",
+  "description": "Every journey must declare exactly one actor.",
+  "likelyCauses": ["Forgot to add actor: field", "Copy-paste from template without filling actor"],
+  "fixes": ["Add actor: <ActorName> to the journey body"],
+  "examples": [
+    {
+      "bad": "journey Checkout { steps: [...] }",
+      "good": "journey Checkout { actor: Customer steps: [...] }"
     }
-  }
+  ]
 }
 ```
 
-Expected response:
+All 54 diagnostic codes (CHR-001 through CHR-053 + CHR-W001) are covered.
+
+---
+
+### 2.5 `chronos.describe_shape`
+
+**Purpose:** Get human-readable documentation for any of the 15 Chronos shape types.
+
+**Input:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `shape` | string | yes | Shape type name (case-insensitive) |
+| `includeExample` | boolean | no | Include examples and scaffold template (default: true) |
+
+**Available shapes:** `entity`, `shape`, `list`, `map`, `enum`, `actor`, `policy`, `journey`,
+`relationship`, `invariant`, `deny`, `error`, `statemachine`, `role`, `event`
+
+**Response result:**
 
 ```json
 {
-  "ok": true,
-  "data": {
-    "target": "jira",
-    "generatedFiles": [
-      {
-        "path": "/repo/generated/com-example-checkout-backlog.csv",
-        "bytes": 18432,
-        "sha256": "4c8e5e4f2b8d7b018f4c2b0dbf2671844a7a30b74cba5b1005f66ab6686a55b4"
-      }
-    ],
-    "bundlePath": "/repo/generated/ir-bundle.json",
-    "summary": {
-      "modelCount": 6,
-      "errorCount": 0,
-      "warningCount": 2
-    }
-  },
-  "meta": {
-    "apiVersion": "2026-02-23.v1",
-    "durationMs": 392,
-    "requestId": "6d6e5f4b-f5e4-49f9-85e0-766a0ee8d4aa"
-  }
+  "shape": "entity",
+  "description": "Domain object with identity — persisted and referenced by ID.",
+  "compilable": true,
+  "requiredFields": [{"name": "id", "type": "String", "notes": "Must be unique."}],
+  "optionalFields": [...],
+  "applicableRules": ["CHR-005", "CHR-008", "CHR-013"],
+  "commonMistakes": ["Using 'description' as a field name — it is a contextual keyword"],
+  "notes": [],
+  "minimalExample": "entity Order {\n    id: String\n}\n",
+  "fullExample": "...",
+  "scaffoldTemplate": "entity {{Name}} {\n    @required\n    id: String\n    // add fields here\n}\n"
 }
 ```
 
-## 5.5 `chronos.emit_ir_bundle`
+`compilable: false` means the scaffold alone requires user-supplied cross-references.
 
-Compile source and emit deterministic `ir-bundle.json` for LLM consumption.
+---
 
-Input schema:
+### 2.6 `chronos.scaffold`
+
+**Purpose:** Generate a valid `.chronos` file stub for one or more shape types.
+
+**Input:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `namespace` | string | yes | Namespace for the generated file |
+| `shapes` | string[] | yes | List of shape type names |
+| `includeComments` | boolean | no | Include `//` comment hints (default: true) |
+
+**Response result:**
 
 ```json
 {
-  "type": "object",
-  "required": ["inputPath", "outputDir"],
-  "properties": {
-    "inputPath": { "type": "string" },
-    "outputDir": { "type": "string" }
-  },
-  "additionalProperties": false
+  "content": "namespace com.example.domain\n\nentity MyEntity {\n    @required\n    id: String\n    // add fields here\n}\n",
+  "compilable": true,
+  "notes": []
 }
 ```
 
-Success `data` schema:
+`compilable: true` means the `content` is expected to pass `chronos.validate` with zero errors.
+`notes[]` lists expected warnings and any cross-reference stubs the agent must fill in.
+
+---
+
+### 2.7 `chronos.list_symbols`
+
+**Purpose:** List all declared symbols from compiled `.chronos` files. Supports partial results.
+
+**Input:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `inputPaths` | string[] | yes | Absolute paths to `.chronos` files |
+| `workspaceRoot` | string | no | Defaults to `CHRONOS_WORKSPACE` or CWD |
+| `filterKind` | string | no | Filter by shape kind (e.g. `"entity"`, `"journey"`) |
+| `filterNamespace` | string | no | Filter by exact namespace string |
+
+**Three-state partial semantics:**
+
+| Compiler state | `partial` | `symbols` | `diagnostics` |
+|----------------|-----------|-----------|---------------|
+| Parse failed | `true` | `[]` | present (parse errors) |
+| Parsed, not finalized | `true` | symbols from resolved models | present (CHR-013 etc.) |
+| Parsed and finalized | `false` | full symbol list | may include warnings |
+
+**Response result:**
 
 ```json
 {
-  "type": "object",
-  "required": ["bundlePath", "format", "version", "modelCount"],
-  "properties": {
-    "bundlePath": { "type": "string" },
-    "format": { "type": "string", "enum": ["chronos-ir-bundle"] },
-    "version": { "type": "string", "enum": ["1"] },
-    "modelCount": { "type": "integer" }
-  }
+  "partial": false,
+  "diagnosticSort": "path,line,col,code",
+  "symbols": [
+    {"name": "Order", "kind": "entity", "namespace": "com.example", "sourcePath": "/abs/...", "fieldNames": ["id", "status"]},
+    {"name": "PlaceOrder", "kind": "journey", "namespace": "com.example", "sourcePath": "/abs/...", "actorName": "Customer", "stepNames": ["AddItem", "Checkout"]},
+    {"name": "OrderStatus", "kind": "enum", "namespace": "com.example", "sourcePath": "/abs/...", "memberNames": ["PENDING", "CONFIRMED"]}
+  ],
+  "diagnostics": []
 }
 ```
 
-Expected response:
+Use `partial=true` with `diagnostics` to understand what prevented full resolution.
+When `partial=false`, `diagnostics` can still contain warnings.
+
+---
+
+### 2.8 `chronos.generate`
+
+**Purpose:** Generate artifacts (PRDs, Jira CSVs, TypeScript types, etc.) from validated source files.
+
+**Input:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `inputPaths` | string[] | yes | Absolute paths to `.chronos` files |
+| `outDir` | string | yes | Absolute path to output directory |
+| `target` | string | yes | Generator target (see below) |
+| `workspaceRoot` | string | no | Defaults to `CHRONOS_WORKSPACE` or CWD |
+| `dryRun` | boolean | no | Preview without writing files (default: false) |
+
+**Known targets:** `markdown` / `prd`, `jira`, `test-scaffold`, `typescript`, `mermaid-state`, `statemachine-tests`
+
+**Response result:**
 
 ```json
 {
-  "ok": true,
-  "data": {
-    "bundlePath": "/repo/generated/ir-bundle.json",
-    "format": "chronos-ir-bundle",
-    "version": "1",
-    "modelCount": 4
-  },
-  "meta": {
-    "apiVersion": "2026-02-23.v1",
-    "durationMs": 165,
-    "requestId": "2a57e0bc-0a58-4e8f-a2a0-07af4f6f2f25"
-  }
+  "generated": true,
+  "dryRun": false,
+  "writtenFiles": ["/abs/path/to/com-example-prd.md"],
+  "plannedFiles": [],
+  "diagnosticSort": "path,line,col,code",
+  "diagnostics": []
 }
 ```
 
-## 5.6 `chronos.suggest_minimal_fixes`
+Rules:
+- `generated: false` when any diagnostic has `severity: ERROR` (no files written)
+- `writtenFiles` is always present (empty array when `generated: false`)
+- `diagnostics` is always present (empty array when no diagnostics)
+- `dryRun: true` → `writtenFiles: []`, `plannedFiles` shows what would have been written (populated only when compilation succeeds with no errors; empty array when there are compile errors)
+- **Never call `chronos.generate` if `chronos.validate` returns `errorCount > 0`**
 
-Given diagnostics and source snapshots, return minimal edit operations.
+---
 
-Input schema:
+### 2.9 `chronos.emit_ir_bundle`
+
+**Purpose:** Compile source files and write an `ir-bundle.json` for offline tooling.
+
+**Input:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `inputPaths` | string[] | yes | Absolute paths to `.chronos` files |
+| `outDir` | string | yes | Absolute path to output directory |
+| `workspaceRoot` | string | no | Defaults to `CHRONOS_WORKSPACE` or CWD |
+
+**Response result:**
 
 ```json
 {
-  "type": "object",
-  "required": ["files", "diagnostics"],
-  "properties": {
-    "files": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["path", "content"],
-        "properties": {
-          "path": { "type": "string" },
-          "content": { "type": "string" }
-        }
-      }
-    },
-    "diagnostics": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["code", "message"],
-        "properties": {
-          "code": { "type": "string" },
-          "message": { "type": "string" },
-          "path": { "type": ["string", "null"] },
-          "span": { "type": ["object", "null"] }
-        }
-      }
-    },
-    "maxEdits": { "type": "integer", "minimum": 1, "maximum": 200, "default": 40 }
-  },
-  "additionalProperties": false
+  "bundlePath": "/abs/path/to/ir-bundle.json",
+  "format": "chronos-ir-bundle",
+  "version": "1",
+  "modelCount": 3
 }
 ```
 
-Success `data` schema:
+`bundlePath` is always an absolute path. Returns `COMPILE_ERROR` if source files fail to parse.
 
-```json
-{
-  "type": "object",
-  "required": ["edits", "rationale"],
-  "properties": {
-    "edits": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["path", "op"],
-        "properties": {
-          "path": { "type": "string" },
-          "op": { "type": "string", "enum": ["replace_range", "insert_after_line", "insert_before_line"] },
-          "startLine": { "type": "integer" },
-          "startCol": { "type": "integer" },
-          "endLine": { "type": "integer" },
-          "endCol": { "type": "integer" },
-          "text": { "type": "string" }
-        }
-      }
-    },
-    "rationale": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["diagnosticCode", "summary"],
-        "properties": {
-          "diagnosticCode": { "type": "string" },
-          "summary": { "type": "string" }
-        }
-      }
-    }
-  }
-}
-```
+---
 
-## 6. Implementation Plan
+## 3. Bootstrap Prompt
 
-## Phase 0: Contract and fixtures (1-2 days)
-
-Deliverables:
-
-- Freeze this spec as `v1`.
-- Add JSON fixtures under `docs/mcp-fixtures/` for each tool.
-- Add contract tests that validate output envelopes and required fields.
-
-Acceptance criteria:
-
-- Every tool response validates against its JSON schema.
-- Error codes are deterministic and documented.
-
-## Phase 1: Core server shell + validation/grammar tools (3-5 days)
-
-Work items:
-
-- Create module: `chronos-mcp/` (Java 21).
-- Implement MCP server boot + tool registry.
-- Implement `chronos.validate` using `ChronosCompiler.compileAll`.
-- Implement `chronos.lookup_syntax` by parsing/reading `Chronos.g4`.
-- Add sorting identical to CLI diagnostics.
-
-Acceptance criteria:
-
-- `chronos.validate` output matches CLI diagnostic ordering.
-- Handles file and directory inputs.
-- Round-trip tests on `examples/` pass.
-
-## Phase 2: Diagnostic intelligence and generation tools (3-4 days)
-
-Work items:
-
-- Implement `chronos.explain_diagnostic` from a generated diagnostic registry.
-- Implement `chronos.generate` by invoking generator pipeline used in CLI.
-- Implement `chronos.emit_ir_bundle` via `IrBundleEmitter`.
-
-Acceptance criteria:
-
-- Unknown target returns `CHRONOS_UNKNOWN_TARGET`.
-- Bundle output reports `format=chronos-ir-bundle`, `version=1`.
-- File metadata includes size + hash.
-
-## Phase 3: Minimal-fix recommender + safety gates (4-6 days)
-
-Work items:
-
-- Implement `chronos.suggest_minimal_fixes` for top 15 CHR codes first.
-- Add guardrails: max edits, no cross-file rename unless requested.
-- Add revalidate-after-edit helper in server-side workflow (optional flag).
-
-Acceptance criteria:
-
-- For golden failing fixtures, generated edit ops reduce error count.
-- No syntax-breaking edits for covered rules.
-
-## Phase 4: Docs + migration from long prompt strategy (2-3 days)
-
-Work items:
-
-- Update `/Users/scott/Developer/projects/ai/holodeck/chronos/docs/ai-agent-setup.md` to prefer MCP tools first.
-- Keep a tiny bootstrap prompt (100-180 words) that tells agents to call MCP tools for syntax/validation.
-- Mark the full paste-in spec as fallback only.
-
-Acceptance criteria:
-
-- New quickstart uses MCP call flow:
-  1) generate draft
-  2) validate
-  3) explain diagnostics
-  4) apply minimal fixes
-  5) validate clean
-- Token usage drops significantly versus long prompt baseline.
-
-## 7. Suggested Small Bootstrap Prompt (for agents)
-
-Use this as system/project instruction once MCP is connected:
+Use this as the system prompt when starting an agent session with Chronos MCP:
 
 ```text
-You are authoring Chronos (.chronos) files. Do not invent syntax.
-Use MCP tools as source of truth:
-1) chronos.lookup_syntax for grammar questions
-2) chronos.validate after each edit
-3) chronos.explain_diagnostic for CHR code fixes
-4) chronos.generate only after validation passes
-Keep edits minimal and preserve user naming/structure unless diagnostics require changes.
+You are authoring Chronos (.chronos) requirements files. Do not invent syntax.
+
+Chronos files follow this structure:
+  namespace <qualified.name>           // required, one per file
+  use <namespace>#<ShapeName>          // import cross-namespace shapes
+  // shape definitions in any order
+
+The 15 shape types are: entity, shape, list, map, enum, actor, policy, journey,
+relationship, invariant, deny, error, statemachine, role, event.
+
+Critical rules (compiler-enforced):
+- Every journey MUST have actor: and outcomes: { success: "..." }
+- Every step MUST have action: and expectation:
+- Variant trigger: must reference a declared error type
+- Invariant severity: error | warning | info
+- Deny/error severity: critical | high | medium | low  ← different from invariant
+- Step telemetry events must be declared as event types
+- Entity invariant expressions reference only direct fields of that entity
+- Namespace segments must not be Chronos keywords (e.g. use "orders" not "journey")
+
+Use MCP tools as your source of truth — do not guess:
+0. chronos.health        — confirm server is reachable, get tool list and compiler version
+1. chronos.discover      — find .chronos files in the workspace
+2. chronos.scaffold      — get a valid starting template for shape types you need
+3. chronos.list_symbols  — see what shapes exist to import
+4. chronos.describe_shape — get docs and examples for any shape type
+5. chronos.validate      — after EVERY file write or edit
+6. chronos.explain_diagnostic — for any CHR error code you see
+7. chronos.generate      — only after validation passes with zero errors
+   (use dryRun: true first to preview planned output files)
+
+Never call chronos.generate if chronos.validate returns errorCount > 0.
+Keep edits minimal. Preserve user naming and structure unless diagnostics require changes.
 ```
 
-## 8. Non-goals in v1
+---
 
-- No remote policy library resolution.
-- No autonomous multi-repo code writing.
-- No probabilistic diagnostic interpretation when compiler output is available.
+## 4. Common Patterns
 
-## 9. Backward compatibility and versioning
+### Cold start (new feature)
 
-- Breaks to response fields require new `apiVersion`.
-- Additive fields are allowed in minor revisions.
-- Maintain one previous API version for at least one release cycle.
+```
+chronos.health → chronos.discover → chronos.scaffold (entity, actor, journey)
+→ write file → chronos.validate → fix errors → chronos.validate (clean)
+→ chronos.generate (dryRun:true) → chronos.generate (dryRun:false)
+```
+
+### Adding a shape to existing model
+
+```
+chronos.list_symbols → chronos.describe_shape → edit file
+→ chronos.validate → fix errors → chronos.generate
+```
+
+### Debugging a diagnostic
+
+```
+chronos.validate → see CHR-XXX → chronos.explain_diagnostic (code: "CHR-XXX")
+→ apply fix → chronos.validate
+```
+
+---
+
+## 5. Module Architecture
+
+The `chronos-mcp` module has these dependencies:
+
+```
+chronos-mcp → chronos-compiler (compile pipeline)
+           → chronos-generators (artifact generation)
+           → chronos-artifacts (IR bundle emission)
+           → chronos-ir (IR model types)
+           → chronos-core (diagnostics, spans)
+```
+
+Dependency boundaries are enforced by `./gradlew check` (`verifyModuleBoundaries` task).
+
+**Knowledge layer:**
+
+- `ShapeKnowledge.java` — generated at build time from `src/main/resources/shape-overlays/*.yaml`
+- `DiagnosticKnowledge.java` — hand-authored; coverage enforced by `DiagnosticKnowledgeCoverageTest`
+- Adding a new CHR code → must add to `DiagnosticKnowledge` before build passes
+- Adding a new shape type → must add YAML overlay before `ShapeKnowledgeCoverageTest` passes
+
+---
+
+## 6. MCP Server Configuration
+
+### Running the server
+
+```sh
+# Build the MCP server JAR
+./gradlew :chronos-mcp:build
+
+# Run (stdio transport — JSON-RPC 2.0 over stdin/stdout)
+java -jar chronos-mcp/build/libs/chronos-mcp-<version>.jar
+```
+
+### Claude Code settings.json example
+
+```json
+{
+  "mcpServers": {
+    "chronos": {
+      "command": "java",
+      "args": ["-jar", "/path/to/chronos-mcp.jar"],
+      "env": {
+        "CHRONOS_WORKSPACE": "/path/to/your/requirements/workspace"
+      }
+    }
+  }
+}
+```
+
+The `CHRONOS_WORKSPACE` environment variable sets the workspace root used by the path security gate.
+All input file paths must be under this directory.

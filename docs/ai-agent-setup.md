@@ -161,3 +161,83 @@ Return only updated .chronos code.
 - Keep one feature per file for onboarding.
 - Move to multi-file composition after the team is comfortable.
 - Run `chronos validate` in PR checks for every `.chronos` change.
+
+---
+
+## Option B: MCP Workflow (Compiler-in-the-Loop)
+
+The steps above (Option A) use the Chronos CLI directly. **Option B** connects Claude to the
+`chronos-mcp` server so the agent can validate, scaffold, and generate without ever running
+shell commands manually.
+
+### When to use MCP mode
+
+Use MCP mode when:
+- The agent is writing or editing `.chronos` files autonomously
+- You want real-time validation after every file write (not just at the end)
+- You need the agent to discover shapes before writing `use` imports
+- You want dryRun previews before generating PRDs
+
+### Setup
+
+**Step 1: Build the MCP server**
+
+```sh
+./gradlew :chronos-mcp:build
+```
+
+**Step 2: Add to Claude Code settings**
+
+Edit `~/.claude/settings.json` (or the project-level `settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "chronos": {
+      "command": "java",
+      "args": ["-jar", "/path/to/chronos/chronos-mcp/build/libs/chronos-mcp-0.1.0.jar"],
+      "env": {
+        "CHRONOS_WORKSPACE": "/path/to/your/requirements"
+      }
+    }
+  }
+}
+```
+
+**Step 3: Add the bootstrap system prompt**
+
+Add this to your project's `CLAUDE.md` (or as a system prompt when starting a session):
+
+```text
+You are authoring Chronos (.chronos) requirements files. Do not invent syntax.
+
+Use MCP tools as your source of truth — do not guess:
+0. chronos.health        — confirm server is reachable, get tool list and compiler version
+1. chronos.discover      — find .chronos files in the workspace
+2. chronos.scaffold      — get a valid starting template for shape types you need
+3. chronos.list_symbols  — see what shapes exist to import
+4. chronos.describe_shape — get docs and examples for any shape type
+5. chronos.validate      — after EVERY file write or edit
+6. chronos.explain_diagnostic — for any CHR error code you see
+7. chronos.generate      — only after validation passes with zero errors
+
+Never call chronos.generate if chronos.validate returns errorCount > 0.
+Keep edits minimal. Preserve user naming and structure unless diagnostics require changes.
+```
+
+### Typical MCP session flow
+
+```
+1. chronos.health          → confirm server running, note compiler version
+2. chronos.discover        → find existing .chronos files in workspace
+3. chronos.scaffold        → generate starter template for entity + actor + journey
+4. [write file to disk]
+5. chronos.validate        → check for errors; repeat steps 4-5 until clean
+6. chronos.explain_diagnostic → if any CHR-XXX error is unclear
+7. chronos.generate        → generate PRD with dryRun:true first, then dryRun:false
+```
+
+### MCP tool reference
+
+See [mcp-api-contract.md](mcp-api-contract.md) for the complete 9-tool API contract,
+response envelope spec, and all input/output schemas.

@@ -1,0 +1,33 @@
+shape: enum
+description: "Enumeration of named constants. Members may have optional integer values."
+compilable: true
+required_fields:
+  - name: members
+    type: EnumMember
+    notes: "One or more member declarations. Optional integer values: MEMBER = 1"
+optional_fields: []
+applicable_rules: ["CHR-005", "CHR-044", "CHR-045"]
+common_mistakes:
+  - "Assigning string values to enum members — only optional integers are supported (MEMBER = 1)"
+  - "Referencing an enum from a statemachine whose states don't match the enum members (CHR-044)"
+  - "Declaring an empty enum body — at least one member is required"
+notes: []
+minimal_example: |
+  enum OrderStatus {
+      PENDING
+      CONFIRMED
+      CANCELLED
+  }
+full_example: |
+  /// Lifecycle states for an order.
+  enum OrderStatus {
+      PENDING = 1
+      CONFIRMED = 2
+      SHIPPED = 3
+      DELIVERED = 4
+      CANCELLED = 5
+  }
+scaffold_template: |
+  enum {{Name}} {
+      PLACEHOLDER
+  }

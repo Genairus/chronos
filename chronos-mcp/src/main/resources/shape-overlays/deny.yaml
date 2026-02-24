@@ -1,0 +1,36 @@
+shape: deny
+description: "Declares an access-control or data-usage restriction with a description and severity."
+compilable: true
+required_fields:
+  - name: description
+    type: String
+    notes: "Required description of what is denied and why (CHR-023)."
+  - name: severity
+    type: Severity
+    notes: "One of: critical, high, medium, low — NOT error/warning/info (CHR-025)."
+optional_fields:
+  - name: scope
+    type: EntityRefList
+    notes: "Entities this denial applies to (CHR-024 validates they exist)."
+applicable_rules: ["CHR-005", "CHR-023", "CHR-024", "CHR-025"]
+common_mistakes:
+  - "Omitting 'description' — always required (CHR-023)"
+  - "Using severity 'error' or 'warning' — deny severity must be critical/high/medium/low (CHR-025)"
+  - "Referencing entities in 'scope' that are not declared or imported (CHR-024)"
+notes: []
+minimal_example: |
+  deny SensitiveDataExport {
+      description "Do not export PII to third parties."
+      severity: high
+  }
+full_example: |
+  deny SensitiveDataExport {
+      description "Do not export customer PII to third-party analytics platforms."
+      severity: critical
+      scope: [Customer, Order]
+  }
+scaffold_template: |
+  deny {{Name}} {
+      description "TODO: describe what is denied and why"
+      severity: high
+  }

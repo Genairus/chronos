@@ -1,0 +1,6 @@
+namespace test.d
+
+entity Order {
+    id: String
+    productRef: UnknownProduct
+}

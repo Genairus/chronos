@@ -1,0 +1,29 @@
+shape: role
+description: "Declares an authorization role with allowed and denied permissions. Referenced by actors via @authorize."
+compilable: true
+required_fields:
+  - name: allow
+    type: PermissionList
+    notes: "List of permission names this role grants."
+optional_fields:
+  - name: deny
+    type: PermissionList
+    notes: "List of permission names explicitly denied (checked by CHR-040)."
+applicable_rules: ["CHR-005", "CHR-037", "CHR-038", "CHR-039", "CHR-040"]
+common_mistakes:
+  - "Referencing a role name in @authorize that doesn't match any declared role (CHR-037)"
+  - "Using a permission in @authorize that is not in the role's allow list (CHR-038)"
+notes: []
+minimal_example: |
+  role Buyer {
+      allow: [place_order, cancel_order]
+  }
+full_example: |
+  role Buyer {
+      allow: [place_order, cancel_order, view_orders]
+      deny: [refund_order]
+  }
+scaffold_template: |
+  role {{Name}} {
+      allow: [{{permission_name}}]
+  }

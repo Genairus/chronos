@@ -1,0 +1,37 @@
+shape: error
+description: "A typed, named error that can be referenced as a journey variant trigger."
+compilable: true
+required_fields:
+  - name: code
+    type: String
+    notes: "Unique error code within the namespace (CHR-026)."
+  - name: severity
+    type: Severity
+    notes: "One of: critical, high, medium, low — NOT error/warning/info (CHR-028)."
+optional_fields:
+  - name: message
+    type: String
+    notes: "Default human-readable error message."
+applicable_rules: ["CHR-005", "CHR-026", "CHR-027", "CHR-028"]
+common_mistakes:
+  - "Using severity 'error' — error severity must be critical/high/medium/low (CHR-028)"
+  - "Duplicate error codes within the same namespace (CHR-026)"
+  - "Referencing an error in a variant 'trigger:' before declaring it (CHR-027)"
+notes: []
+minimal_example: |
+  error PaymentFailedError {
+      code: "PAYMENT_FAILED"
+      severity: high
+  }
+full_example: |
+  /// Raised when a payment authorization attempt fails.
+  error PaymentFailedError {
+      code: "PAYMENT_FAILED"
+      severity: high
+      message: "Payment authorization failed. Please try a different payment method."
+  }
+scaffold_template: |
+  error {{Name}} {
+      code: "{{ERROR_CODE}}"
+      severity: high
+  }

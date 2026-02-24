@@ -1,0 +1,76 @@
+shape: journey
+description: "A user-facing business process with steps, outcomes, and variants. The primary unit of requirements specification."
+compilable: false
+required_fields:
+  - name: actor
+    type: ActorRef
+    notes: "Required. Must reference a declared actor. Omitting triggers CHR-001."
+  - name: outcomes
+    type: OutcomesBlock
+    notes: "Required. Must include at least one 'success:' outcome. Omitting triggers CHR-002."
+  - name: steps
+    type: StepList
+    notes: "Strongly recommended — omitting all steps triggers CHR-004 WARNING."
+optional_fields:
+  - name: "@kpi"
+    type: String
+    notes: "Key performance indicator — omitting triggers CHR-009 WARNING."
+  - name: "@compliance"
+    type: String
+    notes: "Compliance tag — omitting triggers CHR-010 WARNING."
+  - name: variants
+    type: VariantList
+    notes: "Alternative paths (error/edge cases). Each variant needs trigger: and outcome:."
+applicable_rules: ["CHR-001", "CHR-002", "CHR-003", "CHR-004", "CHR-009", "CHR-010", "CHR-027", "CHR-034", "CHR-035", "CHR-036", "CHR-041", "CHR-046", "CHR-047"]
+common_mistakes:
+  - "Omitting 'actor:' — always required (CHR-001)"
+  - "Omitting 'outcomes: { success: ... }' — always required (CHR-002)"
+  - "Using anonymous step syntax '{ action: ... }' — steps must be named: 'step MyStep { ... }'"
+  - "Variant 'trigger:' referencing an undeclared error type (CHR-027)"
+  - "Step 'telemetry:' referencing an undeclared event type (CHR-041)"
+notes:
+  - "Scaffold requires an actor declaration in the same namespace — add 'actor MyActor' or import one"
+  - "Scaffold includes placeholder outcome — replace with a meaningful outcome description"
+  - "Steps must be named: 'step MyStep { action: \"...\" expectation: \"...\" }'"
+minimal_example: |
+  journey PlaceOrder {
+      actor: Customer
+      steps: [
+          step SubmitOrder { action: "Customer submits order" expectation: "Order is created" }
+      ]
+      outcomes: {
+          success: "Order is placed and confirmation sent"
+      }
+  }
+full_example: |
+  /// Place an order for one or more items.
+  @kpi("order-conversion-rate")
+  @compliance("PCI-DSS")
+  journey PlaceOrder {
+      actor: Customer
+      steps: [
+          step AddToCart { action: "Customer adds items to cart" expectation: "Cart is updated" },
+          step SubmitPayment { action: "Customer submits payment" expectation: "Payment is authorized" output: [ chargeId: String ] },
+          step CreateOrder { action: "System creates order record" expectation: "Order persisted with PENDING status" }
+      ]
+      outcomes: {
+          success: "Order is placed and confirmation email sent"
+      }
+      variants: [
+          {
+              name: PaymentDeclined
+              trigger: PaymentFailedError
+              outcome: TransitionTo(CANCELLED)
+          }
+      ]
+  }
+scaffold_template: |
+  journey {{Name}} {
+      actor: {{ActorName}}
+      steps: [
+          step {{StepName}} { action: "TODO: describe step" expectation: "TODO: describe expectation" }
+      ]
+      outcomes: {
+          success: "TODO: describe success outcome"
+      }
+  }

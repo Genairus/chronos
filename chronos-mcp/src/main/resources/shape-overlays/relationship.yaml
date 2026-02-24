@@ -1,0 +1,45 @@
+shape: relationship
+description: "Declares an association between two entities with cardinality and optional semantics."
+compilable: false
+required_fields:
+  - name: from
+    type: EntityRef
+    notes: "Source entity."
+  - name: to
+    type: EntityRef
+    notes: "Target entity."
+  - name: cardinality
+    type: Cardinality
+    notes: "One of: one_to_one, one_to_many, many_to_one, many_to_many."
+optional_fields:
+  - name: semantics
+    type: Semantics
+    notes: "One of: composition, aggregation, association. Composition means the target is owned exclusively."
+  - name: inverse
+    type: FieldRef
+    notes: "Back-reference field name on the target entity (CHR-014 validates it exists)."
+applicable_rules: ["CHR-005", "CHR-011", "CHR-014", "CHR-048"]
+common_mistakes:
+  - "Using 'semantics: composition' and having multiple relationships composing the same entity (CHR-048)"
+  - "Setting 'inverse:' to a field that doesn't exist on the target entity (CHR-014)"
+notes:
+  - "Scaffold references placeholder entity names — replace FromEntity and ToEntity with real declared entities (CHR-011)"
+minimal_example: |
+  relationship OrderItems {
+      from: Order
+      to: LineItem
+      cardinality: one_to_many
+  }
+full_example: |
+  relationship OrderItems {
+      from: Order
+      to: LineItem
+      cardinality: one_to_many
+      semantics: composition
+  }
+scaffold_template: |
+  relationship {{Name}} {
+      from: {{FromEntity}}
+      to: {{ToEntity}}
+      cardinality: one_to_many
+  }

@@ -121,7 +121,7 @@ subprojects {
     apply(plugin = "jacoco")
 
     group = "com.genairus.chronos"
-    version = "0.2.0"
+    version = "0.2.1"
 
     configure<JavaPluginExtension> {
         sourceCompatibility = JavaVersion.VERSION_21

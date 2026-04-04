@@ -8,7 +8,7 @@ import org.gradle.api.tasks.TaskAction
 plugins {
     java
     application
-    id("org.graalvm.buildtools.native") version "0.9.28"
+    id("org.graalvm.buildtools.native") version "0.11.1"
 }
 
 // ── Version constant generation ────────────────────────────────────────────

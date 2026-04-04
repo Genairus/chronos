@@ -37,3 +37,6 @@ chronos-parser/src/main/antlr/com/genairus/chronos/parser/Chronos.g4
 
 # MkDocs generated site output
 site/
+
+# Local MCP server config (paths are machine-specific; see docs/ai-agent-setup.md)
+.mcp.json

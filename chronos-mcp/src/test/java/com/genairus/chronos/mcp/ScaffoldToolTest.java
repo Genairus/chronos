@@ -154,4 +154,27 @@ class ScaffoldToolTest {
         assertTrue(env.has("schemaVersion"), "must have schemaVersion");
         assertTrue(env.has("toolVersion"), "must have toolVersion");
     }
+
+    @Test
+    void shapesAsPlainStringSingleValue() {
+        // Agent Gateway may serialize a single-item array as a plain String
+        var env = tool.execute(Map.of(
+                "namespace", "test.coerce",
+                "shapes", "entity"));
+        assertFalse(env.has("error"), "Single string shapes arg must succeed, got: " + env);
+        var content = env.getAsJsonObject("result").get("content").getAsString();
+        assertTrue(content.contains("entity MyEntity"), "Must include entity scaffold");
+    }
+
+    @Test
+    void shapesAsCommaSeparatedString() {
+        // Agent Gateway may serialize a multi-item array as a comma-separated String
+        var env = tool.execute(Map.of(
+                "namespace", "test.coerce",
+                "shapes", "entity, shape"));
+        assertFalse(env.has("error"), "Comma-separated shapes arg must succeed, got: " + env);
+        var content = env.getAsJsonObject("result").get("content").getAsString();
+        assertTrue(content.contains("entity MyEntity"), "Must include entity scaffold");
+        assertTrue(content.contains("shape MyShape"), "Must include shape scaffold");
+    }
 }

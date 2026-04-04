@@ -65,8 +65,7 @@ public class ScaffoldTool {
             }
             String namespace = nsRaw.toString().trim();
 
-            @SuppressWarnings("unchecked")
-            var shapesRaw = (List<Object>) arguments.get("shapes");
+            var shapesRaw = ToolArgs.toCommaSplitList(arguments.get("shapes"));
             if (shapesRaw == null || shapesRaw.isEmpty()) {
                 return Envelope.error(McpMeta.TOOL_SCAFFOLD,
                         McpMeta.ErrorCode.INVALID_INPUT, "shapes is required and must not be empty", false);

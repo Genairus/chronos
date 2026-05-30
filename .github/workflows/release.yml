@@ -72,10 +72,74 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # ── Job 1b: build chronos-mcp distribution archives ──────────────────────
+  # The MCP server is plain JVM (no native-image), so a single Ubuntu runner
+  # produces both the cross-platform tar.gz (macOS/Linux) and zip (Windows).
+  build-mcp:
+    name: Build chronos-mcp distributions
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build chronos-mcp distributions
+        run: ./gradlew :chronos-mcp:distTar :chronos-mcp:distZip
+
+      - name: Smoke check archives contain bin/ launchers
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.value }}"
+          TAR="chronos-mcp/build/distributions/chronos-mcp-${VERSION}.tar.gz"
+          ZIP="chronos-mcp/build/distributions/chronos-mcp-${VERSION}.zip"
+
+          if [ ! -f "$TAR" ]; then
+            echo "Missing expected tarball: $TAR" >&2
+            ls -la chronos-mcp/build/distributions/ >&2
+            exit 1
+          fi
+          if [ ! -f "$ZIP" ]; then
+            echo "Missing expected zip: $ZIP" >&2
+            ls -la chronos-mcp/build/distributions/ >&2
+            exit 1
+          fi
+
+          tar -tzf "$TAR" | grep -qx "chronos-mcp-${VERSION}/bin/chronos-mcp"     || { echo "tarball missing bin/chronos-mcp"     >&2; exit 1; }
+          tar -tzf "$TAR" | grep -qx "chronos-mcp-${VERSION}/bin/chronos-mcp.bat" || { echo "tarball missing bin/chronos-mcp.bat" >&2; exit 1; }
+          unzip -l "$ZIP" | grep -qE "chronos-mcp-${VERSION}/bin/chronos-mcp$"     || { echo "zip missing bin/chronos-mcp"     >&2; exit 1; }
+          unzip -l "$ZIP" | grep -qE "chronos-mcp-${VERSION}/bin/chronos-mcp\.bat$" || { echo "zip missing bin/chronos-mcp.bat" >&2; exit 1; }
+          echo "MCP archive smoke check passed."
+
+      - name: Stage archives for upload
+        run: |
+          mkdir -p mcp-dist
+          cp chronos-mcp/build/distributions/chronos-mcp-${{ steps.version.outputs.value }}.tar.gz mcp-dist/
+          cp chronos-mcp/build/distributions/chronos-mcp-${{ steps.version.outputs.value }}.zip   mcp-dist/
+
+      - name: Upload MCP archive artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: chronos-mcp-distributions
+          path: mcp-dist/chronos-mcp-*
+          if-no-files-found: error
+          retention-days: 1
+
   # ── Job 2: create GitHub Release ─────────────────────────────────────────
   release:
     name: Create GitHub Release
-    needs: build-native
+    needs: [build-native, build-mcp]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -118,8 +182,23 @@ jobs:
             scoop install chronos
             ```
 
-            **Direct download**
+            **Direct download — Chronos CLI**
             See the assets below. Extract and place `chronos` (or `chronos.exe`) on your `PATH`.
+
+            **Direct download — Chronos MCP server**
+
+            The `chronos-mcp` server is a JVM application (requires Java 21+ on the
+            machine that will run it) and ships as a cross-platform archive:
+
+            | Platform        | Asset                                            |
+            |-----------------|--------------------------------------------------|
+            | macOS / Linux   | `chronos-mcp-${{ steps.version.outputs.value }}.tar.gz` |
+            | Windows         | `chronos-mcp-${{ steps.version.outputs.value }}.zip`    |
+
+            Extract the archive and run the launcher from `bin/`
+            (`bin/chronos-mcp` on macOS/Linux, `bin\chronos-mcp.bat` on Windows).
+            See [docs/ai-agent-setup.md](https://github.com/Genairus/chronos/blob/main/docs/ai-agent-setup.md#option-b-mcp-workflow-compiler-in-the-loop)
+            for the MCP setup walkthrough.
 
   # ── Job 3: update Homebrew tap ───────────────────────────────────────────
   update-homebrew:

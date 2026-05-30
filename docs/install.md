@@ -114,6 +114,38 @@ chronos --help
 
 ---
 
+## Chronos MCP server
+
+The `chronos-mcp` server is published alongside the CLI on every tagged release.
+It is a JVM application (requires Java 21+ on the machine that will run it) and
+ships as a cross-platform archive:
+
+| Platform        | Asset                              |
+|-----------------|------------------------------------|
+| macOS / Linux   | `chronos-mcp-<version>.tar.gz`     |
+| Windows         | `chronos-mcp-<version>.zip`        |
+
+Download from the [latest release](https://github.com/Genairus/chronos/releases/latest),
+extract it, and run the launcher from `bin/`:
+
+```sh
+# macOS / Linux
+tar -xzf chronos-mcp-<version>.tar.gz -C ~/tools/
+~/tools/chronos-mcp-<version>/bin/chronos-mcp
+```
+
+```powershell
+# Windows
+Expand-Archive chronos-mcp-<version>.zip -DestinationPath $env:USERPROFILE\tools\
+& "$env:USERPROFILE\tools\chronos-mcp-<version>\bin\chronos-mcp.bat"
+```
+
+See [ai-agent-setup.md](ai-agent-setup.md#option-b-mcp-workflow-compiler-in-the-loop)
+for the full MCP setup walkthrough, including how to wire the server into
+Claude Code via `.mcp.json`.
+
+---
+
 ## Building from source
 
 Requires GraalVM JDK 21 with `native-image` installed.

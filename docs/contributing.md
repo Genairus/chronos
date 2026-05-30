@@ -29,6 +29,8 @@ For end-user documentation see the [Documentation Index](index.md).
 # Binary: chronos-cli/build/native/nativeCompile/chronos
 ```
 
+CI runs this same command on Linux x86_64 in the `Native Smoke` workflow on every pull request and push to `main`, so GraalVM regressions surface before a release tag is cut. Cross-platform native builds still happen only in the release workflow.
+
 ---
 
 ## Run Tests

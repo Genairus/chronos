@@ -210,6 +210,14 @@ application {
     mainClass.set("com.genairus.chronos.mcp.ChronosMcpServer")
 }
 
+// Produce a gzipped tarball (chronos-mcp-<version>.tar.gz) so the release asset
+// name matches the documented install path in docs/ai-agent-setup.md and
+// docs/install.md.  The default distTar output is an uncompressed .tar.
+tasks.named<Tar>("distTar") {
+    compression = Compression.GZIP
+    archiveExtension.set("tar.gz")
+}
+
 dependencies {
     implementation(project(":chronos-core"))
     implementation(project(":chronos-ir"))

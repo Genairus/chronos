@@ -47,6 +47,18 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # Workaround for native-build-tools#754: native-image's args file is
+      # written under java.io.tmpdir (default C:\…\Temp). Classpath jars are
+      # under the workspace on D:\. Path.relativize() across drives throws
+      # "'other' has different root", failing :chronos-cli:nativeCompile on
+      # windows-latest. Point the Daemon's tmpdir at the workspace drive.
+      - name: Configure Windows tmpdir on workspace drive
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path D:\tmp | Out-Null
+          Add-Content -Path gradle.properties -Value "`norg.gradle.jvmargs=-Djava.io.tmpdir=D:\\tmp -Xmx2g"
+
       - name: Build native image
         run: ./gradlew :chronos-cli:nativeCompile
 

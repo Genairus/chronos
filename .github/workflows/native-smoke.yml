@@ -1,0 +1,46 @@
+name: Native Smoke
+
+# Smoke build for the GraalVM native image of the CLI. The release workflow
+# (release.yml) is the only place we currently exercise `:chronos-cli:nativeCompile`,
+# which means GraalVM regressions are only caught at tag time. This job runs the
+# same native compile on pull requests and pushes to `main` so a failing native
+# build produces a visible failing check before a release tag is cut.
+#
+# Scope: Linux x86_64 only. Building the native image on every platform on every
+# PR would multiply CI minutes for limited additional signal — the same Gradle
+# plugin, build args, and Graal version are used on all platforms, so a single
+# host catches the vast majority of regressions (missing reflection config,
+# unsupported APIs, plugin upgrades, etc.). Cross-platform coverage stays in
+# release.yml.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  native-compile:
+    name: Native compile (linux-x86_64)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up GraalVM JDK 21
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Native compile
+        run: ./gradlew :chronos-cli:nativeCompile
+
+      - name: Smoke-run binary
+        run: ./chronos-cli/build/native/nativeCompile/chronos --help

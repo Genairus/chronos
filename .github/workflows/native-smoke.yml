@@ -19,6 +19,12 @@ on:
   pull_request:
     branches: [main]
 
+# Least-privilege token: this workflow only needs to read the repo
+# (checkout + Gradle cache reads). It does not push, comment, or
+# submit dependency graphs, so all other scopes stay denied.
+permissions:
+  contents: read
+
 jobs:
   native-compile:
     name: Native compile (linux-x86_64)

@@ -11,6 +11,19 @@ import java.util.List;
  * String when there are multiple elements. All helpers normalise to a
  * {@code List<Object>}, preventing {@link ClassCastException} in tool execute
  * methods.
+ *
+ * <p>Two helpers are provided because comma-splitting is unsafe for some
+ * argument types:
+ * <ul>
+ *   <li>{@link #toList(Object)} wraps a String value as a single-element list
+ *       <em>without</em> splitting on commas. Use for path-typed arrays whose
+ *       values may legitimately contain commas. Multi-element calls from
+ *       comma-joining proxies must be sent as a JSON array to be parsed
+ *       correctly.</li>
+ *   <li>{@link #toCommaSplitList(Object)} splits a String value on commas.
+ *       Use for identifier-typed arrays (shape names, kind filters) whose
+ *       values cannot contain commas.</li>
+ * </ul>
  */
 final class ToolArgs {
 

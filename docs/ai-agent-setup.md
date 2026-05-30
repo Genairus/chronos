@@ -191,33 +191,68 @@ Use MCP mode when:
 
 ### Setup
 
-**Step 1: Download the MCP server**
+**Step 1: Build the MCP server from source**
 
-Download the latest `chronos-mcp-X.X.X.tar.gz` (or `.zip` for Windows) from the [Chronos releases page](https://github.com/Genairus/chronos/releases).
+The `chronos-mcp` server is currently distributed as source. Prebuilt MCP
+archives are not yet attached to GitHub releases — the
+[releases page](https://github.com/Genairus/chronos/releases) publishes only
+the `chronos` CLI native binary. To install MCP, build it from a clone of this
+repository.
 
-> **For developers:** If you're building from source, run `./gradlew :chronos-mcp:build` and use the distributions from `chronos-mcp/build/distributions/`.
-
-Extract it to a permanent location:
+From the chronos repo root:
 
 ```sh
-# macOS/Linux
-tar -xzf chronos-mcp-0.2.1.tar.gz -C ~/tools/
-export CHRONOS_MCP_HOME=~/tools/chronos-mcp-0.2.1
-
-# Windows (PowerShell)
-Expand-Archive chronos-mcp-0.2.1.zip -DestinationPath $env:USERPROFILE\tools\
-$env:CHRONOS_MCP_HOME="$env:USERPROFILE\tools\chronos-mcp-0.2.1"
+./gradlew :chronos-mcp:installDist
 ```
+
+This produces an unpacked, ready-to-run install at
+`chronos-mcp/build/install/chronos-mcp/`, with the layout:
+
+```
+chronos-mcp/build/install/chronos-mcp/
+├── bin/
+│   ├── chronos-mcp        # Unix launcher
+│   └── chronos-mcp.bat    # Windows launcher
+└── lib/                   # bundled jars
+```
+
+No extraction step is needed — point `.mcp.json` directly at the launcher above.
+
+> **Optional: distributable archives.** If you want a relocatable archive (for
+> example to copy the server to another machine), run
+> `./gradlew :chronos-mcp:assembleDist` instead. This produces both archives
+> under `chronos-mcp/build/distributions/`:
+>
+> - `chronos-mcp-0.2.1.tar` — uncompressed tar (Gradle's `distTar` does not
+>   gzip by default)
+> - `chronos-mcp-0.2.1.zip`
+>
+> Extract them with:
+>
+> ```sh
+> # macOS/Linux — note: -xf (no z), the tar is uncompressed
+> tar -xf chronos-mcp-0.2.1.tar -C ~/tools/
+> export CHRONOS_MCP_HOME=~/tools/chronos-mcp-0.2.1
+>
+> # Windows (PowerShell)
+> Expand-Archive chronos-mcp-0.2.1.zip -DestinationPath $env:USERPROFILE\tools\
+> $env:CHRONOS_MCP_HOME="$env:USERPROFILE\tools\chronos-mcp-0.2.1"
+> ```
+>
+> The extracted directory has the same `bin/` and `lib/` layout as the
+> `installDist` output above.
 
 **Step 2: Configure for your project**
 
-Create `.mcp.json` in your requirements repository root:
+Create `.mcp.json` in your requirements repository root. Point `command` at the
+launcher produced by `installDist` (replace `/path/to/chronos` with the
+absolute path to your chronos repo clone):
 
 ```json
 {
   "mcpServers": {
     "chronos": {
-      "command": "/Users/yourname/tools/chronos-mcp-0.2.1/bin/chronos-mcp",
+      "command": "/path/to/chronos/chronos-mcp/build/install/chronos-mcp/bin/chronos-mcp",
       "env": {
         "CHRONOS_WORKSPACE": "${workspaceFolder}"
       }
@@ -226,12 +261,12 @@ Create `.mcp.json` in your requirements repository root:
 }
 ```
 
-**For Windows**, use:
+**For Windows**, use the `.bat` launcher:
 ```json
 {
   "mcpServers": {
     "chronos": {
-      "command": "C:\\Users\\yourname\\tools\\chronos-mcp-0.2.1\\bin\\chronos-mcp.bat",
+      "command": "C:\\path\\to\\chronos\\chronos-mcp\\build\\install\\chronos-mcp\\bin\\chronos-mcp.bat",
       "env": {
         "CHRONOS_WORKSPACE": "${workspaceFolder}"
       }
@@ -240,7 +275,10 @@ Create `.mcp.json` in your requirements repository root:
 }
 ```
 
-**Note:** Replace `/Users/yourname/tools/` with your actual extraction path. The `${workspaceFolder}` variable expands to your current project root.
+**Note:** If you used `assembleDist` and extracted to `~/tools/` instead, point
+`command` at `~/tools/chronos-mcp-0.2.1/bin/chronos-mcp` (or the Windows `.bat`
+equivalent). The `${workspaceFolder}` variable expands to your current project
+root.
 
 **Step 3: Activate the MCP server**
 

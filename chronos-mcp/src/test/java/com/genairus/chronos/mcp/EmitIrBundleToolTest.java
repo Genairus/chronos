@@ -194,4 +194,27 @@ class EmitIrBundleToolTest {
         assertTrue(env.has("schemaVersion"), "must have schemaVersion");
         assertTrue(env.has("toolVersion"), "must have toolVersion");
     }
+
+    @Test
+    void inputPathsAsPlainStringSingleValueIsCoercedToSinglePath(@TempDir Path tmpDir) throws IOException {
+        // MCP clients (e.g. Agent Gateway) may serialize a single-item array as
+        // a plain String. ToolArgs.toList wraps it as a single-element list so
+        // the tool succeeds without a ClassCastException.
+        var srcFile = tmpDir.resolve("valid.chronos");
+        Files.writeString(srcFile, VALID_SOURCE);
+        var outDir = tmpDir.resolve("out");
+
+        var env = tool.execute(Map.of(
+                "inputPaths", srcFile.toString(),
+                "workspaceRoot", tmpDir.toString(),
+                "outDir", outDir.toString()));
+
+        assertFalse(env.has("error"),
+                "Single-string inputPaths must succeed, got: " + env);
+        var result = env.getAsJsonObject("result");
+        assertEquals(1, result.get("modelCount").getAsInt(),
+                "Single-string input must compile a single model");
+        var bundlePath = Path.of(result.get("bundlePath").getAsString());
+        assertTrue(Files.exists(bundlePath), "Bundle file must exist: " + bundlePath);
+    }
 }

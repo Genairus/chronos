@@ -41,7 +41,7 @@ public class EmitIrBundleTool {
                 "inputPaths": {
                   "type": "array",
                   "items": {"type": "string"},
-                  "description": "Absolute paths to .chronos files to compile into an IR bundle."
+                  "description": "Absolute paths to .chronos files to compile into an IR bundle. A single plain string is accepted and treated as one path; comma-separated strings are NOT split (paths may legitimately contain commas), so multi-path payloads must be sent as a JSON array."
                 },
                 "workspaceRoot": {
                   "type": "string",

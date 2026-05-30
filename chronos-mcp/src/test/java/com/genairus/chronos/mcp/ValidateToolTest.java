@@ -206,6 +206,54 @@ class ValidateToolTest {
         // If /tmp happens to be a parent of fixturesDir, this test is a no-op — acceptable
     }
 
+    // ── Argument coercion (ToolArgs.toList) ───────────────────────────────────
+
+    @Test
+    void inputPathsAsPlainStringSingleValueIsCoercedToSinglePath() {
+        // MCP clients (e.g. Agent Gateway) may serialize a single-item array as
+        // a plain String. ToolArgs.toList wraps it as a single-element list so
+        // the tool succeeds without a ClassCastException.
+        var tool = new ValidateTool();
+        var env = tool.execute(Map.of(
+                "inputPaths", orderingA.toString(),
+                "workspaceRoot", fixturesDir.toString()
+        ));
+
+        assertFalse(env.has("error"),
+                "Single-string inputPaths must succeed, got: " + env);
+        var result = env.getAsJsonObject("result");
+        assertTrue(result.get("errorCount").getAsInt() > 0,
+                "ordering-a has errors (CHR-002, CHR-005)");
+    }
+
+    @Test
+    void inputPathsAsCommaSeparatedStringIsTreatedAsSinglePathNotSplit() {
+        // Documented contract: ToolArgs.toList does NOT split path-typed strings
+        // on commas, because paths may legitimately contain commas. Multi-path
+        // payloads must be sent as a JSON array. A comma-joined string is
+        // therefore treated as a single literal path and produces a "Cannot
+        // read file" error — not a successful two-file compile.
+        //
+        // The comma must live inside a single filename component (not between
+        // two absolute paths) so the string is a legal Path on every platform —
+        // Windows rejects "C:\a,C:\b" up-front with InvalidPathException
+        // because of the embedded colon, which would surface as INTERNAL_ERROR.
+        var tool = new ValidateTool();
+        var combined = fixturesDir.resolve("first.chronos,second.chronos").toString();
+        var env = tool.execute(Map.of(
+                "inputPaths", combined,
+                "workspaceRoot", fixturesDir.toString()
+        ));
+
+        assertTrue(env.has("error"),
+                "Comma-joined inputPaths string must NOT be split; expected an error envelope, got: " + env);
+        var error = env.getAsJsonObject("error");
+        assertEquals("INVALID_INPUT", error.get("code").getAsString(),
+                "Treating the combined string as a single non-existent path must yield INVALID_INPUT");
+        assertTrue(error.get("message").getAsString().contains(combined),
+                "Error message should reference the combined literal path: " + error);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private List<String> extractCodes(JsonArray diagnostics) {

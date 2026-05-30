@@ -201,6 +201,29 @@ class GenerateToolTest {
     }
 
     @Test
+    void inputPathsAsPlainStringSingleValueIsCoercedToSinglePath(@TempDir Path tmpDir) throws IOException {
+        // MCP clients (e.g. Agent Gateway) may serialize a single-item array as
+        // a plain String. ToolArgs.toList wraps it as a single-element list so
+        // the tool succeeds without a ClassCastException.
+        var srcFile = tmpDir.resolve("valid.chronos");
+        Files.writeString(srcFile, VALID_SOURCE);
+
+        var env = tool.execute(Map.of(
+                "inputPaths", srcFile.toString(),
+                "workspaceRoot", tmpDir.toString(),
+                "outDir", tmpDir.resolve("out").toString(),
+                "target", "prd",
+                "dryRun", "true"));
+
+        assertFalse(env.has("error"),
+                "Single-string inputPaths must succeed, got: " + env);
+        var result = env.getAsJsonObject("result");
+        assertTrue(result.get("dryRun").getAsBoolean(), "dryRun must be true");
+        assertFalse(result.getAsJsonArray("plannedFiles").isEmpty(),
+                "plannedFiles must be non-empty for valid dryRun");
+    }
+
+    @Test
     void writeFailureReturnsErrorWithPartialWriteDetails(@TempDir Path tmpDir) throws IOException {
         var srcFile = tmpDir.resolve("valid.chronos");
         Files.writeString(srcFile, VALID_SOURCE);

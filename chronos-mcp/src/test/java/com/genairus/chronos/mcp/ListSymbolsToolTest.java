@@ -217,6 +217,28 @@ class ListSymbolsToolTest {
         assertTrue(env.has("toolVersion"));
     }
 
+    @Test
+    void inputPathsAsPlainStringSingleValueIsCoercedToSinglePath() {
+        // MCP clients (e.g. Agent Gateway) may serialize a single-item array as
+        // a plain String. ToolArgs.toList wraps it as a single-element list so
+        // the tool succeeds without a ClassCastException.
+        String source = """
+                namespace test.coerce
+                entity Single { id: String }
+                """;
+        var tmpPath = writeTempFile("coerce-single.chronos", source);
+
+        var env = tool.execute(Map.of(
+                "inputPaths", tmpPath,
+                "workspaceRoot", Path.of(tmpPath).getParent().toString()));
+
+        assertFalse(env.has("error"),
+                "Single-string inputPaths must succeed, got: " + env);
+        var symbols = env.getAsJsonObject("result").getAsJsonArray("symbols");
+        assertEquals(1, symbols.size(), "Must list the single Single entity");
+        assertEquals("Single", symbols.get(0).getAsJsonObject().get("name").getAsString());
+    }
+
     /** Writes source to a temp file and returns the absolute path string. */
     private String writeTempFile(String filename, String content) {
         try {

@@ -43,7 +43,12 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          # Read-only across the board. Cache population on `main` happens in
+          # ci.yml (which runs the full check matrix); this smoke gate only
+          # needs to consume that cache. Staying read-only also keeps the
+          # workflow's token at `contents: read` without needing `actions: write`
+          # for cache save.
+          cache-read-only: true
 
       - name: Native compile
         run: ./gradlew :chronos-cli:nativeCompile

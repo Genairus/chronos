@@ -223,20 +223,20 @@ No extraction step is needed — point `.mcp.json` directly at the launcher abov
 > `./gradlew :chronos-mcp:assembleDist` instead. This produces both archives
 > under `chronos-mcp/build/distributions/`:
 >
-> - `chronos-mcp-0.2.1.tar` — uncompressed tar (Gradle's `distTar` does not
+> - `chronos-mcp-0.2.2.tar` — uncompressed tar (Gradle's `distTar` does not
 >   gzip by default)
-> - `chronos-mcp-0.2.1.zip`
+> - `chronos-mcp-0.2.2.zip`
 >
 > Extract them with:
 >
 > ```sh
 > # macOS/Linux — note: -xf (no z), the tar is uncompressed
-> tar -xf chronos-mcp-0.2.1.tar -C ~/tools/
-> export CHRONOS_MCP_HOME=~/tools/chronos-mcp-0.2.1
+> tar -xf chronos-mcp-0.2.2.tar -C ~/tools/
+> export CHRONOS_MCP_HOME=~/tools/chronos-mcp-0.2.2
 >
 > # Windows (PowerShell)
-> Expand-Archive chronos-mcp-0.2.1.zip -DestinationPath $env:USERPROFILE\tools\
-> $env:CHRONOS_MCP_HOME="$env:USERPROFILE\tools\chronos-mcp-0.2.1"
+> Expand-Archive chronos-mcp-0.2.2.zip -DestinationPath $env:USERPROFILE\tools\
+> $env:CHRONOS_MCP_HOME="$env:USERPROFILE\tools\chronos-mcp-0.2.2"
 > ```
 >
 > The extracted directory has the same `bin/` and `lib/` layout as the

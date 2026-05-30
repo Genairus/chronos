@@ -36,7 +36,7 @@ Boundary rules are in `build.gradle.kts` `allowedProjectDeps` map. `./gradlew ch
 ./gradlew check                    # full check including architecture boundary verification
 ```
 
-Java 21 required. Version: `0.2.1` (set in root `build.gradle.kts` line 124).
+Java 21 required. Version: `0.2.2` (set in root `build.gradle.kts` line 124).
 
 ## CLI Patterns
 

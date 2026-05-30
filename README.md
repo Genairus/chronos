@@ -71,7 +71,7 @@ scoop install chronos
 
 ```sh
 chronos --version
-# chronos 0.2.1
+# chronos 0.2.2
 ```
 
 For direct downloads, ARM64, and other options see the [full install guide](docs/install.md).

@@ -71,7 +71,7 @@ scoop install chronos
 
 ```sh
 chronos --version
-# chronos 0.2.0
+# chronos 0.2.1
 ```
 
 For direct downloads, ARM64, and other options see the [full install guide](docs/install.md).
@@ -241,15 +241,16 @@ In Jira, import this CSV from your project board using the CSV import flow, then
 
 Chronos is designed to work with AI coding bots. Feed the bot a feature brief, and it generates `.chronos` files. The compiler catches mistakes instantly.
 
-**Claude Code, ChatGPT, Copilot, Cursor — any LLM works.** See the how-to guide for:
+**Claude Code, ChatGPT, Copilot, Cursor — any LLM works.** Two integration modes:
 
-- A copy-pasteable language spec you can drop into any LLM's system prompt
-- A ready-to-use `CLAUDE.md` template that makes Claude Code an instant Chronos expert
-- Prompt templates, compile-fix loops, and team conventions
+- **CLI Workflow** — The AI writes `.chronos` files, you run `chronos validate` and paste diagnostics back
+- **MCP Server** — The AI has direct compiler access via 9 MCP tools (validate, scaffold, describe_shape, generate, etc.) for real-time validation without shell commands
 
-👉 **[AI Agent Setup (Claude + Chronos)](docs/ai-agent-setup.md)**
+👉 **[AI Agent Setup Guide](docs/ai-agent-setup.md)** — Complete setup instructions for both CLI and MCP workflows
 
-👉 **[How-To: Write Requirements with Your AI Coding Bot](docs/ai-bot-requirements-howto.md)**
+👉 **[How-To: Write Requirements with Your AI Coding Bot](docs/ai-bot-requirements-howto.md)** — Prompt templates and conventions
+
+👉 **[MCP API Contract](docs/mcp-api-contract.md)** — Full MCP tool reference for developers
 
 ---
 

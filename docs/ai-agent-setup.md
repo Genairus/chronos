@@ -191,31 +191,64 @@ Use MCP mode when:
 
 ### Setup
 
-**Step 1: Build the MCP server**
+**Step 1: Download the MCP server**
+
+Download the latest `chronos-mcp-X.X.X.tar.gz` (or `.zip` for Windows) from the [Chronos releases page](https://github.com/Genairus/chronos/releases).
+
+> **For developers:** If you're building from source, run `./gradlew :chronos-mcp:build` and use the distributions from `chronos-mcp/build/distributions/`.
+
+Extract it to a permanent location:
 
 ```sh
-./gradlew :chronos-mcp:build
+# macOS/Linux
+tar -xzf chronos-mcp-0.2.1.tar.gz -C ~/tools/
+export CHRONOS_MCP_HOME=~/tools/chronos-mcp-0.2.1
+
+# Windows (PowerShell)
+Expand-Archive chronos-mcp-0.2.1.zip -DestinationPath $env:USERPROFILE\tools\
+$env:CHRONOS_MCP_HOME="$env:USERPROFILE\tools\chronos-mcp-0.2.1"
 ```
 
-**Step 2: Add to Claude Code settings**
+**Step 2: Configure for your project**
 
-Edit `~/.claude/settings.json` (or the project-level `settings.json`):
+Create `.mcp.json` in your requirements repository root:
 
 ```json
 {
   "mcpServers": {
     "chronos": {
-      "command": "java",
-      "args": ["-jar", "/path/to/chronos/chronos-mcp/build/libs/chronos-mcp-0.1.0.jar"],
+      "command": "/Users/yourname/tools/chronos-mcp-0.2.1/bin/chronos-mcp",
       "env": {
-        "CHRONOS_WORKSPACE": "/path/to/your/requirements"
+        "CHRONOS_WORKSPACE": "${workspaceFolder}"
       }
     }
   }
 }
 ```
 
-**Step 3: Add the bootstrap system prompt**
+**For Windows**, use:
+```json
+{
+  "mcpServers": {
+    "chronos": {
+      "command": "C:\\Users\\yourname\\tools\\chronos-mcp-0.2.1\\bin\\chronos-mcp.bat",
+      "env": {
+        "CHRONOS_WORKSPACE": "${workspaceFolder}"
+      }
+    }
+  }
+}
+```
+
+**Note:** Replace `/Users/yourname/tools/` with your actual extraction path. The `${workspaceFolder}` variable expands to your current project root.
+
+**Step 3: Activate the MCP server**
+
+1. Restart Claude Code (or your AI assistant)
+2. When prompted, **approve** the "chronos" MCP server
+3. The approval is saved per-project; you won't be asked again unless `.mcp.json` changes
+
+**Step 4: Add the bootstrap system prompt**
 
 Add this to your project's `CLAUDE.md` (or as a system prompt when starting a session):
 

@@ -472,31 +472,12 @@ Dependency boundaries are enforced by `./gradlew check` (`verifyModuleBoundaries
 
 ## 6. MCP Server Configuration
 
-### Running the server
+For setup and installation instructions, see:
 
-```sh
-# Build the MCP server JAR
-./gradlew :chronos-mcp:build
+👉 **[AI Agent Setup Guide](ai-agent-setup.md)** — Complete instructions for downloading, configuring, and using the MCP server with Claude Code and other AI assistants.
 
-# Run (stdio transport — JSON-RPC 2.0 over stdin/stdout)
-java -jar chronos-mcp/build/libs/chronos-mcp-<version>.jar
-```
+### Key Configuration Notes
 
-### Claude Code settings.json example
-
-```json
-{
-  "mcpServers": {
-    "chronos": {
-      "command": "java",
-      "args": ["-jar", "/path/to/chronos-mcp.jar"],
-      "env": {
-        "CHRONOS_WORKSPACE": "/path/to/your/requirements/workspace"
-      }
-    }
-  }
-}
-```
-
-The `CHRONOS_WORKSPACE` environment variable sets the workspace root used by the path security gate.
-All input file paths must be under this directory.
+- **Transport**: stdio (JSON-RPC 2.0 over stdin/stdout)
+- **Security**: The `CHRONOS_WORKSPACE` environment variable sets the workspace root. All tool operations are restricted to paths under this directory (see section 1.5 "Security gate").
+- **Distribution**: Download from [releases](https://github.com/Genairus/chronos/releases) or build from source with `./gradlew :chronos-mcp:build`

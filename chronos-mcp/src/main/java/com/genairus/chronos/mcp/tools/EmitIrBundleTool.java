@@ -68,8 +68,7 @@ public class EmitIrBundleTool {
         try {
             Path workspaceRoot = resolveWorkspaceRoot(arguments);
 
-            @SuppressWarnings("unchecked")
-            var inputPathsRaw = (List<Object>) arguments.get("inputPaths");
+            var inputPathsRaw = ToolArgs.toList(arguments.get("inputPaths"));
             if (inputPathsRaw == null || inputPathsRaw.isEmpty()) {
                 return Envelope.error(McpMeta.TOOL_EMIT_IR_BUNDLE,
                         McpMeta.ErrorCode.INVALID_INPUT,

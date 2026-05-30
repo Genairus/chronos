@@ -480,4 +480,4 @@ For setup and installation instructions, see:
 
 - **Transport**: stdio (JSON-RPC 2.0 over stdin/stdout)
 - **Security**: The `CHRONOS_WORKSPACE` environment variable sets the workspace root. All tool operations are restricted to paths under this directory (see section 1.5 "Security gate").
-- **Distribution**: Download from [releases](https://github.com/Genairus/chronos/releases) or build from source with `./gradlew :chronos-mcp:build`
+- **Distribution**: Build from source with `./gradlew :chronos-mcp:installDist` — prebuilt MCP archives are not yet published to GitHub releases. See the [AI Agent Setup Guide](ai-agent-setup.md) for full instructions.

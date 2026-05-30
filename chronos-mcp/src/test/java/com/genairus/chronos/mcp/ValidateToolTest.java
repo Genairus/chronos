@@ -233,8 +233,13 @@ class ValidateToolTest {
         // payloads must be sent as a JSON array. A comma-joined string is
         // therefore treated as a single literal path and produces a "Cannot
         // read file" error — not a successful two-file compile.
+        //
+        // The comma must live inside a single filename component (not between
+        // two absolute paths) so the string is a legal Path on every platform —
+        // Windows rejects "C:\a,C:\b" up-front with InvalidPathException
+        // because of the embedded colon, which would surface as INTERNAL_ERROR.
         var tool = new ValidateTool();
-        var combined = orderingA.toString() + "," + orderingB.toString();
+        var combined = fixturesDir.resolve("first.chronos,second.chronos").toString();
         var env = tool.execute(Map.of(
                 "inputPaths", combined,
                 "workspaceRoot", fixturesDir.toString()

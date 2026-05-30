@@ -72,9 +72,11 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # ── Job 1b: build chronos-mcp distribution archives ──────────────────────
-  # The MCP server is plain JVM (no native-image), so a single Ubuntu runner
-  # produces both the cross-platform tar.gz (macOS/Linux) and zip (Windows).
+  # ── Job 2: build chronos-mcp distribution archives ──────────────────────
+  # The MCP server is a plain JVM application (no native-image build), so a
+  # single Linux runner produces the portable archives that ship on every
+  # platform.  Asset names are kept stable: `chronos-mcp-<version>.tar.gz`
+  # for macOS/Linux and `chronos-mcp-<version>.zip` for Windows.
   build-mcp:
     name: Build chronos-mcp distributions
     runs-on: ubuntu-22.04
@@ -100,45 +102,28 @@ jobs:
       - name: Build chronos-mcp distributions
         run: ./gradlew :chronos-mcp:distTar :chronos-mcp:distZip
 
-      - name: Smoke check archives contain bin/ launchers
+      - name: Verify launcher scripts in archives
         run: |
-          set -euo pipefail
           VERSION="${{ steps.version.outputs.value }}"
-          TAR="chronos-mcp/build/distributions/chronos-mcp-${VERSION}.tar.gz"
-          ZIP="chronos-mcp/build/distributions/chronos-mcp-${VERSION}.zip"
+          DIST=chronos-mcp/build/distributions
+          tar -tzf "$DIST/chronos-mcp-${VERSION}.tar.gz" \
+            | grep -q "^chronos-mcp-${VERSION}/bin/chronos-mcp$" \
+            || { echo "::error::Unix launcher bin/chronos-mcp missing from tar.gz"; exit 1; }
+          unzip -l "$DIST/chronos-mcp-${VERSION}.zip" \
+            | grep -q "chronos-mcp-${VERSION}/bin/chronos-mcp.bat" \
+            || { echo "::error::Windows launcher bin/chronos-mcp.bat missing from zip"; exit 1; }
 
-          if [ ! -f "$TAR" ]; then
-            echo "Missing expected tarball: $TAR" >&2
-            ls -la chronos-mcp/build/distributions/ >&2
-            exit 1
-          fi
-          if [ ! -f "$ZIP" ]; then
-            echo "Missing expected zip: $ZIP" >&2
-            ls -la chronos-mcp/build/distributions/ >&2
-            exit 1
-          fi
-
-          tar -tzf "$TAR" | grep -qx "chronos-mcp-${VERSION}/bin/chronos-mcp"     || { echo "tarball missing bin/chronos-mcp"     >&2; exit 1; }
-          tar -tzf "$TAR" | grep -qx "chronos-mcp-${VERSION}/bin/chronos-mcp.bat" || { echo "tarball missing bin/chronos-mcp.bat" >&2; exit 1; }
-          unzip -l "$ZIP" | grep -qE "chronos-mcp-${VERSION}/bin/chronos-mcp$"     || { echo "zip missing bin/chronos-mcp"     >&2; exit 1; }
-          unzip -l "$ZIP" | grep -qE "chronos-mcp-${VERSION}/bin/chronos-mcp\.bat$" || { echo "zip missing bin/chronos-mcp.bat" >&2; exit 1; }
-          echo "MCP archive smoke check passed."
-
-      - name: Stage archives for upload
-        run: |
-          mkdir -p mcp-dist
-          cp chronos-mcp/build/distributions/chronos-mcp-${{ steps.version.outputs.value }}.tar.gz mcp-dist/
-          cp chronos-mcp/build/distributions/chronos-mcp-${{ steps.version.outputs.value }}.zip   mcp-dist/
-
-      - name: Upload MCP archive artifacts
+      - name: Upload MCP archives
         uses: actions/upload-artifact@v4
         with:
-          name: chronos-mcp-distributions
-          path: mcp-dist/chronos-mcp-*
+          name: chronos-mcp
+          path: |
+            chronos-mcp/build/distributions/chronos-mcp-*.tar.gz
+            chronos-mcp/build/distributions/chronos-mcp-*.zip
           if-no-files-found: error
           retention-days: 1
 
-  # ── Job 2: create GitHub Release ─────────────────────────────────────────
+  # ── Job 3: create GitHub Release ─────────────────────────────────────────
   release:
     name: Create GitHub Release
     needs: [build-native, build-mcp]
@@ -187,22 +172,16 @@ jobs:
             **Direct download — Chronos CLI**
             See the assets below. Extract and place `chronos` (or `chronos.exe`) on your `PATH`.
 
-            **Direct download — Chronos MCP server**
+            ## Chronos MCP server
 
-            The `chronos-mcp` server is a JVM application (requires Java 21+ on the
-            machine that will run it) and ships as a cross-platform archive:
+            The MCP server ships as a portable JVM distribution alongside the CLI.
 
-            | Platform        | Asset                                            |
-            |-----------------|--------------------------------------------------|
-            | macOS / Linux   | `chronos-mcp-${{ steps.version.outputs.value }}.tar.gz` |
-            | Windows         | `chronos-mcp-${{ steps.version.outputs.value }}.zip`    |
+            - **macOS / Linux** — download `chronos-mcp-${{ steps.version.outputs.value }}.tar.gz` (launcher: `bin/chronos-mcp`).
+            - **Windows** — download `chronos-mcp-${{ steps.version.outputs.value }}.zip` (launcher: `bin/chronos-mcp.bat`).
 
-            Extract the archive and run the launcher from `bin/`
-            (`bin/chronos-mcp` on macOS/Linux, `bin\chronos-mcp.bat` on Windows).
-            See [docs/ai-agent-setup.md](https://github.com/Genairus/chronos/blob/main/docs/ai-agent-setup.md#option-b-mcp-workflow-compiler-in-the-loop)
-            for the MCP setup walkthrough.
+            Setup instructions: [docs/ai-agent-setup.md](https://github.com/Genairus/chronos/blob/main/docs/ai-agent-setup.md#option-b-mcp-workflow-compiler-in-the-loop).
 
-  # ── Job 3: update Homebrew tap ───────────────────────────────────────────
+  # ── Job 4: update Homebrew tap ───────────────────────────────────────────
   update-homebrew:
     name: Update Homebrew tap
     needs: release
@@ -253,7 +232,7 @@ jobs:
           git commit -m "chore: bump chronos to v${{ needs.release.outputs.version }}"
           git push
 
-  # ── Job 4: update Scoop bucket ────────────────────────────────────────────
+  # ── Job 5: update Scoop bucket ────────────────────────────────────────────
   update-scoop:
     name: Update Scoop bucket
     needs: release
